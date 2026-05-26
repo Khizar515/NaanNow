@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --color-tandoori: #E57919;
+  --color-roasted: #4F2E1D;
+  --color-coriander: #5CA136;
+  --color-dough: #FAFAF5;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--color-dough);
+  color: var(--color-roasted);
+}
