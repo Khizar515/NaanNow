@@ -1,0 +1,256 @@
+/* Main Navbar Container */
+.navbar {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-dough);
+  color: var(--color-roasted);
+  border-bottom: 1px solid rgba(79, 46, 29, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: auto;
+}
+
+/* --- TOP ROW --- */
+.navbar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 2%;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+}
+
+.nav-logo {
+  height: 100px;
+  cursor: pointer;
+}
+
+/* Location Button Wrapper to keep alignment */
+.nav-location-wrapper {
+  flex: 1;
+  padding-left: 24px;
+}
+
+/* The Clickable Button */
+.location-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-roasted);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+/* Interactive Hover State */
+.location-btn:hover {
+  background-color: rgba(229, 121, 25, 0.08); /* Very light Tandoori Orange background */
+  color: var(--color-tandoori);
+}
+
+.location-btn:hover .chevron-icon {
+  transform: translateY(2px); /* Makes the arrow gently bounce down on hover */
+  transition: transform 0.2s ease;
+}
+
+.location-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px; /* Prevents extremely long addresses from breaking the navbar */
+}
+
+.nav-user-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Profile Dropdown Container */
+.profile-menu-container {
+  position: relative; /* Keeps the dropdown attached to this specific button */
+}
+
+/* The Dropdown Card */
+.profile-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 12px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(79, 46, 29, 0.12); /* Soft roasted brown shadow */
+  width: 220px;
+  z-index: 1000;
+  border: 1px solid rgba(79, 46, 29, 0.05);
+}
+
+.profile-dropdown ul {
+  list-style: none;
+  padding: 8px 0;
+  margin: 0;
+}
+
+.profile-dropdown li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  cursor: pointer;
+  color: var(--color-roasted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+/* Hover effect matches the location button */
+.profile-dropdown li:hover {
+  background-color: rgba(229, 121, 25, 0.08);
+  color: var(--color-tandoori);
+}
+
+/* Specific styling to separate the Logout button */
+.logout-item {
+  border-top: 1px solid rgba(79, 46, 29, 0.08);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-roasted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.action-btn:hover, .icon-btn:hover {
+  color: var(--color-tandoori);
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-roasted);
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+/* Cart Specifics */
+.cart-container {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.cart-icon {
+  height: 38px;
+  transition: transform 0.2s ease;
+}
+
+.cart-container:hover .cart-icon {
+  transform: scale(1.1);
+}
+
+.cart-badge {
+  position: absolute;
+  top: -4px;
+  right: 10px;
+  background-color: var(--color-tandoori);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  height: 18px;
+  width: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--color-dough);
+}
+
+/* --- BOTTOM ROW --- */
+.navbar-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 5% 16px 5%;
+  gap: 32px;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 24px;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: var(--color-roasted);
+}
+
+.tab.active {
+  color: var(--color-tandoori);
+  border-bottom: 2px solid var(--color-tandoori);
+}
+
+/* Search Bar */
+.nav-search {
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  border-radius: 24px;
+  padding: 10px 16px;
+  flex: 1;
+  border: 1px solid rgba(79, 46, 29, 0.15);
+  gap: 12px;
+}
+
+.nav-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-roasted);
+}
+
+.nav-search:focus-within {
+  border-color: var(--color-tandoori);
+  box-shadow: 0 0 0 2px rgba(229, 121, 25, 0.1);
+}
