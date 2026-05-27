@@ -58,11 +58,11 @@ router.post('/checkout', protect, authorize('customer'), async (req, res) => {
             return res.status(400).json({ message: 'Restaurant is closed or unavailable' });
         }
 
-        const distanceKm = calculateDistance(restaurant.location.coordinates, deliveryCoordinates);
+        const distanceKm = await calculateDistance(restaurant.location.coordinates, deliveryCoordinates);
+        console.log(`${distanceKm}`);
         // Minimum delivery fee of 50 PKR, otherwise distance * rate
         const deliveryFee = Math.max(50, Math.round(distanceKm * perKmRate)); 
         const grandTotal = itemTotal + deliveryFee;
-        console.log(`${distanceKm}`)
 
         // --- 4. VERIFY BALANCE & DEDUCT ---
         if (card.balance < grandTotal) {
