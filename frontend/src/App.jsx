@@ -16,6 +16,9 @@ function App() {
         <p style={{ marginTop: '20px', fontSize: '1.2rem' }}>
           Your standard CSS setup is working perfectly.
         </p>
+        <div className="box" style={{ height: '1000px' }}>
+          Hello
+        </div>
       </main>
     </div>
   );

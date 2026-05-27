@@ -16,7 +16,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 2%;
+  padding: 1px 2%;
 }
 
 .nav-brand {
@@ -25,7 +25,7 @@
 }
 
 .nav-logo {
-  height: 100px;
+  height: 15vh;
   cursor: pointer;
 }
 
@@ -253,4 +253,86 @@
 .nav-search:focus-within {
   border-color: var(--color-tandoori);
   box-shadow: 0 0 0 2px rgba(229, 121, 25, 0.1);
+}
+
+
+/* --- SCROLL ANIMATION LOGIC --- */
+.navbar {
+  transition: transform 0.3s ease;
+}
+
+.navbar-top {
+  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+  max-height: 100px;
+  overflow: hidden;
+  opacity: 1;
+}
+
+/* When the user scrolls down, this class is applied to hide the top row smoothly */
+.hide-top .navbar-top {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+/* Default display states */
+.mobile-only {
+  display: none;
+}
+
+/* --- MOBILE RESPONSIVENESS (< 768px) --- */
+@media (max-width: 768px) {
+  
+  /* Show/Hide specific elements */
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: flex;
+  }
+
+  /* Redesign Top Row */
+  .navbar-top {
+    position: relative;
+    padding: 12px 5%;
+    justify-content: space-between; /* Profile left, Cart right */
+  }
+
+  /* Force Brand to exact center of the screen */
+  .nav-brand {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .nav-user-actions {
+    gap: 12px; /* Tighter gap between wishlist and cart */
+  }
+
+  /* Middle Row Design */
+  .navbar-middle {
+    justify-content: center; /* Centers the location button */
+    padding: 0 5% 12px 5%;
+  }
+
+  /* Bottom Row Redesign */
+  .navbar-bottom {
+    flex-direction: row;
+    gap: 16px;
+    padding: 0 5% 12px 5%;
+  }
+
+  .nav-tabs {
+    gap: 12px;
+  }
+
+  /* Hide the text on tabs to save horizontal space, leaving only the emojis */
+  .tab-text {
+    /* display: none; */
+  }
+
+  .nav-search {
+    padding: 8px 12px;
+  }
 }
