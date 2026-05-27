@@ -19,6 +19,8 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/restaurants', require('./routes/restaurant'));
+app.use('/api/menu', require('./routes/menu'));
+app.use('/api/orders', require('./routes/order'));
 // ----------------------------
 
 // 1. Create the raw HTTP server

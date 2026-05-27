@@ -3,11 +3,12 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const PaymentMethod = require('../models/PaymentMethod');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const User = require('../models/User');
 
 // @route   POST /api/wallet/add-card
 // @desc    Add a new payment method or reactivate a deleted one
 // @access  Protected (Customers Only)
-router.post('/add-card', protect, authorize('customer'), async (req, res) => {
+router.post('/add-card', protect, async (req, res) => {
     try {
         const { cardHolderName, cardNumber, expiryDate, cvv, pin } = req.body;
 
@@ -63,7 +64,7 @@ router.post('/add-card', protect, authorize('customer'), async (req, res) => {
 // @route   GET /api/wallet/my-cards
 // @desc    Fetch all masked cards for the logged-in user
 // @access  Protected (Customers Only)
-router.get('/my-cards', protect, authorize('customer'), async (req, res) => {
+router.get('/my-cards', protect, async (req, res) => {
     try {
         // 👇 NEW: Only fetch cards where isActive is true
         const cards = await PaymentMethod.find({ 
@@ -94,7 +95,7 @@ router.get('/my-cards', protect, authorize('customer'), async (req, res) => {
 // @route   DELETE /api/wallet/:id
 // @desc    Deactivate a payment method (Soft Delete)
 // @access  Protected (Customers Only)
-router.delete('/:id', protect, authorize('customer'), async (req, res) => {
+router.delete('/:id', protect, async (req, res) => {
     try {
         const card = await PaymentMethod.findOne({ 
             _id: req.params.id, 
@@ -175,6 +176,81 @@ router.put('/top-up', protect, authorize('customer'), async (req, res) => {
             return res.status(404).json({ message: 'Invalid Card ID' });
         }
         res.status(500).json({ message: 'Server error during top-up' });
+    }
+});
+
+// @route   GET /api/wallet/earnings
+// @desc    View platform earnings balance
+// @access  Protected (Riders and Restaurant Owners)
+router.get('/earnings', protect, authorize('rider', 'restaurant_owner', 'admin'), async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId).select('earningsBalance');
+        res.status(200).json({ earningsBalance: user.earningsBalance });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error fetching earnings' });
+    }
+});
+
+// @route   POST /api/wallet/withdraw
+// @desc    Transfer money from Platform Earnings to a linked Bank Card
+// @access  Protected (Riders and Restaurant Owners)
+router.post('/withdraw', protect, authorize('rider', 'restaurant_owner'), async (req, res) => {
+    try {
+        const { cardId, amount } = req.body;
+        const withdrawAmount = Number(amount);
+
+        if (!withdrawAmount || withdrawAmount <= 0) {
+            return res.status(400).json({ message: 'Please enter a valid withdrawal amount' });
+        }
+
+        // 1. Get the User's current earnings
+        const user = await User.findById(req.user.userId);
+        if (user.earningsBalance < withdrawAmount) {
+            return res.status(400).json({ 
+                message: `Insufficient funds. Your available balance is Rs. ${user.earningsBalance}` 
+            });
+        }
+
+        // 2. Find the destination Card
+        const card = await PaymentMethod.findOne({ 
+            _id: cardId, 
+            userId: req.user.userId,
+            isActive: true 
+        });
+
+        if (!card) {
+            return res.status(404).json({ message: 'Active destination card not found' });
+        }
+
+        // 3. Security Check: Respect the Card Capacity Limit we built earlier!
+        const MAX_WALLET_BALANCE = 100000;
+        if (card.balance + withdrawAmount > MAX_WALLET_BALANCE) {
+            const remainingCapacity = MAX_WALLET_BALANCE - card.balance;
+            return res.status(400).json({ 
+                message: `Withdrawal failed. Your bank card cannot hold more than Rs. ${MAX_WALLET_BALANCE}. You can transfer a maximum of Rs. ${remainingCapacity}.` 
+            });
+        }
+
+        // 4. The Transaction: Deduct from Platform, Add to Card
+        user.earningsBalance -= withdrawAmount;
+        card.balance += withdrawAmount;
+
+        // Save both documents to the database
+        await user.save();
+        await card.save();
+
+        res.status(200).json({
+            message: `Successfully withdrew Rs. ${withdrawAmount} to your card!`,
+            remainingPlatformEarnings: user.earningsBalance,
+            newCardBalance: card.balance
+        });
+
+    } catch (error) {
+        console.error(error);
+        if (error.kind === 'ObjectId') {
+            return res.status(404).json({ message: 'Invalid Card ID' });
+        }
+        res.status(500).json({ message: 'Server error during withdrawal' });
     }
 });
 

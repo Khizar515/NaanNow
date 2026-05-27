@@ -1,0 +1,66 @@
+[{
+  "_id": {
+    "$oid": "6a16e55e05df1085d7ceea8c"
+  },
+  "userId": {
+    "$oid": "6a16e3365558621da5997a1d"
+  },
+  "cardHolderName": "Ali Khan",
+  "cardNumber": "1111 1111 1111 1111",
+  "expiryDate": "12/28",
+  "cvv": "123",
+  "pin": "$2b$10$oVJpkOci5ekZPq3J.dUMPOOLg/fIGBgB/gk1IrEG9OHiXIfXQ2Z9y",
+  "balance": 5000,
+  "isActive": false,
+  "createdAt": {
+    "$date": "2026-05-27T12:36:46.613Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-27T13:03:36.984Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6a16e94e5c0b627595fd0309"
+  },
+  "userId": {
+    "$oid": "6a16e3365558621da5997a1d"
+  },
+  "cardHolderName": "Saad",
+  "cardNumber": "2222 2222 2222 2222",
+  "expiryDate": "12/28",
+  "cvv": "123",
+  "pin": "$2b$10$MrfH1ZDxS29tZxbqIKX.de1MTzcS3fTF0CcE3M21vJIDt962NoC9e",
+  "balance": 44070,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-05-27T12:53:34.227Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-27T18:18:45.582Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6a1724dab800901f2f05f8d5"
+  },
+  "userId": {
+    "$oid": "6a172249a8219fcf7b545f2e"
+  },
+  "cardHolderName": "Abdul Rafay",
+  "cardNumber": "3333 3333 3333 3333",
+  "expiryDate": "12/28",
+  "cvv": "123",
+  "pin": "$2b$10$vW8gzE5RXSSBh0dkrZeNuumWadoiTRRFO8Bl5MaKh7t9l2QVlzPHK",
+  "balance": 6000,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-05-27T17:07:38.145Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-27T17:11:54.196Z"
+  },
+  "__v": 0
+}]

@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
         default: 'customer' 
     },
     // Useful for customers and riders
+    earningsBalance: { type: Number, default: 0 },
     address: { type: String }, 
 }, { timestamps: true });
 
