@@ -50,6 +50,7 @@
   border-radius: 8px;
   font-family: inherit;
   transition: all 0.2s ease;
+  z-index: 1; /* Ensures it stays above the dropdown when it appears */
 }
 
 /* Interactive Hover State */
@@ -304,14 +305,17 @@
   .mobile-only {
     display: flex;
   }
-
   /* Redesign Top Row */
   .navbar-top {
     position: relative;
     padding: 12px 5%;
     justify-content: space-between; /* Profile left, Cart right */
   }
-
+.heart-icon {
+  position: relative;
+  left: 30px; /* Nudge the heart icon slightly left to visually balance with the cart */
+   /* Adds a bit of breathing room between the heart and cart icons */
+}
   /* Force Brand to exact center of the screen */
   .nav-brand {
     position: absolute;
