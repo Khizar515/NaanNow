@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './Navbar.css';
 
 import logo from '../../assets/logo-removebg.png';
-import naanVector from '../../assets/naan-removebg.png';
+import cart from '../../assets/cart.svg';
 
 function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -132,7 +132,7 @@ function Navbar() {
 
           {/* Cart Icon */}
           <div className="cart-container">
-            <img src={naanVector} alt="Cart" className="cart-icon" />
+            <img src={cart}  alt="Cart" className="cart-icon" />
             <span className="cart-badge">1</span>
           </div>
 

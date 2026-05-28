@@ -158,36 +158,44 @@
 /* Cart Specifics */
 .cart-container {
   position: relative;
-  cursor: pointer;
   display: flex;
   align-items: center;
-  margin-left: 8px;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  cursor: pointer;
 }
 
 .cart-icon {
-  height: 38px;
-  transition: transform 0.2s ease;
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  transition: 0.25s ease;
 }
 
 .cart-container:hover .cart-icon {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .cart-badge {
   position: absolute;
-  top: -4px;
-  right: 10px;
-  background-color: var(--color-tandoori);
-  color: white;
-  font-size: 11px;
-  font-weight: bold;
-  height: 18px;
+  top: 2px;
+  right: 0px;
+  
   width: 18px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  height: 18px;
+
+  background: #F28C28;
+  color: white;
+
   border-radius: 50%;
-  border: 2px solid var(--color-dough);
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* --- BOTTOM ROW --- */
@@ -313,7 +321,7 @@
   }
 .heart-icon {
   position: relative;
-  left: 30px; /* Nudge the heart icon slightly left to visually balance with the cart */
+  /* left: 30px; Nudge the heart icon slightly left to visually balance with the cart */
    /* Adds a bit of breathing room between the heart and cart icons */
 }
   /* Force Brand to exact center of the screen */
