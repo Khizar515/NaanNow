@@ -19,20 +19,60 @@ body {
   color: var(--color-roasted);
 }
 
-/* The container holding both columns */
-.main-layout {
-  display: flex;
-  gap: 24px; /* Space between filter and banner */
-  padding: 24px 5%; /* Aligns with the 5% padding of your Navbar */
-  max-width: 1600px;
-  margin: 0 auto;
-  align-items: flex-start; /* CRUCIAL: Keeps them both at the very top */
+/* Ensure the banner wrapper matches your navbar's 5% padding */
+.banner-container {
+  width: 100%;
+  padding: 0; /* Top padding 24px, Sides 5% */
+  box-sizing: border-box;
 }
 
-/* The right side that holds the banner and the rest of the page */
-.right-content {
-  flex: 1; /* Takes up all remaining space */
-  min-width: 0; /* Prevents overflow issues */
+/* The layout container */
+.main-layout {
   display: flex;
-  flex-direction: column;
+  gap: 32px; /* Space between filter and right content */
+  padding: 0 5%; /* Aligns with the banner and navbar */
+  max-width: 1600px;
+  margin: 0 auto;
+  align-items: flex-start;
+}
+
+/* The Filter Wrapper - THIS CREATES THE OVERLAP */
+.filter-wrapper {
+  /* Lock it to the screen */
+  position: fixed;
+  
+  /* Position it visually */
+  top: 170px; /* Adjust this so it sits nicely below your Navbar */
+  left: 5%;   /* Matches your page's 5% padding */
+  
+  width: 280px;
+  
+  /* Ensure it has a fixed height so the internal scrolling works */
+  height: calc(100vh - 140px); 
+  z-index: 100;
+}
+
+/* The right side with your food cards */
+.content-area {
+  flex: 1;
+  min-width: 0;
+  
+  /* THE FIX: Because the filter is fixed and taking up zero physical space, 
+     we must manually push the restaurant content to the right */
+  margin-left: 312px; /* 280px (filter width) + 32px (gap) */
+  
+  margin-top: 24px;
+}
+
+/* Mobile: Remove the overlap on small screens */
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  .filter-wrapper {
+    width: 100%;
+    margin-top: 24px; /* Resets the negative margin */
+    position: relative;
+    top: 0;
+  }
 }

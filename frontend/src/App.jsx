@@ -5,30 +5,29 @@ import FilterSidebar from './components/Filter Side Bar/FilterSideBar';
 import './index.css'; // The CSS file for the layout below
 
 function Home() {
-  return (
+return (
     <div className="app-container">
       <Navbar />
       
-      {/* THIS IS THE CRUCIAL WRAPPER */}
+      {/* 1. The Banner Container (Spans full width) */}
+      <div className="banner-container">
+        <HeroBanner userName="Muhammad Saad" />
+      </div>
+
+      {/* 2. The Main Layout */}
       <div className="main-layout">
         
-        {/* Left Column: Filter Sidebar */}
-        <FilterSidebar />
-
-        {/* Right Column: Banner + Restaurants */}
-        <div className="right-content">
-          
-          {/* Banner is INSIDE the right column, so it sits next to the filter */}
-          <HeroBanner userName="Muhammad Saad" />
-          
-          {/* Your Restaurant Cards will go right here, under the banner */}
-          <div className="restaurants-section">
-            <h2 style={{ marginTop: '30px' }}>111 Restaurants found</h2>
-            {/* <RestaurantGrid /> */}
-          </div>
-
+        {/* The Filter Box */}
+        <div className="filter-wrapper">
+          <FilterSidebar />
         </div>
 
+        {/* The Right Side (Restaurants) */}
+        <div className="content-area">
+          <h2 style={{ color: '#2E3138' }}>111 Restaurants found</h2>
+          {/* Your restaurant cards go here */}
+        </div>
+        
       </div>
     </div>
   );
