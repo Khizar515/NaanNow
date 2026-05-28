@@ -25,7 +25,7 @@
 }
 
 .nav-logo {
-  height: 15vh;
+  height: 100px;
   cursor: pointer;
 }
 
@@ -256,26 +256,39 @@
 }
 
 
-/* --- SCROLL ANIMATION LOGIC --- */
+/* NAVBAR */
 .navbar {
-  transition: transform 0.3s ease;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--color-dough);
 }
 
+/* --- SCROLL ANIMATION LOGIC --- */
+
+/* 1. Add the transition to the main wrapper */
+.navbar {
+  /* Add this to your existing .navbar class */
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 2. Slide the ENTIRE navbar up. 
+   Math: 50px (logo) + 12px (padding-top) + 12px (padding-bottom) = 74px 
+*/
+.navbar.hide-top {
+  transform: translateY(-60px); 
+}
+
+/* 3. Fade out the top row content so it doesn't accidentally peek through */
 .navbar-top {
-  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
-  max-height: 100px;
-  overflow: hidden;
+  transition: opacity 0.3s ease;
   opacity: 1;
 }
 
-/* When the user scrolls down, this class is applied to hide the top row smoothly */
 .hide-top .navbar-top {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
   opacity: 0;
+  pointer-events: none;
 }
-
 /* Default display states */
 .mobile-only {
   display: none;
@@ -325,6 +338,25 @@
 
   .nav-tabs {
     gap: 12px;
+    display: flex;
+    overflow: hidden;
+    white-space: nowrap; /* Prevents text from stacking as it shrinks */
+    max-width: 300px; /* A safe maximum width to animate from */
+    opacity: 1;
+    transition: 
+      max-width 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease,
+      gap 0.3s ease;
+  }
+  .navbar-bottom.search-focused .nav-tabs {
+    max-width: 0;
+    opacity: 0;
+    gap: 0;
+    pointer-events: none; /* Prevents accidental phantom clicks */
+  }
+  .nav-search {
+    padding: 8px 12px;
+    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   /* Hide the text on tabs to save horizontal space, leaving only the emojis */
