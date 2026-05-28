@@ -42,7 +42,7 @@ body {
   position: fixed;
   
   /* Position it visually */
-  top: 170px; /* Adjust this so it sits nicely below your Navbar */
+  top: 220px; /* Adjust this so it sits nicely below your Navbar */
   left: 5%;   /* Matches your page's 5% padding */
   
   width: 280px;
@@ -62,6 +62,7 @@ body {
   margin-left: 312px; /* 280px (filter width) + 32px (gap) */
   
   margin-top: 24px;
+  height: 100vh; 
 }
 
 /* Mobile: Remove the overlap on small screens */
