@@ -22,7 +22,8 @@ const restaurantSchema = new mongoose.Schema({
     
     // Governance State
     isApproved: { type: Boolean, default: false }, 
-    isOpen: { type: Boolean, default: false } // Default to false until approved
+    isOpen: { type: Boolean, default: false }, // Default to false until approved
+    adminStatusMessage: { type: String, default: 'Pending initial review.' }
 }, { timestamps: true });
 
 // This index allows us to do "Find restaurants within 5km of me" queries later!
