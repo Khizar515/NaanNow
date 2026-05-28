@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Hero-Banner.css';
 import Naan from '../../assets/naan-removebg.png'
 import { FiInfo, FiRefreshCw } from 'react-icons/fi';
@@ -12,13 +12,28 @@ const allCategories = [
     'Salads', 'Seafood', 'Pasta'
 ];
 
+
+
 const HeroBanner = ({ userName = "Muhammad Saad" }) => {
 
+    const [greeting, setGreeting] = useState('Welcome');
+    // Determine the time of day when the component mounts
+    useEffect(() => {
+        const hour = new Date().getHours();
+
+        if (hour < 12) {
+            setGreeting('Good Morning');
+        } else if (hour < 18) {
+            setGreeting('Good Afternoon');
+        } else {
+            setGreeting('Good Evening');
+        }
+    }, []); // Empty dependency array ensures this runs once when the page loads
 
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    // 2. State for the categories currently showing (initially the first 4)
-    const [displayedCategories, setDisplayedCategories] = useState(allCategories.slice(0, 4));
+    // 2. State for the categories currently showing (initially the first 5)
+    const [displayedCategories, setDisplayedCategories] = useState(allCategories.slice(0, 5));
 
     // 3. State to handle the spinning animation
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -28,12 +43,12 @@ const HeroBanner = ({ userName = "Muhammad Saad" }) => {
         setIsRefreshing(true);
 
         setTimeout(() => {
-            // Calculate the next starting index (move forward by 4)
-            const nextIndex = (currentIndex + 4) % allCategories.length;
+            // Calculate the next starting index (move forward by 5)
+            const nextIndex = (currentIndex + 5) % allCategories.length;
 
             // Grab the next 4 categories, wrapping back to the start if needed
             const nextCategories = [];
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 5; i++) {
                 nextCategories.push(allCategories[(nextIndex + i) % allCategories.length]);
             }
 
@@ -47,7 +62,7 @@ const HeroBanner = ({ userName = "Muhammad Saad" }) => {
     return (
         <div className="hero-banner">
             <div className="hero-content">
-                <h1 className="hero-greeting">Good Evening, {userName}</h1>
+                <h1 className="hero-greeting">{greeting}, {userName}</h1>
                 <div className="hero-subtext">
                     What are you craving today? <FiInfo className="info-icon" />
                 </div>
@@ -57,13 +72,13 @@ const HeroBanner = ({ userName = "Muhammad Saad" }) => {
                         <FiRefreshCw className={isRefreshing ? 'spin-icon' : ''} />
                     </button>
                     <div className={`pills-list ${isRefreshing ? 'fading-out' : 'fading-in'}`}>
-                    {/* Renders exactly 4 categories at a time sequentially */}
-                    {displayedCategories.map((category) => (
-                        <button key={category} className="pill">
-                            <HiSparkles style={{ color: '#e87b1e', fontSize: '18px' }} />
-                            {category}
-                        </button>
-                    ))}
+                        {/* Renders exactly 4 categories at a time sequentially */}
+                        {displayedCategories.map((category) => (
+                            <button key={category} className="pill">
+                                <HiSparkles style={{ color: '#e87b1e', fontSize: '18px' }} />
+                                {category}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
