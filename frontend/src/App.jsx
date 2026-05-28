@@ -1,5 +1,6 @@
 import React from 'react';
 import Navbar from './components/Navbar/Navbar';
+import Banner from './components/Hero-Banner/Hero-Banner'
 /* We will import the Hero and Menu components here later */
 
 function App() {
@@ -7,6 +8,7 @@ function App() {
     <div className="app-container">
       {/* The Navbar stays at the top of the page */}
       <Navbar />
+      <Banner />
       {/* The main tag will hold the rest of your page content */}
       <main style={{ padding: '40px', textAlign: 'center' }}>
         <h1 style={{ color: 'var(--color-tandoori)', fontSize: '3rem' }}>
