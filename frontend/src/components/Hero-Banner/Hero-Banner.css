@@ -1,0 +1,195 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+.hero-banner {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #e87b1e 0%, #fca34d 100%);
+    border-radius: 16px;
+    padding: 40px 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #ffffff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(232, 123, 30, 0.2);
+    margin: 20px auto;
+    max-width: 100%;
+    height: auto;
+}
+
+/* The concentric rings background effect */
+.hero-banner::before {
+    content: '';
+    position: absolute;
+    right: -5%;
+    top: -60%;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 30%, transparent 60%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.hero-content {
+    margin-left: 20%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1;
+}
+
+.hero-greeting {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+.hero-subtext {
+    font-size: 18px;
+    font-weight: 400;
+    margin: 0 0 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-icon {
+    font-size: 25px;
+    cursor: pointer;
+    opacity: 1;
+}
+
+.craving-pills {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.pill {
+    font-family: 'Poppins', sans-serif;
+    background-color: #ffffff;
+    color: #2E3138;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 50px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+  background: transparent; /* We remove the background from the main button */
+  z-index: 1; /* Ensures the text stays on top */
+  transition: transform 0.2s ease;
+}
+.pill::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #fdeed7;
+  border-radius: 50px;
+  z-index: -1; /* Pushes the white background behind the text */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.pill:hover::before {
+  transform: scale(1.1); /* Increases the background size by 10% */
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+  background-color: var(--color-dough);
+}
+
+.pill:hover {
+  /* transform: translateY(-2px);  */
+}
+
+.pill.icon-btn {
+  padding: 5px 16px;
+  font-size: 18px;
+}
+
+/* Container for just the category pills */
+.pills-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  /* This controls the speed of the fade and slide */
+  transition: opacity 0.3s ease, transform 0.3s ease; 
+}
+
+/* When the refresh button is clicked (isRefreshing is true) */
+.pills-list.fading-out {
+  opacity: 0;
+  transform: translateY(10px); /* Slides down slightly as it disappears */
+  pointer-events: none; /* Prevents clicking while they are hiding */
+}
+
+/* When the new data is ready (isRefreshing is false) */
+.pills-list.fading-in {
+  opacity: 1;
+  transform: translateY(0); /* Snaps back to original position */
+}
+
+.hero-illustration {
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.naan-dome-img {
+    width: 340px;
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.2));
+    animation: spin 20s linear infinite;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .hero-content {
+        margin-left: 0px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 1;
+    }
+
+    .hero-banner {
+        flex-direction: column;
+        text-align: center;
+        padding: 30px 20px;
+    }
+
+    .hero-subtext {
+        justify-content: center;
+    }
+
+    .craving-pills {
+        justify-content: center;
+        margin-bottom: 24px;
+    }
+
+    .hero-banner::before {
+        right: 50%;
+        top: 50%;
+        transform: translate(50%, -50%);
+    }
+}

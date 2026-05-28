@@ -67,6 +67,7 @@ function Navbar() {
 
 
   return (
+    
     <nav className={`navbar ${showTopRow ? '' : 'hide-top'}`}>
 
       {/* --- TOP ROW --- */}
@@ -179,6 +180,7 @@ function Navbar() {
       </div>
 
     </nav>
+    
   );
 }
 
