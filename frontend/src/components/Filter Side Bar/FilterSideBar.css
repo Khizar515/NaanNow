@@ -1,0 +1,236 @@
+/* --- MAIN CONTAINER --- */
+.filter-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  font-family: 'Poppins', sans-serif;
+  color: #333;
+  
+  /* STICKY LOGIC */
+  position: sticky;
+  top: 100px; /* Adjust this based on your exact Navbar height */
+  
+  /* Ensure it doesn't grow taller than the screen, leaving room for navbar */
+  height: calc(100vh - 120px); 
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- HEADER --- */
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 10px 20px;
+  border-bottom: 1px solid transparent;
+}
+
+.filter-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.clear-btn {
+  background: transparent;
+  border: none;
+  color: #333;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.clear-btn:hover {
+  text-decoration: underline;
+}
+
+/* --- SCROLL AREA --- */
+.filter-scroll-area {
+  flex: 1;
+  overflow-y: auto; /* This creates the internal scroll! */
+  padding: 0 20px 20px 20px;
+}
+
+/* Custom Scrollbar to match your screenshot */
+.filter-scroll-area::-webkit-scrollbar {
+  width: 6px;
+}
+.filter-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.filter-scroll-area::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+.filter-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* --- SECTIONS --- */
+.filter-section {
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.filter-section:last-child {
+  border-bottom: none;
+}
+
+.filter-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #444;
+}
+
+/* --- RADIO & CHECKBOX INPUTS --- */
+.radio-label, .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.radio-label input, .checkbox-label input {
+  display: none; /* Hide default inputs to custom style them */
+}
+
+/* Custom Radio */
+.radio-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  position: relative;
+}
+.radio-label input:checked + .radio-custom {
+  border-color: #333;
+}
+.radio-label input:checked + .radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  background-color: #333;
+  border-radius: 50%;
+}
+
+/* Custom Checkbox */
+.checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  position: relative;
+  transition: all 0.2s;
+}
+.checkbox-label input:checked + .checkbox-custom {
+  background-color: #333;
+  border-color: #333;
+}
+.checkbox-label input:checked + .checkbox-custom::after {
+  content: '✓';
+  position: absolute;
+  color: white;
+  font-size: 12px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* --- PILL BUTTONS (Quick Filters) --- */
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-pill {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.filter-pill:hover {
+  border-color: #333;
+}
+
+/* --- SEARCH BAR (Cuisines) --- */
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  background-color: #f7f7f7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.search-input-wrapper input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  width: 100%;
+}
+
+.show-more-btn {
+  background: transparent;
+  border: none;
+  color: #333;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  margin-top: 8px;
+}
+
+/* --- PRICE BUTTONS --- */
+.price-toggle-group {
+  display: flex;
+  gap: 8px;
+}
+
+.price-btn {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.price-btn:hover {
+  border-color: #999;
+}
+
+.price-btn.active {
+  background-color: #333;
+  color: #fff;
+  border-color: #333;
+}

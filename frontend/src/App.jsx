@@ -1,28 +1,37 @@
 import React from 'react';
 import Navbar from './components/Navbar/Navbar';
-import Banner from './components/Hero-Banner/Hero-Banner'
-/* We will import the Hero and Menu components here later */
+import HeroBanner from './components/Hero-Banner/Hero-Banner';
+import FilterSidebar from './components/Filter Side Bar/FilterSideBar';
+import './index.css'; // The CSS file for the layout below
 
-function App() {
+function Home() {
   return (
     <div className="app-container">
-      {/* The Navbar stays at the top of the page */}
       <Navbar />
-      <Banner />
-      {/* The main tag will hold the rest of your page content */}
-      <main style={{ padding: '40px', textAlign: 'center' }}>
-        <h1 style={{ color: 'var(--color-tandoori)', fontSize: '3rem' }}>
-          Naan Now is Live!
-        </h1>
-        <p style={{ marginTop: '20px', fontSize: '1.2rem' }}>
-          Your standard CSS setup is working perfectly.
-        </p>
-        <div className="box" style={{ height: '1000px' }}>
-          Hello
+      
+      {/* THIS IS THE CRUCIAL WRAPPER */}
+      <div className="main-layout">
+        
+        {/* Left Column: Filter Sidebar */}
+        <FilterSidebar />
+
+        {/* Right Column: Banner + Restaurants */}
+        <div className="right-content">
+          
+          {/* Banner is INSIDE the right column, so it sits next to the filter */}
+          <HeroBanner userName="Muhammad Saad" />
+          
+          {/* Your Restaurant Cards will go right here, under the banner */}
+          <div className="restaurants-section">
+            <h2 style={{ marginTop: '30px' }}>111 Restaurants found</h2>
+            {/* <RestaurantGrid /> */}
+          </div>
+
         </div>
-      </main>
+
+      </div>
     </div>
   );
 }
 
-export default App;
+export default Home;

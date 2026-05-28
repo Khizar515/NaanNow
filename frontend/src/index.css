@@ -18,3 +18,21 @@ body {
   background-color: var(--color-dough);
   color: var(--color-roasted);
 }
+
+/* The container holding both columns */
+.main-layout {
+  display: flex;
+  gap: 24px; /* Space between filter and banner */
+  padding: 24px 5%; /* Aligns with the 5% padding of your Navbar */
+  max-width: 1600px;
+  margin: 0 auto;
+  align-items: flex-start; /* CRUCIAL: Keeps them both at the very top */
+}
+
+/* The right side that holds the banner and the rest of the page */
+.right-content {
+  flex: 1; /* Takes up all remaining space */
+  min-width: 0; /* Prevents overflow issues */
+  display: flex;
+  flex-direction: column;
+}
