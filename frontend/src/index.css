@@ -48,7 +48,7 @@ body {
   width: 280px;
   
   /* Ensure it has a fixed height so the internal scrolling works */
-  height: calc(100vh - 140px); 
+  height: calc(100vh - 240px);
   z-index: 100;
 }
 
