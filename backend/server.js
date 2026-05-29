@@ -3,13 +3,16 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const http = require('http'); // <-- NEW: Native Node module
-const { Server } = require('socket.io'); // <-- NEW: Socket.io
+const http = require('http');
+const { Server } = require('socket.io');
 const console = require('console');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://database:27017/Naan_Now';
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Middleware
 app.use(cors());
@@ -22,6 +25,7 @@ app.use('/api/restaurants', require('./routes/restaurant'));
 app.use('/api/menu', require('./routes/menu'));
 app.use('/api/orders', require('./routes/order'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/riders', require('./routes/rider'));
 // ----------------------------
 
 // 1. Create the raw HTTP server

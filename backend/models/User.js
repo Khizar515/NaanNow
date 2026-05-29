@@ -10,8 +10,12 @@ const userSchema = new mongoose.Schema({
         enum: ['customer', 'restaurant_owner', 'admin', 'rider'], 
         default: 'customer' 
     },
+    earningsBalance: { type: Number, default: 0 }, 
+    
+    // 👇 NEW: Rider Verification Fields
+    isApprovedRider: { type: Boolean, default: false }, // Admins must flip this to true
+    riderProofs: [{ type: String }], // Will store the file paths
     // Useful for customers and riders
-    earningsBalance: { type: Number, default: 0 },
     address: { type: String }, 
 }, { timestamps: true });
 

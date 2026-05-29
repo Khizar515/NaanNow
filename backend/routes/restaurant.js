@@ -1,3 +1,7 @@
+const fs = require('fs');
+const path = require('path');
+const upload = require('../middleware/uploadMiddleware');
+
 const express = require('express');
 const router = express.Router();
 const Restaurant = require('../models/Restaurant');
@@ -6,33 +10,59 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 // @route   POST /api/restaurants
 // @desc    Create a new shop profile (Requires Admin Approval later)
 // @access  Protected (Restaurant Owners Only)
-router.post('/', protect, authorize('restaurant_owner'), async (req, res) => {
+router.post('/', protect, authorize('restaurant_owner'), upload.array('documents', 5), async (req, res) => {
     try {
-        // Prevent an owner from making multiple shops on one account (optional business rule)
         const existingShop = await Restaurant.findOne({ ownerId: req.user.userId });
         if (existingShop) {
             return res.status(400).json({ message: 'You already have a registered restaurant.' });
         }
 
-        const { name, address, coordinates, cuisineType, phone, verificationDocuments } = req.body;
+        const { name, address, coordinates, cuisineType, phone } = req.body;
 
+        // 1. Save the shop to MongoDB FIRST so we can generate its unique _id
         const newRestaurant = new Restaurant({
             ownerId: req.user.userId,
             name,
             address,
             location: {
                 type: 'Point',
-                coordinates: coordinates // Expecting [longitude, latitude]
+                coordinates: JSON.parse(coordinates) // Frontend must send coordinates as a JSON string in form-data
             },
             cuisineType,
-            phone,
-            verificationDocuments
+            phone
         });
 
         await newRestaurant.save();
 
+        // 2. The File Moving Magic
+        if (req.files && req.files.length > 0) {
+            // Clean the name so it's safe for Windows/Linux folder names (removes spaces and special chars)
+            const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
+            const targetDir = `uploads/restaurants/${safeName}_${newRestaurant._id}`;
+            
+            // Create the permanent folder
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
+
+            const finalFilePaths = [];
+
+            // Move each file from 'temp' to the permanent folder
+            req.files.forEach(file => {
+                const targetPath = path.join(targetDir, file.filename);
+                fs.renameSync(file.path, targetPath); // Physically moves the file
+                
+                // Save the relative URL so the frontend can display it later
+                finalFilePaths.push(`/${targetPath.replace(/\\/g, '/')}`); 
+            });
+
+            // Update the database with the final file paths
+            newRestaurant.verificationDocuments = finalFilePaths;
+            await newRestaurant.save();
+        }
+
         res.status(201).json({ 
-            message: 'Shop created successfully! Please wait for Admin approval before you can open.',
+            message: 'Shop created and documents uploaded! Pending Admin approval.',
             restaurant: newRestaurant
         });
 

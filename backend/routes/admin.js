@@ -137,4 +137,23 @@ router.put('/settings', async (req, res) => {
     }
 });
 
+// @route   PUT /api/admin/approve-rider/:id
+// @desc    Approve a rider after checking their uploaded proofs
+// @access  Protected (Admin Only)
+router.put('/approve-rider/:id', async (req, res) => {
+    try {
+        const rider = await User.findById(req.params.id);
+        if (!rider || rider.role !== 'rider') {
+            return res.status(404).json({ message: 'Rider not found' });
+        }
+
+        rider.isApprovedRider = true;
+        await rider.save();
+
+        res.status(200).json({ message: `${rider.name} is now an APPROVED Rider.`, rider });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error during approval' });
+    }
+});
+
 module.exports = router;
