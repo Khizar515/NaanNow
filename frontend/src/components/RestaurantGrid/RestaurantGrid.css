@@ -1,0 +1,228 @@
+/* RestaurantGrid.css */
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 24px;
+}
+
+.content-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  /* Swapped to your dark roasted color */
+  color: var(--color-roasted); 
+}
+
+.results-count {
+  font-size: 14px;
+  color: var(--color-roasted);
+  opacity: 0.7; /* Softened for secondary text */
+  font-weight: 500;
+}
+
+.restaurant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  padding-bottom: 60px; 
+}
+
+.restaurant-card {
+  background-color: #ffffff; /* Kept white so it pops off the dough background */
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.restaurant-card:hover {
+  /* Removed transform: translateY(-4px); */
+  /* box-shadow: 0 8px 24px rgba(79, 46, 29, 0.15);  */
+}
+
+.card-image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 22vh;
+  background-color: var(--color-dough);
+  overflow: hidden; /* ADD THIS: This locks the image inside the box */
+}
+
+.restaurant-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease; /* The smooth zoom */
+}
+
+/* When the card is hovered, scale the image inside */
+.restaurant-card:hover .restaurant-img {
+  transform: scale(1.025); /* The zoom effect */
+}
+
+.card-badge-deal {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background-color: var(--color-tandoori);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.card-badge-super {
+  position: absolute;
+  /* Force it to ignore any old top/right positioning */
+  top: auto; 
+  right: auto; 
+  
+  /* Lock it to the bottom-left */
+  bottom: 12px; 
+  left: 12px;
+  
+  /* Force it to shrink-wrap the text */
+  width: max-content;
+  height: max-content;
+  
+  background-color: var(--color-roasted);
+  color: var(--color-dough);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-details {
+  padding: 16px;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.card-title-row h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-roasted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.card-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--color-dough);
+  color: var(--color-coriander);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-coriander);
+}
+
+/* --- WISHLIST BUTTON --- */
+.wishlist-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--color-dough);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* Subtle shadow matching the roasted color */
+  box-shadow: 0 2px 8px rgba(79, 46, 29, 0.15); 
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 2;
+}
+
+.wishlist-btn svg {
+  width: 16px;
+  height: 16px;
+  color: var(--color-roasted);
+  transition: all 0.2s ease;
+}
+
+/* Hover effects for the wishlist button */
+.wishlist-btn:hover {
+  transform: scale(1.15); /* Nice bouncy pop on hover */
+}
+
+.wishlist-btn:hover svg {
+  color: var(--color-tandoori); /* Outlines turn tandoori orange */
+  fill: var(--color-tandoori);  /* Fills the inside of the heart */
+}
+
+/* --- UPDATED SUPER BADGE POSITION --- */
+/* We moved this to the bottom-left so it stays out of the heart's way */
+.card-badge-super {
+  position: absolute;
+  bottom: 12px; 
+  left: 12px;
+  background-color: var(--color-roasted);
+  color: var(--color-dough);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.star-icon {
+  font-size: 12px;
+}
+
+.card-cuisine {
+  font-size: 13px;
+  color: var(--color-roasted);
+  opacity: 0.7;
+  margin-bottom: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-footer-meta {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-roasted);
+  /* Tinted the dashed line to match the theme */
+  border-top: 1px dashed rgba(79, 46, 29, 0.2); 
+  padding-top: 12px;
+}
+
+.meta-divider {
+  margin: 0 8px;
+  color: var(--color-roasted);
+  opacity: 0.4;
+}
+
+.meta-time {
+  color: var(--color-roasted);
+  opacity: 0.8;
+}
+
+.meta-delivery {
+  font-weight: 600;
+  color: var(--color-coriander);
+}

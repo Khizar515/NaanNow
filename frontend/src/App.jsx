@@ -2,6 +2,7 @@ import React from 'react';
 import Navbar from './components/Navbar/Navbar';
 import HeroBanner from './components/Hero-Banner/Hero-Banner';
 import FilterSidebar from './components/Filter Side Bar/FilterSideBar';
+import RestaurantGrid from './components/RestaurantGrid/RestaurantGrid';
 import './index.css'; // The CSS file for the layout below
 
 function Home() {
@@ -24,7 +25,7 @@ return (
 
         {/* The Right Side (Restaurants) */}
         <div className="content-area">
-          <h2 style={{ color: '#2E3138' }}>111 Restaurants found</h2>
+          <RestaurantGrid />
           {/* Your restaurant cards go here */}
         </div>
         
