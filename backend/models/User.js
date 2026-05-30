@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
     riderProofs: [{ type: String }], // Will store the file paths
     // Useful for customers and riders
     address: { type: String }, 
+    wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant' }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

@@ -26,6 +26,8 @@ app.use('/api/menu', require('./routes/menu'));
 app.use('/api/orders', require('./routes/order'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/riders', require('./routes/rider'));
+app.use('/api/users', require('./routes/user'));
+app.use('/api/cart', require('./routes/cart'));
 // ----------------------------
 
 // 1. Create the raw HTTP server

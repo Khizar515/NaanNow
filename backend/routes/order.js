@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const Order = require('../models/Order');
+const Cart = require('../models/Cart');
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const PaymentMethod = require('../models/PaymentMethod');
@@ -11,34 +12,49 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const { calculateDistance } = require('../utils/geoMath');
 
 // @route   POST /api/orders/checkout
-// @desc    Process payment and generate order
+// @desc    Process payment, generate order from DB Cart, and clear Cart
 // @access  Protected (Customers Only)
 router.post('/checkout', protect, authorize('customer'), async (req, res) => {
     try {
-        const { restaurantId, items, cardId, pin, deliveryAddress, deliveryCoordinates } = req.body;
+        // 👇 Notice how small the payload is now! No more items or restaurantId.
+        const { cardId, pin, deliveryAddress, deliveryCoordinates } = req.body;
 
-        // --- 1. VERIFY WALLET & SECURITY PIN ---
+        // --- STRICT LOCATION ENFORCEMENT ---
+        if (!deliveryCoordinates || deliveryCoordinates.length !== 2 || !deliveryAddress) {
+            return res.status(400).json({ message: 'Delivery address and map coordinates are required.' });
+        }
+
+        // --- 1. FETCH CART FROM DATABASE (The New Single Source of Truth) ---
+        const cart = await Cart.findOne({ userId: req.user.userId });
+        if (!cart || cart.items.length === 0) {
+            return res.status(400).json({ message: 'Your cart is empty! Add some items first.' });
+        }
+        
+        // Extract the locked restaurant ID from the cart
+        const restaurantId = cart.restaurantId;
+
+        // --- 2. VERIFY WALLET & SECURITY PIN ---
         const card = await PaymentMethod.findOne({ _id: cardId, userId: req.user.userId, isActive: true });
         if (!card) return res.status(404).json({ message: 'Payment card not found' });
 
         const isPinValid = await bcrypt.compare(pin, card.pin);
         if (!isPinValid) return res.status(401).json({ message: 'Invalid payment PIN' });
 
-        // --- 2. CALCULATE ITEM TOTALS WITH ADMIN MARKUP ---
+        // --- 3. CALCULATE ITEM TOTALS WITH ADMIN MARKUP ---
         const settings = await AdminSettings.findOne();
         const markupPercentage = settings ? settings.platformMarkupPercentage : 10;
-        const perKmRate = settings ? settings.perKmRate : 30;
+        const perKmRate = settings ? settings.perKmRate : 40;
 
         let itemTotal = 0;
         const processedItems = [];
 
-        for (let cartItem of items) {
+        // Loop through the DATABASE cart items, not frontend items
+        for (let cartItem of cart.items) {
             const dbItem = await MenuItem.findById(cartItem.menuItemId);
             if (!dbItem || !dbItem.isAvailable) {
-                return res.status(400).json({ message: `Item ${cartItem.menuItemId} is unavailable` });
+                return res.status(400).json({ message: `Item ${dbItem.name || cartItem.menuItemId} is currently unavailable.` });
             }
 
-            // Apply markup math
             const markupAmount = (dbItem.basePrice * markupPercentage) / 100;
             const finalDisplayPrice = Math.round(dbItem.basePrice + markupAmount);
 
@@ -52,26 +68,24 @@ router.post('/checkout', protect, authorize('customer'), async (req, res) => {
             });
         }
 
-        // --- 3. CALCULATE DELIVERY DISTANCE & FEE ---
+        // --- 4. CALCULATE DELIVERY DISTANCE (OSRM) & FEE ---
         const restaurant = await Restaurant.findById(restaurantId);
         if (!restaurant || !restaurant.isOpen) {
-            return res.status(400).json({ message: 'Restaurant is closed or unavailable' });
+            return res.status(400).json({ message: 'Restaurant is closed or unavailable.' });
         }
 
         const distanceKm = await calculateDistance(restaurant.location.coordinates, deliveryCoordinates);
-        console.log(`${distanceKm}`);
-        // Minimum delivery fee of 50 PKR, otherwise distance * rate
         const deliveryFee = Math.max(50, Math.round(distanceKm * perKmRate)); 
         const grandTotal = itemTotal + deliveryFee;
 
-        // --- 4. VERIFY BALANCE & DEDUCT ---
+        // --- 5. VERIFY BALANCE & DEDUCT ---
         if (card.balance < grandTotal) {
             return res.status(400).json({ message: `Insufficient balance. Total is Rs. ${grandTotal}` });
         }
         card.balance -= grandTotal;
         await card.save();
 
-        // --- 5. GENERATE ORDER RECEIPT ---
+        // --- 6. GENERATE ORDER RECEIPT ---
         const order = new Order({
             customerId: req.user.userId,
             restaurantId,
@@ -81,6 +95,10 @@ router.post('/checkout', protect, authorize('customer'), async (req, res) => {
             financials: { itemTotal, deliveryFee, grandTotal }
         });
         await order.save();
+
+        // --- 7. WIPE THE CART CLEAN! ---
+        // Now that the receipt is generated and paid for, the cart is no longer needed.
+        await Cart.findOneAndDelete({ userId: req.user.userId });
 
         res.status(201).json({ message: 'Payment successful! Order placed.', order });
 
