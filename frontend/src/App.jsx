@@ -1,15 +1,26 @@
-import React from 'react';
+import React, { useState} from 'react';
 import Navbar from './components/Navbar/Navbar';
+import CartSidebar from './components/Cart Side bar/CartSidebar';
 import HeroBanner from './components/Hero-Banner/Hero-Banner';
 import FilterSidebar from './components/Filter Side Bar/FilterSideBar';
 import RestaurantGrid from './components/RestaurantGrid/RestaurantGrid';
 import './index.css'; // The CSS file for the layout below
 
+
+
+
 function Home() {
-return (
+
+  const [cartOpen, setCartOpen] = useState(false);
+  
+  return (
     <div className="app-container">
-      <Navbar />
-      
+      <Navbar setCartOpen={setCartOpen} />
+      <CartSidebar
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+      />
+
       {/* 1. The Banner Container (Spans full width) */}
       <div className="banner-container">
         <HeroBanner userName="Muhammad Saad" />
@@ -17,7 +28,7 @@ return (
 
       {/* 2. The Main Layout */}
       <div className="main-layout">
-        
+
         {/* The Filter Box */}
         <div className="filter-wrapper">
           <FilterSidebar />
@@ -28,7 +39,7 @@ return (
           <RestaurantGrid />
           {/* Your restaurant cards go here */}
         </div>
-        
+
       </div>
     </div>
   );
