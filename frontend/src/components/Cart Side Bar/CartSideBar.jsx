@@ -1,9 +1,23 @@
 import "./CartSidebar.css";
 import { useContext } from "react";
-import { CartContext } from "../context/CartContext";
+import { CartContext } from "../Context/CartContext";
 
 function CartSidebar({ isOpen, onClose }) {
-    const { cartItems } = useContext(CartContext);
+    const {
+        cartItems,
+        increaseQuantity,
+        decreaseQuantity
+    } = useContext(CartContext);
+
+    const subtotal = cartItems.reduce(
+        (total, item) => total + item.price * item.quantity,
+        0
+    );
+
+    const deliveryFee = cartItems.length > 0 ? 150 : 0;
+
+    const total = subtotal + deliveryFee;
+    
     return (
         <>
             <div
@@ -14,7 +28,7 @@ function CartSidebar({ isOpen, onClose }) {
             <div className={`cart-sidebar ${isOpen ? "open" : ""}`}>
 
                 <div className="cart-header">
-                    <h2>🧺 Your Tokri</h2>
+                    <h2>Your Tokri</h2>
 
                     <button
                         className="close-btn"
@@ -25,64 +39,85 @@ function CartSidebar({ isOpen, onClose }) {
                 </div>
 
                 <div className="cart-count">
-                    {cartItems.length} Items
+                    {
+                        cartItems.reduce(
+                            (total, item) => total + item.quantity,
+                            0
+                        )
+                    } Items
                 </div>
 
+                {/* Removed the duplicate cart-items wrapper here */}
                 <div className="cart-items">
 
-                    <div className="cart-item">
-                        <img
-                            src="https://placehold.co/80x80"
-                            alt=""
-                        />
-
-                        <div className="item-info">
-                            <h4>Chicken Karahi</h4>
-                            <p>Rs 899</p>
-
-                            <div className="qty-controls">
-                                <button>-</button>
-                                <span>2</span>
-                                <button>+</button>
-                            </div>
+                    {cartItems.length === 0 ? (
+                        <div className="empty-cart">
+                            Your Tokri is empty 
                         </div>
-                    </div>
+                    ) : (
+                        cartItems.map(item => (
+                            <div className="cart-item" key={item.id}>
 
-                    <div className="cart-item">
-                        <img
-                            src="https://placehold.co/80x80"
-                            alt=""
-                        />
+                                <img
+                                    src={item.image}
+                                    alt={item.name}
+                                    className="cart-item-image"
+                                />
 
-                        <div className="item-info">
-                            <h4>Garlic Naan</h4>
-                            <p>Rs 120</p>
+                                <div className="item-info">
 
-                            <div className="qty-controls">
-                                <button>-</button>
-                                <span>1</span>
-                                <button>+</button>
+                                    <h4>{item.name}</h4>
+
+                                    <p>
+                                        Rs {item.price}
+                                    </p>
+
+                                    <div className="qty-controls">
+
+                                        <button
+                                            onClick={() =>
+                                                decreaseQuantity(item.id)
+                                            }
+                                        >
+                                            −
+                                        </button>
+
+                                        <span>{item.quantity}</span>
+
+                                        <button
+                                            onClick={() =>
+                                                increaseQuantity(item.id)
+                                            }
+                                        >
+                                            +
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
                             </div>
-                        </div>
-                    </div>
+                        ))
+                    )}
 
                 </div>
 
+                {/* Moved cart-footer outside of cart-items so it sits at the bottom of the flex column */}
                 <div className="cart-footer">
 
                     <div className="price-row">
                         <span>Subtotal</span>
-                        <span>Rs 1918</span>
+                        <span>Rs {subtotal}</span>
                     </div>
 
                     <div className="price-row">
                         <span>Delivery</span>
-                        <span>Rs 150</span>
+                        <span>Rs {deliveryFee}</span>
                     </div>
 
                     <div className="price-row total">
                         <span>Total</span>
-                        <span>Rs 2068</span>
+                        <span>Rs {total}</span>
                     </div>
 
                     <button className="checkout-btn">

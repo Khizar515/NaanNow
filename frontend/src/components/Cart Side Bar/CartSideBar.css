@@ -69,6 +69,17 @@
   color: #777;
 }
 
+.empty-cart {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%; 
+  
+  /* Optional styling for a minimalist empty state */
+  color: #888; 
+  font-size: 16px;
+  font-weight: 500;
+}
 .cart-items {
   flex: 1;
   overflow-y: auto;
@@ -118,6 +129,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 8px;
 }
 
 .qty-controls button {

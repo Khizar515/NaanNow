@@ -4,6 +4,8 @@ import './Navbar.css';
 
 import logo from '../../assets/logo-removebg.png';
 import cart from '../../assets/cart.svg';
+import naan from '../../assets/naan-removebg.png';
+
 
 function Navbar({ setCartOpen }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -76,7 +78,7 @@ function Navbar({ setCartOpen }) {
 
       {/* --- TOP ROW --- */}
       <div className="navbar-top">
-        
+
 
         {/* Mobile Profile Icon (Visible only on mobile, Left side) */}
         <button className="icon-btn mobile-only">
@@ -140,21 +142,27 @@ function Navbar({ setCartOpen }) {
           <div className="cart-container" onClick={() => setCartOpen(true)}>
             <img src={cart} alt="Cart" className="cart-icon" />
             <span className="cart-badge">
-              {cartItems.length}
+              {
+                cartItems.reduce(
+                  (total, item) => total + item.quantity,
+                  0
+                )
+              }
             </span>
           </div>
           <button
-  onClick={() =>
-    addToCart({
-      id: Date.now(),
-      name: "Chicken Karahi",
-      price: 899,
-    })
-  }
->
-  Add Test Item
-</button>
-          
+            onClick={() =>
+              addToCart({
+                id: 1,
+                name: "Garlic Naan",
+                price: 150,
+                image: naan
+              })
+            }
+          >
+            Add Test Item
+          </button>
+
 
         </div>
       </div>

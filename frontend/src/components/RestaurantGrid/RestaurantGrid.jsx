@@ -85,8 +85,8 @@ const RestaurantGrid = () => {
               <img src={restaurant.image} alt={restaurant.name} className="restaurant-img" />
               
               {/* Badges */}
-              {restaurant.deal && <span className="card-badge-deal">{restaurant.deal}</span>}
-              {restaurant.isSuper && <span className="card-badge-super">🎖️ Super</span>}
+              {/* {restaurant.deal && <span className="card-badge-deal">{restaurant.deal}</span>}
+              {restaurant.isSuper && <span className="card-badge-super">🎖️ Super</span>} */}
 
               {/* Wishlist Button */}
               <button 
@@ -107,10 +107,10 @@ const RestaurantGrid = () => {
             <div className="card-details">
               <div className="card-title-row">
                 <h3>{restaurant.name}</h3>
-                <div className="card-rating">
+                {/* <div className="card-rating">
                   <span className="star-icon">★</span>
                   <span>{restaurant.rating}</span>
-                </div>
+                </div> */}
               </div>
               
               
