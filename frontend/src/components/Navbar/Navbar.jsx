@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { CartContext } from "../Context/CartContext";
 import './Navbar.css';
 
 import logo from '../../assets/logo-removebg.png';
 import cart from '../../assets/cart.svg';
 
-function Navbar() {
+function Navbar({ setCartOpen }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showTopRow, setShowTopRow] = useState(true);
+  const { cartItems, addToCart } = useContext(CartContext);
+
+
   const lastScrollY = useRef(0);
 
   useEffect(() => {
@@ -67,11 +71,12 @@ function Navbar() {
 
 
   return (
-    
+
     <nav className={`navbar ${showTopRow ? '' : 'hide-top'}`}>
 
       {/* --- TOP ROW --- */}
       <div className="navbar-top">
+        
 
         {/* Mobile Profile Icon (Visible only on mobile, Left side) */}
         <button className="icon-btn mobile-only">
@@ -132,10 +137,24 @@ function Navbar() {
           </button>
 
           {/* Cart Icon */}
-          <div className="cart-container">
-            <img src={cart}  alt="Cart" className="cart-icon" />
-            <span className="cart-badge">1</span>
+          <div className="cart-container" onClick={() => setCartOpen(true)}>
+            <img src={cart} alt="Cart" className="cart-icon" />
+            <span className="cart-badge">
+              {cartItems.length}
+            </span>
           </div>
+          <button
+  onClick={() =>
+    addToCart({
+      id: Date.now(),
+      name: "Chicken Karahi",
+      price: 899,
+    })
+  }
+>
+  Add Test Item
+</button>
+          
 
         </div>
       </div>
@@ -180,7 +199,7 @@ function Navbar() {
       </div>
 
     </nav>
-    
+
   );
 }
 
