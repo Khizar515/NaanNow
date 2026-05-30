@@ -75,7 +75,7 @@ router.put('/profile-pic', protect, upload.single('image'), async (req, res) => 
         fs.renameSync(req.file.path, targetPath);
 
         // 3. Optional Cleanup: If they had an old profile pic (and it wasn't the default), delete it to save hard drive space!
-        if (user.profilePic && !user.profilePic.includes('defaults/default-avatar.png')) {
+        if (user.profilePic && !user.profilePic.includes('defaults/profile-avatar.png')) {
             const oldFilePath = path.join(__dirname, '..', user.profilePic);
             if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
         }

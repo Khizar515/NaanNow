@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
         enum: ['customer', 'restaurant_owner', 'admin', 'rider'], 
         default: 'customer' 
     },
-    profilePic: { type: String, default: '/uploads/defaults/default-avatar.png' },
+    profilePic: { type: String, default: '/uploads/defaults/profile-avatar.png' },
     earningsBalance: { type: Number, default: 0 }, 
     
     // 👇 NEW: Rider Verification Fields
