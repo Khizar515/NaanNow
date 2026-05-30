@@ -6,6 +6,8 @@ import Vendor from './Vendor';
 import Rider from './Rider';
 import Admin from './Admin';
 
+import LiveTracker from './LiveTracker';
+
 export default function App() {
     const [token, setToken] = useState(localStorage.getItem('token') || null);
     const [user, setUser] = useState(null);
@@ -31,7 +33,7 @@ export default function App() {
     }
 
     return (
-        <div style={{ padding: '20px', fontFamily: 'monospace' }}>
+        <div style={{ padding: '20px', fontFamily: 'monospace', paddingBottom: '100px' }}>
             <h2>Logged in as: {user.name} ({user.role})</h2>
             <button onClick={logout}>Logout</button>
             <hr />
@@ -40,6 +42,10 @@ export default function App() {
             {user.role === 'restaurant_owner' && <Vendor token={token} />}
             {user.role === 'rider' && <Rider token={token} />}
             {user.role === 'admin' && <Admin token={token} />}
+
+            {/* 👇 THIS IS THE MISSING PIECE */}
+            <hr style={{ margin: '40px 0' }} />
+            <LiveTracker />
         </div>
     );
 }

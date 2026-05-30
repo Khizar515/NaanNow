@@ -45,10 +45,23 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log(`⚡ User Connected: ${socket.id}`);
 
-    // Listen for users joining a specific order room
-    socket.on('join_order_room', (orderId) => {
+    socket.on('join_room', (orderId) => {
         socket.join(orderId);
-        console.log(`User joined room for order: ${orderId}`);
+        console.log(`👤 User joined Order Room: ${orderId}`);
+    });
+
+    // EVENT 2: CHAT MESSAGE
+    socket.on('send_message', (data) => {
+        // data = { orderId, sender, text }
+        // Sends the message to EVERYONE in the room EXCEPT the sender
+        socket.to(data.orderId).emit('receive_message', data);
+    });
+
+    // EVENT 3: LIVE GPS TRACKING
+    socket.on('update_location', (data) => {
+        // data = { orderId, coordinates: [lon, lat] }
+        // The Rider spams this event, and the Customer listens for 'location_updated'
+        socket.to(data.orderId).emit('location_updated', data.coordinates);
     });
 
     socket.on('disconnect', () => {
@@ -69,4 +82,5 @@ mongoose.connect(MONGO_URI)
 // 4. CRITICAL: Start 'server', NOT 'app'
 server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🔌 WebSockets enabled on port ${PORT}`);
 });

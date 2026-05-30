@@ -5,20 +5,33 @@ const Restaurant = require('../models/Restaurant');
 const AdminSettings = require('../models/AdminSettings');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
+const fs = require('fs');
+const path = require('path');
+const upload = require('../middleware/uploadMiddleware');
+
 // @route   POST /api/menu
-// @desc    Add a new food item to the logged-in owner's restaurant
+// @desc    Add a new food item WITH A PICTURE
 // @access  Protected (Restaurant Owners Only)
-router.post('/', protect, authorize('restaurant_owner'), async (req, res) => {
+// 👇 Notice: upload.single('image')
+router.post('/', protect, authorize('restaurant_owner'), upload.single('image'), async (req, res) => {
     try {
-        // 1. Find the owner's restaurant
         const shop = await Restaurant.findOne({ ownerId: req.user.userId });
-        if (!shop) {
-            return res.status(404).json({ message: 'You must create a restaurant profile first.' });
+        if (!shop) return res.status(404).json({ message: 'Create a restaurant profile first.' });
+
+        const { name, description, basePrice, category } = req.body;
+        
+        let imageUrl = ''; // Default to empty if they don't upload a picture
+
+        // If an image was uploaded, move it to the Restaurant's Menu folder
+        if (req.file) {
+            const targetDir = `uploads/restaurants/${shop._id}/menu`;
+            if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+            const targetPath = path.join(targetDir, req.file.filename);
+            fs.renameSync(req.file.path, targetPath);
+            imageUrl = `/${targetPath.replace(/\\/g, '/')}`;
         }
 
-        const { name, description, basePrice, category, imageUrl } = req.body;
-
-        // 2. Create the item linked to their shop
         const newItem = new MenuItem({
             restaurantId: shop._id,
             name,
