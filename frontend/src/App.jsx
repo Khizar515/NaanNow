@@ -1,48 +1,30 @@
-import React, { useState} from 'react';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar/Navbar';
 import CartSidebar from './components/Cart Side bar/CartSidebar';
-import HeroBanner from './components/Hero-Banner/Hero-Banner';
-import FilterSidebar from './components/Filter Side Bar/FilterSideBar';
-import RestaurantGrid from './components/RestaurantGrid/RestaurantGrid';
+import HomePage from './pages/HomePage/HomePage';
+import FavoritesPage from './pages/FavoritesPage/FavoritesPage';
 import './index.css'; // The CSS file for the layout below
 
-
-
-
-function Home() {
-
+function App() {
   const [cartOpen, setCartOpen] = useState(false);
   
   return (
-    <div className="app-container">
-      <Navbar setCartOpen={setCartOpen} />
-      <CartSidebar
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-      />
+    <Router>
+      <div className="app-container">
+        <Navbar setCartOpen={setCartOpen} />
+        <CartSidebar
+          isOpen={cartOpen}
+          onClose={() => setCartOpen(false)}
+        />
 
-      {/* 1. The Banner Container (Spans full width) */}
-      <div className="banner-container">
-        <HeroBanner userName="Muhammad Saad" />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
+        </Routes>
       </div>
-
-      {/* 2. The Main Layout */}
-      <div className="main-layout">
-
-        {/* The Filter Box */}
-        <div className="filter-wrapper">
-          <FilterSidebar />
-        </div>
-
-        {/* The Right Side (Restaurants) */}
-        <div className="content-area">
-          <RestaurantGrid />
-          {/* Your restaurant cards go here */}
-        </div>
-
-      </div>
-    </div>
+    </Router>
   );
 }
 
-export default Home;
+export default App;

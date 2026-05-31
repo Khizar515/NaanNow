@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { CartContext } from "../Context/CartContext";
 import './Navbar.css';
 
@@ -11,8 +12,10 @@ function Navbar({ setCartOpen }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showTopRow, setShowTopRow] = useState(true);
-  const { cartItems, addToCart } = useContext(CartContext);
+  const { cartItems, addToCart, favorites } = useContext(CartContext);
 
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const lastScrollY = useRef(0);
 
@@ -86,7 +89,7 @@ function Navbar({ setCartOpen }) {
         </button>
 
         {/* Brand (Centered on mobile) */}
-        <div className="nav-brand">
+        <div className="nav-brand" onClick={() => navigate('/')}>
           <img src={logo} alt="Naan Now Logo" className="nav-logo" />
         </div>
 
@@ -134,8 +137,25 @@ function Navbar({ setCartOpen }) {
           </button>
 
           {/* Wishlist Icon */}
-          <button className="icon-btn heart-icon">
-            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+          <button 
+            className={`icon-btn heart-icon-btn ${location.pathname === '/favorites' ? 'active' : ''}`}
+            onClick={() => navigate(location.pathname === '/favorites' ? '/' : '/favorites')}
+            title="Toggle Favorites"
+            aria-label="View Favorites"
+          >
+            <svg 
+              width="22" 
+              height="22" 
+              fill={location.pathname === '/favorites' || favorites.length > 0 ? "var(--color-tandoori)" : "none"} 
+              stroke={location.pathname === '/favorites' || favorites.length > 0 ? "var(--color-tandoori)" : "currentColor"} 
+              strokeWidth="2" 
+              viewBox="0 0 24 24"
+            >
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            {favorites.length > 0 && (
+              <span className="favorites-badge">{favorites.length}</span>
+            )}
           </button>
 
           {/* Cart Icon */}

@@ -1,0 +1,99 @@
+.cuisine-circles-container {
+  margin-top: 10px;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.cuisine-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--color-roasted);
+}
+
+.cuisine-circles-list {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 8px 4px;
+  scroll-behavior: smooth;
+  /* Hide scrollbar for clean layout */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.cuisine-circles-list::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+.cuisine-circle-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 80px;
+}
+
+.cuisine-circle-btn:hover {
+  transform: translateY(-4px);
+}
+
+.cuisine-circle-btn:active {
+  transform: translateY(0) scale(0.95);
+}
+
+.cuisine-circle-img-wrapper {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  padding: 3px;
+  background: white;
+  box-shadow: 0 4px 12px rgba(79, 46, 29, 0.08);
+  border: 2px solid transparent;
+  transition: all 0.25s ease;
+}
+
+.cuisine-circle-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.cuisine-circle-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-roasted);
+  transition: color 0.2s ease;
+}
+
+/* Active State Styles */
+.cuisine-circle-btn.active .cuisine-circle-img-wrapper {
+  border-color: var(--color-tandoori);
+  box-shadow: 0 0 12px rgba(229, 121, 25, 0.35);
+  transform: scale(1.05);
+}
+
+.cuisine-circle-btn.active .cuisine-circle-name {
+  color: var(--color-tandoori);
+  font-weight: 600;
+}
+
+/* Add a subtle shine overlay on active badge */
+.cuisine-circle-btn.active .cuisine-circle-img-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 50%);
+  pointer-events: none;
+}

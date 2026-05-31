@@ -172,6 +172,17 @@
   fill: var(--color-tandoori);  /* Fills the inside of the heart */
 }
 
+/* Active / Favorited state */
+.wishlist-btn.active {
+  background-color: var(--color-dough);
+  transform: scale(1.05);
+}
+
+.wishlist-btn.active svg {
+  color: var(--color-tandoori);
+  fill: var(--color-tandoori);
+}
+
 /* --- UPDATED SUPER BADGE POSITION --- */
 /* We moved this to the bottom-left so it stays out of the heart's way */
 .card-badge-super {
@@ -225,4 +236,47 @@
 .meta-delivery {
   font-weight: 600;
   color: var(--color-coriander);
+}
+
+/* No Restaurants Found styles */
+.no-restaurants-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+  margin-top: 10px;
+}
+
+.no-restaurants-emoji {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  animation: bounce 2s infinite ease-in-out;
+}
+
+.no-restaurants-found h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-roasted);
+  margin-bottom: 8px;
+}
+
+.no-restaurants-found p {
+  font-size: 0.95rem;
+  color: var(--color-roasted);
+  opacity: 0.6;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }

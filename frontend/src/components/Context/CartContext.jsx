@@ -5,6 +5,15 @@ export const CartContext = createContext();
 export const CartProvider = ({ children }) => {
 
   const [cartItems, setCartItems] = useState([]);
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const saved = localStorage.getItem('naannow_favorites');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to load favorites", e);
+      return [];
+    }
+  });
 
   const addToCart = (item) => {
     setCartItems(prev => {
@@ -55,13 +64,24 @@ export const CartProvider = ({ children }) => {
     );
   };
 
+  const toggleFavorite = (id) => {
+    setFavorites(prev => {
+      const isFav = prev.includes(id);
+      const next = isFav ? prev.filter(favId => favId !== id) : [...prev, id];
+      localStorage.setItem('naannow_favorites', JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
     <CartContext.Provider
       value={{
         cartItems,
         addToCart,
         increaseQuantity,
-        decreaseQuantity
+        decreaseQuantity,
+        favorites,
+        toggleFavorite
       }}
     >
       {children}

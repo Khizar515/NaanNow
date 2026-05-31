@@ -377,3 +377,48 @@
     padding: 8px 12px;
   }
 }
+
+/* --- WISHLIST / FAVORITES BUTTON & BADGE --- */
+.heart-icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+}
+
+.heart-icon-btn:hover {
+  background-color: rgba(229, 121, 25, 0.08);
+}
+
+.heart-icon-btn.active svg {
+  animation: heartPulse 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.favorites-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background-color: var(--color-tandoori);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  border: 1.5px solid var(--color-dough);
+  box-shadow: 0 2px 4px rgba(79, 46, 29, 0.25);
+}
+
+@keyframes heartPulse {
+  0% { transform: scale(1); }
+  55% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
