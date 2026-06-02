@@ -1,114 +1,153 @@
-const { protect } = require('../middleware/authMiddleware');
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
+const upload = require('../middleware/uploadMiddleware');
 const User = require('../models/User');
+const { protect } = require('../middleware/authMiddleware');
 
-// @route   POST /api/auth/register
+// @route   GET /auth/register
+// @desc    Show registration form
+router.get('/register', (req, res) => {
+    if (req.session.user) return res.redirect('/');
+    res.render('auth/register', { title: 'Register' });
+});
+
+// @route   POST /auth/register
 // @desc    Register a new user (Customer, Rider, Restaurant Owner)
-router.post('/register', async (req, res) => {
+router.post('/register', upload.array('documents', 5), async (req, res) => {
     try {
         const { name, email, password, phone, role, address } = req.body;
 
-        // 1. Check if the email is already in use
-        let user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).json({ message: 'User already exists with this email' });
+        // Password strength validation
+        if (!password || password.length < 6) {
+            req.flash('error_msg', 'Password must be at least 6 characters long.');
+            return res.redirect('/auth/register');
         }
 
-        // 2. Hash the password
+        // Check if the email is already in use
+        let user = await User.findOne({ email });
+        if (user) {
+            req.flash('error_msg', 'An account already exists with this email.');
+            return res.redirect('/auth/register');
+        }
+
+        // Hash the password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // 3. Create the new user object
+        // Create the new user
         user = new User({
             name,
             email,
             password: hashedPassword,
             phone,
-            role,
+            role: role || 'customer',
             address
         });
 
-        // 4. Save to MongoDB
         await user.save();
 
-        res.status(201).json({ message: 'User registered successfully!' });
+        // Handle Rider Proofs Upload if Rider
+        if (role === 'rider' && req.files && req.files.length > 0) {
+            const safeName = user.name.replace(/[^a-zA-Z0-9]/g, '_');
+            const targetDir = `uploads/riders/${safeName}_${user._id}`;
+            
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
+
+            const finalFilePaths = [];
+
+            req.files.forEach(file => {
+                const targetPath = path.join(targetDir, file.filename);
+                fs.renameSync(file.path, targetPath);
+                finalFilePaths.push(`/${targetPath.replace(/\\/g, '/')}`);
+            });
+
+            user.riderProofs = finalFilePaths;
+            await user.save();
+        }
+
+        req.flash('success_msg', 'Account created successfully! Please log in.');
+        res.redirect('/auth/login');
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error during registration' });
+        req.flash('error_msg', 'Server error during registration.');
+        res.redirect('/auth/register');
     }
 });
 
-// @route   POST /api/auth/login
-// @desc    Authenticate user & get JWT token
+// @route   GET /auth/login
+// @desc    Show login form
+router.get('/login', (req, res) => {
+    if (req.session.user) return res.redirect('/');
+    res.render('auth/login', { title: 'Login' });
+});
+
+// @route   POST /auth/login
+// @desc    Authenticate user & create session
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // 1. Find the user by email
+        // Find the user by email
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            req.flash('error_msg', 'Invalid email or password.');
+            return res.redirect('/auth/login');
         }
 
-        // 2. Compare the typed password with the hashed password in DB
+        // Compare passwords
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            req.flash('error_msg', 'Invalid email or password.');
+            return res.redirect('/auth/login');
         }
 
-        // 3. Create the JWT Payload (The data stored inside the token)
-        const payload = {
+        // Store user data in session (excluding password)
+        req.session.user = {
             userId: user._id,
-            role: user.role
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            profilePic: user.profilePic,
+            address: user.address,
+            isApprovedRider: user.isApprovedRider,
+            riderProofs: user.riderProofs
         };
 
-        // 4. Sign the token and send it back
-        const token = jwt.sign(
-            payload, 
-            process.env.JWT_SECRET, // Pulling from your .env file
-            { expiresIn: '7d' }     // Token expires in 7 days
-        );
+        req.flash('success_msg', `Welcome back, ${user.name}!`);
 
-        res.status(200).json({
-            message: 'Login successful',
-            token: token,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            }
-        });
+        // Role-based redirect
+        switch (user.role) {
+            case 'admin':
+                return res.redirect('/admin/dashboard');
+            case 'restaurant_owner':
+                return res.redirect('/restaurants/my-shop');
+            case 'rider':
+                return res.redirect('/orders/available-deliveries');
+            default:
+                return res.redirect('/');
+        }
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error during login' });
+        req.flash('error_msg', 'Server error during login.');
+        res.redirect('/auth/login');
     }
 });
 
-// @desc    Get current logged-in user profile
-// @access  Protected (Requires JWT Token)
-router.get('/me', protect, async (req, res) => {
-    try {
-        // req.user.userId was attached by the protect middleware!
-        // The .select('-password') part ensures we NEVER send the hashed password back to the frontend
-        const user = await User.findById(req.user.userId).select('-password');
-        
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        res.status(200).json(user);
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error fetching profile' });
-    }
+// @route   GET /auth/logout
+// @desc    Destroy session and redirect to login
+router.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) console.error('Session destroy error:', err);
+        res.redirect('/auth/login');
+    });
 });
 
 module.exports = router;

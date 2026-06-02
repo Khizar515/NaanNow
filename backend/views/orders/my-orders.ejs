@@ -1,0 +1,68 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>My Orders</h1>
+            <p>Track your order history</p>
+        </div>
+    </div>
+
+    <% if (orders.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-receipt"></i></div>
+            <h3>No Orders Yet</h3>
+            <p>Your order history will appear here once you place your first order.</p>
+            <a href="/" class="btn btn-primary">Browse Restaurants</a>
+        </div>
+    <% } else { %>
+        <% orders.forEach(order => { %>
+            <div class="card mb-lg">
+                <div class="d-flex align-center justify-between" style="flex-wrap:wrap;gap:var(--space-md);">
+                    <div>
+                        <div class="d-flex align-center gap-md mb-md">
+                            <span class="badge
+                                <%= order.status === 'Delivered' ? 'badge-success' :
+                                   order.status === 'Cancelled' ? 'badge-danger' :
+                                   order.status === 'Pending' ? 'badge-pending' : 'badge-info' %>">
+                                <%= order.status %>
+                            </span>
+                            <span class="text-dim" style="font-size:var(--font-size-xs);">
+                                <%= new Date(order.createdAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+                            </span>
+                        </div>
+                        <p class="text-muted" style="font-size:var(--font-size-sm);">
+                            <i class="fas fa-map-marker-alt"></i> <%= order.deliveryAddress %>
+                        </p>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:var(--font-size-2xl);font-weight:800;">Rs. <%= order.financials.grandTotal %></div>
+                        <div class="text-muted" style="font-size:var(--font-size-xs);">
+                            Items: Rs. <%= order.financials.itemTotal %> + Delivery: Rs. <%= order.financials.deliveryFee %>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items List -->
+                <div style="margin-top:var(--space-md);padding-top:var(--space-md);border-top:1px solid var(--color-border);">
+                    <% order.items.forEach(item => { %>
+                        <div class="d-flex justify-between" style="padding:var(--space-xs) 0;font-size:var(--font-size-sm);">
+                            <span><%= item.quantity %>x <%= item.name %></span>
+                            <span class="text-muted">Rs. <%= item.unitDisplayPrice * item.quantity %></span>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <% if (order.status === 'Pending') { %>
+                    <div style="margin-top:var(--space-md);">
+                        <form action="/orders/<%= order._id %>/cancel" method="POST" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm" data-confirm="Are you sure you want to cancel this order?">
+                                <i class="fas fa-times"></i> Cancel Order
+                            </button>
+                        </form>
+                    </div>
+                <% } %>
+            </div>
+        <% }) %>
+    <% } %>
+</div>

@@ -1,0 +1,88 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Your Cart</h1>
+            <p><%= cart && cart.items ? cart.items.length : 0 %> item<%= (cart && cart.items && cart.items.length !== 1) ? 's' : '' %> in your cart</p>
+        </div>
+        <% if (cart && cart.items && cart.items.length > 0) { %>
+            <form action="/cart/clear" method="POST">
+                <button type="submit" class="btn btn-ghost btn-sm" data-confirm="Clear your entire cart?">
+                    <i class="fas fa-trash"></i> Clear Cart
+                </button>
+            </form>
+        <% } %>
+    </div>
+
+    <% if (!cart || !cart.items || cart.items.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-shopping-cart"></i></div>
+            <h3>Your Cart is Empty</h3>
+            <p>Browse restaurants and add delicious items to get started.</p>
+            <a href="/" class="btn btn-primary">Browse Restaurants</a>
+        </div>
+    <% } else { %>
+        <div class="cart-layout">
+            <div>
+                <% if (cart.restaurantId) { %>
+                    <p class="text-muted mb-lg" style="font-size:var(--font-size-sm);">
+                        <i class="fas fa-store"></i> Ordering from: <strong><%= cart.restaurantId.name || 'Restaurant' %></strong>
+                    </p>
+                <% } %>
+
+                <% cart.items.forEach(item => { %>
+                    <div class="cart-item">
+                        <% if (item.menuItemId.imageUrl) { %>
+                            <img src="<%= item.menuItemId.imageUrl %>" alt="" class="cart-item-img">
+                        <% } else { %>
+                            <div class="cart-item-img" style="display:flex;align-items:center;justify-content:center;background:var(--color-bg-elevated);">
+                                <i class="fas fa-hamburger text-dim"></i>
+                            </div>
+                        <% } %>
+                        <div class="cart-item-info">
+                            <div class="cart-item-name"><%= item.menuItemId.name %></div>
+                            <div class="cart-item-qty">Qty: <%= item.quantity %> &bull; Rs. <%= item.menuItemId.basePrice %> each</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-weight:700;">Rs. <%= item.menuItemId.basePrice * item.quantity %></div>
+                            <form action="/cart/remove-item/<%= item.menuItemId._id %>" method="POST" style="margin-top:var(--space-xs);">
+                                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--color-danger);">
+                                    <i class="fas fa-times"></i> Remove
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+
+            <div class="cart-summary">
+                <h3 class="card-title mb-lg">Order Summary</h3>
+                
+                <%
+                    let subtotal = 0;
+                    cart.items.forEach(item => {
+                        subtotal += item.menuItemId.basePrice * item.quantity;
+                    });
+                %>
+
+                <div class="cart-summary-row">
+                    <span>Subtotal (base)</span>
+                    <span>Rs. <%= subtotal %></span>
+                </div>
+                <div class="cart-summary-row">
+                    <span>Platform fee + delivery</span>
+                    <span class="text-dim">Calculated at checkout</span>
+                </div>
+                <div class="cart-summary-total">
+                    <span>Subtotal</span>
+                    <span>Rs. <%= subtotal %></span>
+                </div>
+
+                <a href="/orders/checkout" class="btn btn-primary btn-block btn-lg mt-lg">
+                    <i class="fas fa-arrow-right"></i> Proceed to Checkout
+                </a>
+            </div>
+        </div>
+    <% } %>
+</div>

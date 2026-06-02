@@ -1,0 +1,38 @@
+<% layout('layouts/main') %>
+
+    <div class="container" style="max-width: 600px;">
+        <div class="page-header">
+            <div>
+                <h1>Platform Settings</h1>
+                <p>Configure global financial parameters</p>
+            </div>
+        </div>
+        <div class="card">
+            <form action="/admin/settings" method="POST">
+                <div class="form-group">
+                    <label for="platformMarkupPercentage" class="form-label">Platform Markup (%)</label>
+                    <input type="number" id="platformMarkupPercentage" name="platformMarkupPercentage"
+                        class="form-control" value="<%= settings ? settings.platformMarkupPercentage : 10 %>" min="0"
+                        max="100" step="0.1">
+                    <span class="form-text">
+                        This percentage is added to every menu item's base price.
+                        E.g., 10% markup on a Rs. 500 item = Rs. 550 for the customer.
+                    </span>
+                </div>
+
+                <div class="form-group">
+                    <label for="perKmDeliveryRate" class="form-label">Delivery Rate (Rs. per km)</label>
+                    <input type="number" id="perKmDeliveryRate" name="perKmDeliveryRate" class="form-control"
+                        value="<%= settings ? settings.perKmDeliveryRate : 30 %>" min="0" step="1">
+                    <span class="form-text">
+                        The delivery fee is calculated as: distance (km) × this rate.
+                        Minimum delivery fee is Rs. 50.
+                    </span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block btn-lg">
+                    <i class="fas fa-save"></i> Save Settings
+                </button>
+            </form>
+        </div>
+    </div>

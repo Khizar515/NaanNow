@@ -1,0 +1,48 @@
+<% layout('layouts/main') %>
+
+<div class="container" style="max-width: 600px;">
+    <div class="page-header">
+        <div>
+            <h1>Submit Rider Proofs</h1>
+            <p>Upload your bike registration and license for verification</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+            <div class="d-flex align-center gap-md mb-xl">
+                <span class="badge <%= currentUser.isApprovedRider ? 'badge-success' : 'badge-pending' %>">
+                    <i class="fas fa-<%= currentUser.isApprovedRider ? 'check-circle' : 'clock' %>"></i>
+                    <%= currentUser.isApprovedRider ? 'Approved Rider' : 'Pending Approval' %>
+                </span>
+            </div>
+        <% } %>
+
+        <form action="/riders/submit-proofs" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label class="form-label">Upload Documents</label>
+                <input type="file" name="documents" class="form-file-input form-control" multiple accept="image/*,.pdf" required>
+                <span class="form-text">
+                    Upload photos of your bike registration, driving license, and CNIC. Max 5 files.
+                </span>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg">
+                <i class="fas fa-upload"></i> Submit Proofs
+            </button>
+        </form>
+
+        <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.riderProofs && currentUser.riderProofs.length > 0) { %>
+            <div style="margin-top:var(--space-xl);padding-top:var(--space-lg);border-top:1px solid var(--color-border);">
+                <h4 class="mb-md">Previously Uploaded</h4>
+                <div class="d-flex gap-sm" style="flex-wrap:wrap;">
+                    <% currentUser.riderProofs.forEach((proof, i) => { %>
+                        <a href="<%= proof %>" target="_blank" class="btn btn-ghost btn-sm">
+                            <i class="fas fa-file"></i> Document <%= i + 1 %>
+                        </a>
+                    <% }) %>
+                </div>
+            </div>
+        <% } %>
+    </div>
+</div>

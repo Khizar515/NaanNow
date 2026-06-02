@@ -8,88 +8,114 @@ const fs = require('fs');
 const path = require('path');
 const upload = require('../middleware/uploadMiddleware');
 
-// @route   PUT /api/users/wishlist/:restaurantId
+// @route   POST /users/wishlist/:restaurantId
 // @desc    Toggle a restaurant in/out of the wishlist
 // @access  Protected (Customer)
-router.put('/wishlist/:restaurantId', protect, authorize('customer'), async (req, res) => {
+router.post('/wishlist/:restaurantId', protect, authorize('customer'), async (req, res) => {
     try {
         const user = await User.findById(req.user.userId);
         const restaurantId = req.params.restaurantId;
 
-        // Check if the restaurant actually exists
         const shop = await Restaurant.findById(restaurantId);
-        if (!shop) return res.status(404).json({ message: 'Restaurant not found' });
+        if (!shop) {
+            req.flash('error_msg', 'Restaurant not found.');
+            return res.redirect('/');
+        }
 
-        // Check if it's already in the wishlist
         const isFavorited = user.wishlist.includes(restaurantId);
 
         if (isFavorited) {
-            // Remove it
             user.wishlist = user.wishlist.filter(id => id.toString() !== restaurantId);
             await user.save();
-            return res.status(200).json({ message: 'Removed from wishlist', wishlist: user.wishlist });
+            req.flash('success_msg', `"${shop.name}" removed from wishlist.`);
         } else {
-            // Add it
             user.wishlist.push(restaurantId);
             await user.save();
-            return res.status(200).json({ message: 'Added to wishlist', wishlist: user.wishlist });
+            req.flash('success_msg', `"${shop.name}" added to wishlist!`);
         }
+
+        res.redirect('back');
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error updating wishlist' });
+        req.flash('error_msg', 'Server error updating wishlist.');
+        res.redirect('/');
     }
 });
 
-// @route   GET /api/users/wishlist
-// @desc    Get the populated wishlist for the UI
+// @route   GET /users/wishlist
+// @desc    Get the populated wishlist page
 // @access  Protected (Customer)
 router.get('/wishlist', protect, authorize('customer'), async (req, res) => {
     try {
-        // We use .populate() to get the actual restaurant details, not just the IDs
-        const user = await User.findById(req.user.userId).populate('wishlist', 'name imageUrl cuisineType isApproved isOpen');
-        res.status(200).json(user.wishlist);
+        const user = await User.findById(req.user.userId)
+            .populate('wishlist', 'name imageUrl cuisineType isApproved isOpen');
+        res.render('users/wishlist', { title: 'My Wishlist', wishlist: user.wishlist });
     } catch (error) {
-        res.status(500).json({ message: 'Server error fetching wishlist' });
+        req.flash('error_msg', 'Server error fetching wishlist.');
+        res.redirect('/');
     }
 });
 
-// @route   PUT /api/users/profile-pic
+// @route   GET /users/profile
+// @desc    Show user profile page
+// @access  Protected (All logged-in users)
+router.get('/profile', protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId).select('-password');
+        if (!user) {
+            req.flash('error_msg', 'User not found.');
+            return res.redirect('/');
+        }
+        res.render('users/profile', { title: 'My Profile', user });
+    } catch (error) {
+        req.flash('error_msg', 'Server error loading profile.');
+        res.redirect('/');
+    }
+});
+
+// @route   POST /users/profile-pic
 // @desc    Upload or update a user's profile picture
 // @access  Protected (All logged-in users)
-router.put('/profile-pic', protect, upload.single('image'), async (req, res) => {
+router.post('/profile-pic', protect, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ message: 'No image file uploaded.' });
+            req.flash('error_msg', 'No image file uploaded.');
+            return res.redirect('/users/profile');
         }
 
         const user = await User.findById(req.user.userId);
         
-        // 1. Create a dedicated folder for this user
+        // Create a dedicated folder for this user
         const targetDir = `uploads/users/${user._id}`;
         if (!fs.existsSync(targetDir)) {
             fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        // 2. Move the file from Temp to the Permanent folder
+        // Move the file from Temp to the Permanent folder
         const targetPath = path.join(targetDir, req.file.filename);
         fs.renameSync(req.file.path, targetPath);
 
-        // 3. Optional Cleanup: If they had an old profile pic (and it wasn't the default), delete it to save hard drive space!
+        // Cleanup old profile pic
         if (user.profilePic && !user.profilePic.includes('defaults/profile-avatar.png')) {
             const oldFilePath = path.join(__dirname, '..', user.profilePic);
             if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
         }
 
-        // 4. Update Database
+        // Update Database
         const finalUrl = `/${targetPath.replace(/\\/g, '/')}`;
         user.profilePic = finalUrl;
         await user.save();
 
-        res.status(200).json({ message: 'Profile picture updated!', profilePic: finalUrl });
+        // Update session so navbar avatar reflects immediately
+        req.session.user.profilePic = finalUrl;
+
+        req.flash('success_msg', 'Profile picture updated!');
+        res.redirect('/users/profile');
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error updating profile picture' });
+        req.flash('error_msg', 'Server error updating profile picture.');
+        res.redirect('/users/profile');
     }
 });
 

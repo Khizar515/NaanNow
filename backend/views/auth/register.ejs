@@ -1,0 +1,80 @@
+<% layout('layouts/main') %>
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Create Account</h1>
+            <p>Join NaanNow and start ordering</p>
+        </div>
+
+        <form action="/auth/register" method="POST" id="registerForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="name" class="form-label">Full Name</label>
+                <input type="text" id="name" name="name" class="form-control" placeholder="Your full name" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone" class="form-label">Phone</label>
+                    <input type="text" id="phone" name="phone" class="form-control" placeholder="03XX-XXXXXXX" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-control" placeholder="Min. 6 characters" required minlength="6">
+                <span class="form-text">Must be at least 6 characters long</span>
+            </div>
+
+            <div class="form-group">
+                <label for="role" class="form-label">I want to</label>
+                <select id="role" name="role" class="form-select" required>
+                    <option value="customer">Order Food (Customer)</option>
+                    <option value="restaurant_owner">Sell Food (Restaurant Owner)</option>
+                    <option value="rider">Deliver Food (Rider)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="address" class="form-label">Address <span class="text-dim">(Optional)</span></label>
+                <input type="text" id="address" name="address" class="form-control" placeholder="Your delivery address">
+            </div>
+
+            <div class="form-group" id="riderDocsSection" style="display: none;">
+                <label class="form-label">Verification Documents (License, Bike Registration)</label>
+                <input type="file" name="documents" class="form-file-input form-control" multiple accept="image/*,.pdf">
+                <span class="form-text">Required for Rider approval. Upload up to 5 files.</span>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a href="/auth/login">Sign in</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const roleSelect = document.getElementById('role');
+        const riderDocsSection = document.getElementById('riderDocsSection');
+        
+        function toggleDocs() {
+            if (roleSelect.value === 'rider') {
+                riderDocsSection.style.display = 'block';
+            } else {
+                riderDocsSection.style.display = 'none';
+            }
+        }
+        
+        roleSelect.addEventListener('change', toggleDocs);
+        toggleDocs(); // Initial check
+    });
+</script>

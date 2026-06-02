@@ -1,0 +1,77 @@
+<% layout('layouts/main') %>
+
+<div class="container" style="max-width: 600px;">
+    <div class="page-header">
+        <div>
+            <h1>Edit Shop Details</h1>
+            <p>Changes to name, address, or location will require re-approval</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <form action="/restaurants/<%= shop._id %>/update" method="POST">
+            <div class="form-group">
+                <label for="name" class="form-label">Restaurant Name</label>
+                <input type="text" id="name" name="name" class="form-control" value="<%= shop.name %>">
+            </div>
+
+            <div class="form-group">
+                <label for="address" class="form-label">Address</label>
+                <input type="text" id="address" name="address" class="form-control" value="<%= shop.address %>">
+            </div>
+
+            <div class="form-group">
+                <label for="phone" class="form-label">Phone</label>
+                <input type="text" id="phone" name="phone" class="form-control" value="<%= shop.phone %>">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Restaurant Location on Map</label>
+                <div id="map" style="height: 300px; width: 100%; border-radius: var(--radius-sm); z-index: 1;"></div>
+                <span class="form-text mb-lg">Click or drag the marker to update your location.</span>
+                <input type="hidden" id="longitude" name="longitude" value="<%= shop.location.coordinates[0] %>" required>
+                <input type="hidden" id="latitude" name="latitude" value="<%= shop.location.coordinates[1] %>" required>
+            </div>
+
+            <div class="d-flex gap-md">
+                <button type="submit" class="btn btn-primary btn-lg" style="flex:1;">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+                <a href="/restaurants/my-shop" class="btn btn-secondary btn-lg">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const initialLat = <%= shop.location.coordinates[1] %>;
+        const initialLng = <%= shop.location.coordinates[0] %>;
+
+        const map = L.map('map').setView([initialLat, initialLng], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        let marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+        
+        function updateInputs(lat, lng) {
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+        }
+
+        // Update on drag
+        marker.on('dragend', function (e) {
+            const pos = marker.getLatLng();
+            updateInputs(pos.lat, pos.lng);
+        });
+
+        // Update on click
+        map.on('click', function(e) {
+            marker.setLatLng(e.latlng);
+            updateInputs(e.latlng.lat, e.latlng.lng);
+        });
+    });
+</script>

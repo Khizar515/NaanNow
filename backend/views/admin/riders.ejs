@@ -1,0 +1,74 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Rider Applications</h1>
+            <p>Review rider verification documents</p>
+        </div>
+    </div>
+
+    <% if (riders.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-motorcycle"></i></div>
+            <h3>No Rider Applications</h3>
+            <p>No riders have submitted proofs for review.</p>
+        </div>
+    <% } else { %>
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Rider</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Proofs</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% riders.forEach(rider => { %>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-center gap-md">
+                                    <img src="<%= rider.profilePic || '/uploads/defaults/profile-avatar.png' %>" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+                                    <strong><%= rider.name %></strong>
+                                </div>
+                            </td>
+                            <td><%= rider.email %></td>
+                            <td><%= rider.phone %></td>
+                            <td>
+                                <span class="badge <%= rider.isApprovedRider ? 'badge-success' : 'badge-pending' %>">
+                                    <%= rider.isApprovedRider ? 'Approved' : 'Pending' %>
+                                </span>
+                            </td>
+                            <td>
+                                <% if (rider.riderProofs && rider.riderProofs.length > 0) { %>
+                                    <% rider.riderProofs.forEach((proof, i) => { %>
+                                        <a href="<%= proof %>" target="_blank" class="btn btn-ghost btn-sm" style="font-size:var(--font-size-xs);">
+                                            Proof <%= i + 1 %>
+                                        </a>
+                                    <% }) %>
+                                <% } else { %>
+                                    <span class="text-dim">No proofs uploaded</span>
+                                <% } %>
+                            </td>
+                            <td>
+                                <% if (!rider.isApprovedRider) { %>
+                                    <form action="/admin/approve-rider/<%= rider._id %>" method="POST">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fas fa-check"></i> Approve
+                                        </button>
+                                    </form>
+                                <% } else { %>
+                                    <span class="text-dim">✓ Approved</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } %>
+</div>

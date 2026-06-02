@@ -1,0 +1,49 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>My Wishlist</h1>
+            <p>Your favorite restaurants</p>
+        </div>
+    </div>
+
+    <% if (wishlist.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-heart"></i></div>
+            <h3>No Favorites Yet</h3>
+            <p>Click the heart icon on a restaurant to add it to your wishlist.</p>
+            <a href="/" class="btn btn-primary">Browse Restaurants</a>
+        </div>
+    <% } else { %>
+        <div class="restaurant-grid">
+            <% wishlist.forEach(shop => { %>
+                <div class="restaurant-card">
+                    <a href="/restaurants/<%= shop._id %>/menu">
+                        <div class="restaurant-card-img" style="display:flex;align-items:center;justify-content:center;background:var(--color-bg-elevated);">
+                            <i class="fas fa-utensils" style="font-size:2rem;color:var(--color-text-dim);"></i>
+                        </div>
+                    </a>
+                    <div class="restaurant-card-body">
+                        <div class="d-flex justify-between align-center">
+                            <a href="/restaurants/<%= shop._id %>/menu" style="color:var(--color-text);">
+                                <div class="restaurant-card-name"><%= shop.name %></div>
+                                <div class="restaurant-card-cuisine"><%= shop.cuisineType %></div>
+                            </a>
+                            <form action="/users/wishlist/<%= shop._id %>" method="POST">
+                                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--color-danger);">
+                                    <i class="fas fa-heart-broken"></i>
+                                </button>
+                            </form>
+                        </div>
+                        <div class="restaurant-card-meta mt-sm">
+                            <span class="badge <%= shop.isOpen ? 'badge-success' : 'badge-danger' %>">
+                                <%= shop.isOpen ? 'Open' : 'Closed' %>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    <% } %>
+</div>

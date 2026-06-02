@@ -1,0 +1,95 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Available Deliveries</h1>
+            <p>Pick up orders ready for delivery</p>
+        </div>
+    </div>
+
+    <% if (orders.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-motorcycle"></i></div>
+            <h3>No Deliveries Available</h3>
+            <p>Check back soon — orders will appear here when restaurants are done preparing.</p>
+        </div>
+    <% } else { %>
+        <div class="grid grid-2">
+            <% orders.forEach(order => { %>
+                <div class="card">
+                    <div class="d-flex justify-between align-center mb-md">
+                        <span class="badge badge-pending"><i class="fas fa-box"></i> Ready for Pickup</span>
+                        <code style="font-size:var(--font-size-xs);color:var(--color-text-dim);">#<%= order._id.toString().slice(-6).toUpperCase() %></code>
+                    </div>
+
+                    <div class="form-group">
+                        <span class="form-label">Items</span>
+                        <% order.items.forEach(item => { %>
+                            <div style="font-size:var(--font-size-sm);"><%= item.quantity %>x <%= item.name %></div>
+                        <% }) %>
+                    </div>
+
+                    <div class="form-group">
+                        <span class="form-label">Deliver to</span>
+                        <p style="font-size:var(--font-size-sm);"><i class="fas fa-map-marker-alt text-danger"></i> <%= order.deliveryAddress %></p>
+                    </div>
+
+                    <div class="form-group">
+                        <div id="map-<%= order._id %>" style="height: 150px; width: 100%; border-radius: var(--radius-sm); z-index: 1;"></div>
+                        <p class="mt-sm text-dim" style="font-size:var(--font-size-sm);">
+                            <i class="fas fa-route"></i> Distance: <span id="dist-<%= order._id %>">Calculating...</span>
+                        </p>
+                    </div>
+
+                    <div class="d-flex justify-between align-center">
+                        <div>
+                            <span class="form-label">Delivery Fee</span>
+                            <div style="font-size:var(--font-size-xl);font-weight:800;color:var(--color-success);">
+                                Rs. <%= order.financials.deliveryFee %>
+                            </div>
+                        </div>
+                        <form action="/orders/<%= order._id %>/status" method="POST">
+                            <input type="hidden" name="status" value="Accepted by Rider">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check"></i> Accept Delivery
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    <% } %>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        <% orders.forEach(order => { %>
+            (function() {
+                const restLat = <%= order.restaurantId.location.coordinates[1] %>;
+                const restLng = <%= order.restaurantId.location.coordinates[0] %>;
+                const custLat = <%= order.deliveryCoordinates[1] %>;
+                const custLng = <%= order.deliveryCoordinates[0] %>;
+
+                const map = L.map('map-<%= order._id %>', {
+                    zoomControl: false,
+                    scrollWheelZoom: false
+                });
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19
+                }).addTo(map);
+
+                const restMarker = L.marker([restLat, restLng]).addTo(map).bindPopup("Restaurant");
+                const custMarker = L.marker([custLat, custLng]).addTo(map).bindPopup("Customer");
+
+                const bounds = L.latLngBounds([restLat, restLng], [custLat, custLng]);
+                map.fitBounds(bounds, { padding: [20, 20] });
+
+                const distanceMeters = map.distance([restLat, restLng], [custLat, custLng]);
+                const distanceKm = (distanceMeters / 1000).toFixed(2);
+                document.getElementById('dist-<%= order._id %>').innerText = distanceKm + ' km';
+            })();
+        <% }) %>
+    });
+</script>

@@ -4,7 +4,7 @@ const Cart = require('../models/Cart');
 const MenuItem = require('../models/MenuItem');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
-// @route   POST /api/cart/add
+// @route   POST /cart/add
 // @desc    Add item to cart or update quantity
 // @access  Protected (Customer)
 router.post('/add', protect, authorize('customer'), async (req, res) => {
@@ -14,7 +14,8 @@ router.post('/add', protect, authorize('customer'), async (req, res) => {
         // 1. Verify the item exists and find its restaurant
         const item = await MenuItem.findById(menuItemId);
         if (!item || !item.isAvailable) {
-            return res.status(404).json({ message: 'Item unavailable' });
+            req.flash('error_msg', 'Item unavailable.');
+            return res.redirect('back');
         }
 
         // 2. Find the user's cart (or create a new one)
@@ -25,11 +26,9 @@ router.post('/add', protect, authorize('customer'), async (req, res) => {
         }
 
         // 3. The "Single Restaurant" Lockdown Rule
-        if (cart.items.length > 0 && cart.restaurantId.toString() !== item.restaurantId.toString()) {
-            return res.status(400).json({ 
-                message: 'Your cart contains items from another restaurant. Please clear your cart to start a new order.',
-                actionRequired: 'CLEAR_CART' // Tells the frontend to show a pop-up warning
-            });
+        if (cart.items.length > 0 && cart.restaurantId && cart.restaurantId.toString() !== item.restaurantId.toString()) {
+            req.flash('warning_msg', 'Your cart contains items from another restaurant. Clear your cart to start a new order.');
+            return res.redirect('/cart');
         }
 
         // Lock the cart to this restaurant
@@ -39,72 +38,76 @@ router.post('/add', protect, authorize('customer'), async (req, res) => {
         const existingItemIndex = cart.items.findIndex(i => i.menuItemId.toString() === menuItemId);
 
         if (existingItemIndex > -1) {
-            // Update quantity
-            cart.items[existingItemIndex].quantity += quantity;
+            cart.items[existingItemIndex].quantity += parseInt(quantity) || 1;
         } else {
-            // Add new item
-            cart.items.push({ menuItemId, quantity });
+            cart.items.push({ menuItemId, quantity: parseInt(quantity) || 1 });
         }
 
         await cart.save();
-        res.status(200).json(cart);
+        req.flash('success_msg', `"${item.name}" added to cart!`);
+        res.redirect('back');
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error updating cart' });
+        req.flash('error_msg', 'Server error updating cart.');
+        res.redirect('/');
     }
 });
 
-// @route   GET /api/cart
-// @desc    Get the current user's cart (Populated with prices)
+// @route   GET /cart
+// @desc    Get the current user's cart page
 // @access  Protected (Customer)
 router.get('/', protect, authorize('customer'), async (req, res) => {
     try {
         const cart = await Cart.findOne({ userId: req.user.userId })
             .populate('restaurantId', 'name')
-            .populate('items.menuItemId', 'name basePrice imageUrl'); // NOTE: You will still need to apply Admin Markup to these basePrices in your UI/Checkout!
+            .populate('items.menuItemId', 'name basePrice imageUrl');
 
-        if (!cart) {
-            return res.status(200).json({ items: [], message: 'Cart is empty' });
-        }
-
-        res.status(200).json(cart);
+        res.render('cart/index', { title: 'My Cart', cart: cart || { items: [] } });
     } catch (error) {
-        res.status(500).json({ message: 'Server error fetching cart' });
+        req.flash('error_msg', 'Server error fetching cart.');
+        res.redirect('/');
     }
 });
 
-// @route   DELETE /api/cart
+// @route   POST /cart/clear
 // @desc    Clear the entire cart
 // @access  Protected (Customer)
-router.delete('/', protect, authorize('customer'), async (req, res) => {
+router.post('/clear', protect, authorize('customer'), async (req, res) => {
     try {
         await Cart.findOneAndDelete({ userId: req.user.userId });
-        res.status(200).json({ message: 'Cart cleared successfully' });
+        req.flash('success_msg', 'Cart cleared successfully!');
+        res.redirect('/cart');
     } catch (error) {
-        res.status(500).json({ message: 'Server error clearing cart' });
+        req.flash('error_msg', 'Server error clearing cart.');
+        res.redirect('/cart');
     }
 });
 
-// @route   PUT /api/cart/remove-item/:menuItemId
+// @route   POST /cart/remove-item/:menuItemId
 // @desc    Remove a specific item from the cart
 // @access  Protected (Customer)
-router.put('/remove-item/:menuItemId', protect, authorize('customer'), async (req, res) => {
+router.post('/remove-item/:menuItemId', protect, authorize('customer'), async (req, res) => {
     try {
         const cart = await Cart.findOne({ userId: req.user.userId });
-        if (!cart) return res.status(404).json({ message: 'Cart not found' });
+        if (!cart) {
+            req.flash('error_msg', 'Cart not found.');
+            return res.redirect('/cart');
+        }
 
         cart.items = cart.items.filter(item => item.menuItemId.toString() !== req.params.menuItemId);
 
-        // If cart is completely empty after removing, reset the restaurant lock!
+        // If cart is completely empty after removing, reset the restaurant lock
         if (cart.items.length === 0) {
             cart.restaurantId = null;
         }
 
         await cart.save();
-        res.status(200).json(cart);
+        req.flash('success_msg', 'Item removed from cart.');
+        res.redirect('/cart');
     } catch (error) {
-        res.status(500).json({ message: 'Server error removing item' });
+        req.flash('error_msg', 'Server error removing item.');
+        res.redirect('/cart');
     }
 });
 

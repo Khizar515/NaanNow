@@ -1,0 +1,82 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Restaurant Applications</h1>
+            <p>Review and manage restaurant registrations</p>
+        </div>
+    </div>
+
+    <% if (restaurants.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-store"></i></div>
+            <h3>No Restaurants</h3>
+            <p>No restaurant applications to review.</p>
+        </div>
+    <% } else { %>
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Restaurant</th>
+                        <th>Owner</th>
+                        <th>Cuisine</th>
+                        <th>Address</th>
+                        <th>Status</th>
+                        <th>Documents</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% restaurants.forEach(shop => { %>
+                        <tr>
+                            <td><strong><%= shop.name %></strong></td>
+                            <td style="font-size:var(--font-size-sm);">
+                                <%= shop.ownerId ? (shop.ownerId.name || 'Unknown') : 'Unknown' %>
+                            </td>
+                            <td><span class="badge badge-info"><%= shop.cuisineType %></span></td>
+                            <td style="font-size:var(--font-size-sm);max-width:200px;"><%= shop.address %></td>
+                            <td>
+                                <span class="badge <%= shop.isApproved ? 'badge-success' : 'badge-pending' %>">
+                                    <%= shop.isApproved ? 'Approved' : 'Pending' %>
+                                </span>
+                                <% if (shop.isApproved && shop.isOpen) { %>
+                                    <span class="badge badge-success">Open</span>
+                                <% } %>
+                            </td>
+                            <td>
+                                <% if (shop.verificationDocuments && shop.verificationDocuments.length > 0) { %>
+                                    <% shop.verificationDocuments.forEach((doc, i) => { %>
+                                        <a href="<%= doc %>" target="_blank" class="btn btn-ghost btn-sm" style="font-size:var(--font-size-xs);">
+                                            Doc <%= i + 1 %>
+                                        </a>
+                                    <% }) %>
+                                <% } else { %>
+                                    <span class="text-dim">None</span>
+                                <% } %>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-sm" style="flex-direction:column;">
+                                    <% if (!shop.isApproved) { %>
+                                        <form action="/admin/approve-restaurant/<%= shop._id %>" method="POST">
+                                            <button type="submit" class="btn btn-success btn-sm w-100">
+                                                <i class="fas fa-check"></i> Approve
+                                            </button>
+                                        </form>
+                                    <% } %>
+                                    <form action="/admin/revoke-restaurant/<%= shop._id %>" method="POST">
+                                        <input type="hidden" name="reason" value="Revoked by admin">
+                                        <button type="submit" class="btn btn-danger btn-sm w-100" data-confirm="Revoke this restaurant?">
+                                            <i class="fas fa-ban"></i> Revoke
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } %>
+</div>

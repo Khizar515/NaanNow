@@ -1,0 +1,61 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>User Management</h1>
+            <p><%= users.length %> registered users</p>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% users.forEach(user => { %>
+                    <tr>
+                        <td>
+                            <div class="d-flex align-center gap-md">
+                                <img src="<%= user.profilePic || '/uploads/defaults/profile-avatar.png' %>" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+                                <strong><%= user.name %></strong>
+                            </div>
+                        </td>
+                        <td><%= user.email %></td>
+                        <td><%= user.phone %></td>
+                        <td>
+                            <span class="badge
+                                <%= user.role === 'admin' ? 'badge-danger' :
+                                   user.role === 'restaurant_owner' ? 'badge-primary' :
+                                   user.role === 'rider' ? 'badge-info' : 'badge-success' %>">
+                                <%= user.role.replace('_', ' ') %>
+                            </span>
+                        </td>
+                        <td style="font-size:var(--font-size-xs);color:var(--color-text-dim);">
+                            <%= new Date(user.createdAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) %>
+                        </td>
+                        <td>
+                            <form action="/admin/change-role/<%= user._id %>" method="POST" class="d-flex gap-sm align-center">
+                                <select name="newRole" class="form-select" style="padding:6px 10px;font-size:var(--font-size-xs);min-width:130px;">
+                                    <option value="customer" <%= user.role === 'customer' ? 'selected' : '' %>>Customer</option>
+                                    <option value="restaurant_owner" <%= user.role === 'restaurant_owner' ? 'selected' : '' %>>Restaurant Owner</option>
+                                    <option value="rider" <%= user.role === 'rider' ? 'selected' : '' %>>Rider</option>
+                                    <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                                </select>
+                                <button type="submit" class="btn btn-primary btn-sm">Set</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
