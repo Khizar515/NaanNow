@@ -1,0 +1,56 @@
+<div class="cuisine-circles-container">
+  <h3 class="cuisine-title">In the mood for...</h3>
+  <div class="cuisine-circles-list">
+    <% cuisines.forEach(cuisine => { %>
+      <button
+        type="button"
+        class="cuisine-circle-btn <%= cuisine.name === 'All' ? 'active' : '' %>"
+        data-cuisine="<%= cuisine.name %>"
+        aria-label="Filter by <%= cuisine.name %>"
+      >
+        <div class="cuisine-circle-img-wrapper">
+          <img
+            src="<%= cuisine.image %>"
+            alt="<%= cuisine.name %>"
+            class="cuisine-circle-img"
+            loading="lazy"
+          />
+        </div>
+        <span class="cuisine-circle-name"><%= cuisine.name %></span>
+      </button>
+    <% }) %>
+  </div>
+</div>
+
+<script>
+  // Enable communication from custom events (like hero pills clicking) to update active state
+  document.addEventListener('DOMContentLoaded', () => {
+    const list = document.querySelector('.cuisine-circles-list');
+    
+    document.addEventListener('cuisineSelect', (e) => {
+      const cuisineName = e.detail;
+      const targetBtn = list.querySelector(`.cuisine-circle-btn[data-cuisine="${cuisineName}"]`);
+      if (targetBtn) {
+        targetBtn.click();
+      } else {
+        // If not found (e.g. Karahi, Naan etc.), we fall back to "All" or filter restaurant grid directly
+        // trigger dynamic app.js filter directly
+      }
+    });
+
+    document.addEventListener('sidebarCuisineSelect', (e) => {
+      const cuisineName = e.detail;
+      const targetBtn = list.querySelector(`.cuisine-circle-btn[data-cuisine="${cuisineName}"]`);
+      if (targetBtn) {
+        // Remove active class from all, add to target, trigger filtering
+        const buttons = list.querySelectorAll('.cuisine-circle-btn');
+        buttons.forEach(b => b.classList.remove('active'));
+        targetBtn.classList.add('active');
+        
+        // Trigger click event but prevent infinite loop
+        const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+        targetBtn.dispatchEvent(clickEvent);
+      }
+    });
+  });
+</script>

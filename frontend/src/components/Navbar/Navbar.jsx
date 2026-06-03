@@ -7,7 +7,6 @@ import logo from '../../assets/logo-removebg.png';
 import cart from '../../assets/cart.svg';
 import naan from '../../assets/naan-removebg.png';
 
-
 function Navbar({ setCartOpen }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);

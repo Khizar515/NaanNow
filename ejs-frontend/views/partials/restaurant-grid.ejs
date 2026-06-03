@@ -1,0 +1,71 @@
+<div class="content-header">
+  <h2><%= page === 'favorites' ? 'Your Favorites' : 'Top Restaurants' %></h2>
+  <span class="results-count">
+    <%= restaurants.length %> <%= restaurants.length === 1 ? 'restaurant' : 'restaurants' %> found
+  </span>
+</div>
+
+<div class="restaurant-grid">
+  <% restaurants.forEach(restaurant => { %>
+    <div 
+      class="restaurant-card" 
+      data-id="<%= restaurant.id %>" 
+      data-cuisine="<%= restaurant.cuisine %>"
+      style="<%= page === 'favorites' ? 'display: none;' : '' %>"
+    >
+      <div class="card-image-wrapper">
+        <img src="<%= restaurant.rawImage %>" alt="<%= restaurant.name %>" class="restaurant-img" />
+        
+        <!-- Badges -->
+        <% if (restaurant.deal) { %>
+          <span class="card-badge-deal"><%= restaurant.deal %></span>
+        <% } %>
+        <% if (restaurant.isSuper) { %>
+          <span class="card-badge-super">🎖️ Super</span>
+        <% } %>
+
+        <!-- Wishlist Button -->
+        <button 
+          class="wishlist-btn"
+          aria-label="Add to wishlist"
+        >
+          <svg 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
+          >
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="card-details">
+        <div class="card-title-row">
+          <h3><%= restaurant.name %></h3>
+          <div class="card-rating">
+            <span class="star-icon">★</span>
+            <span><%= restaurant.rating %></span>
+          </div>
+        </div>
+        
+        <p class="card-cuisine"><%= restaurant.cuisine %></p>
+        
+        <div class="card-footer-meta">
+          <span class="meta-time">🕒 <%= restaurant.deliveryTime %></span>
+          <span class="meta-divider">•</span>
+          <span class="meta-delivery"><%= restaurant.deliveryFee %></span>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<!-- No Restaurants Found -->
+<div class="no-restaurants-found" style="display: none;">
+  <div class="no-restaurants-emoji">🍽️</div>
+  <h3>No restaurants found</h3>
+  <p>Try selecting a different cuisine or check back later!</p>
+</div>

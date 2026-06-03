@@ -1,0 +1,129 @@
+<nav class="navbar">
+  <!-- --- TOP ROW --- -->
+  <div class="navbar-top">
+    <!-- Mobile Profile Icon (Visible only on mobile, Left side) -->
+    <button class="icon-btn mobile-only" aria-label="Profile">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+    </button>
+
+    <!-- Brand (Centered on mobile) -->
+    <div class="nav-brand" onclick="window.location.href='/'">
+      <img src="/assets/logo-removebg.png" alt="Naan Now Logo" class="nav-logo" />
+    </div>
+
+    <!-- Location (Desktop Only) -->
+    <div class="nav-location-wrapper desktop-only">
+      <button class="location-btn" onclick="alert('Address modal will open here!')">
+        <svg width="20" height="20" fill="none" stroke="var(--color-tandoori)" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <span class="location-text">Street 11 Islamabad</span>
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="chevron-icon">
+          <path d="M6 9l6 6 6-6"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- User Actions -->
+    <div class="nav-user-actions">
+      <!-- Desktop Profile Dropdown -->
+      <div class="profile-menu-container desktop-only">
+        <button class="action-btn">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <%= userName %>
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="chevron-icon-profile">
+            <path d="M6 9l6 6 6-6"></path>
+          </svg>
+        </button>
+
+        <div class="profile-dropdown">
+          <ul>
+            <li>Profile</li>
+            <li>Help Center</li>
+            <li class="logout-item">Logout</li>
+          </ul>
+        </div>
+      </div>
+
+      <button class="action-btn desktop-only">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        EN
+      </button>
+
+      <!-- Wishlist Icon -->
+      <button 
+        class="icon-btn heart-icon-btn <%= page === 'favorites' ? 'active' : '' %>"
+        onclick="window.location.href = '<%= page === 'favorites' ? '/' : '/favorites' %>'"
+        title="Toggle Favorites"
+        aria-label="View Favorites"
+      >
+        <svg 
+          width="22" 
+          height="22" 
+          fill="<%= page === 'favorites' ? 'var(--color-tandoori)' : 'none' %>" 
+          stroke="<%= page === 'favorites' ? 'var(--color-tandoori)' : 'currentColor' %>" 
+          stroke-width="2" 
+          viewBox="0 0 24 24"
+        >
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+        </svg>
+        <span class="favorites-badge" style="display: none;">0</span>
+      </button>
+
+      <!-- Cart Icon -->
+      <div class="cart-container">
+        <img src="/assets/cart.svg" alt="Cart" class="cart-icon" />
+        <span class="cart-badge">0</span>
+      </div>
+
+      <!-- Add Test Item button -->
+      <button class="action-btn desktop-only" style="background: var(--color-tandoori); color: white; padding: 6px 12px; border-radius: 8px;">
+        Add Test Item
+      </button>
+    </div>
+  </div>
+
+  <!-- --- MIDDLE ROW (Mobile Only) --- -->
+  <div class="navbar-middle mobile-only">
+    <button class="location-btn">
+      <svg width="20" height="20" fill="none" stroke="var(--color-tandoori)" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </svg>
+      <span class="location-text">Street 11 Islamabad</span>
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="chevron-icon">
+        <path d="M6 9l6 6 6-6"></path>
+      </svg>
+    </button>
+  </div>
+
+  <!-- --- BOTTOM ROW --- -->
+  <div class="navbar-bottom">
+    <div class="nav-tabs">
+      <button class="tab active">
+        <span class="tab-icon">🛵</span> <span class="tab-text">Delivery</span>
+      </button>
+      <button class="tab">
+        <span class="tab-icon">🏪</span> <span class="tab-text">Shops</span>
+      </button>
+    </div>
+
+    <div class="nav-search">
+      <svg width="20" height="20" fill="none" stroke="#777" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="M21 21l-4.35-4.35"></path>
+      </svg>
+      <input type="text" placeholder="Search for restaurants or cuisines..." />
+    </div>
+  </div>
+</nav>
