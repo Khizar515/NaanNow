@@ -1,0 +1,41 @@
+<div class="flash-container">
+    <% if (typeof success_msg !== 'undefined' && success_msg.length > 0) { %>
+        <% success_msg.forEach(msg => { %>
+            <div class="flash-message flash-success">
+                <i class="fas fa-check-circle"></i>
+                <span><%= msg %></span>
+                <button class="flash-close">&times;</button>
+            </div>
+        <% }) %>
+    <% } %>
+
+    <% if (typeof error_msg !== 'undefined' && error_msg.length > 0) { %>
+        <% error_msg.forEach(msg => { %>
+            <div class="flash-message flash-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <span><%= msg %></span>
+                <button class="flash-close">&times;</button>
+            </div>
+        <% }) %>
+    <% } %>
+
+    <% if (typeof warning_msg !== 'undefined' && warning_msg.length > 0) { %>
+        <% warning_msg.forEach(msg => { %>
+            <div class="flash-message flash-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span><%= msg %></span>
+                <button class="flash-close">&times;</button>
+            </div>
+        <% }) %>
+    <% } %>
+
+    <% if (typeof info_msg !== 'undefined' && info_msg.length > 0) { %>
+        <% info_msg.forEach(msg => { %>
+            <div class="flash-message flash-info">
+                <i class="fas fa-info-circle"></i>
+                <span><%= msg %></span>
+                <button class="flash-close">&times;</button>
+            </div>
+        <% }) %>
+    <% } %>
+</div>

@@ -10,119 +10,179 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 router.use(protect);
 router.use(authorize('admin'));
 
-// @route   GET /api/admin/dashboard-stats
-// @desc    Get aggregate data for the Admin Dashboard UI
-router.get('/dashboard-stats', async (req, res) => {
+// @route   GET /admin/dashboard
+// @desc    Admin Dashboard with aggregate stats
+router.get('/dashboard', async (req, res) => {
     try {
         const totalUsers = await User.countDocuments();
         const totalRestaurants = await Restaurant.countDocuments();
-        
-        // Count orders that are not yet finished
-        const activeOrders = await Order.countDocuments({ 
-            status: { $nin: ['Delivered', 'Cancelled'] } 
+
+        const activeOrders = await Order.countDocuments({
+            status: { $nin: ['Delivered', 'Cancelled'] }
         });
 
-        // Calculate Total Gross Merchandise Value (GMV) from Delivered orders
         const completedOrders = await Order.find({ status: 'Delivered' });
         const totalRevenue = completedOrders.reduce((sum, order) => sum + order.financials.grandTotal, 0);
 
-        res.status(200).json({
-            totalUsers,
-            totalRestaurants,
-            activeOrders,
-            totalRevenue: Math.round(totalRevenue),
-            message: 'Dashboard stats fetched successfully'
+        res.render('admin/dashboard', {
+            title: 'Admin Dashboard',
+            stats: {
+                totalUsers,
+                totalRestaurants,
+                activeOrders,
+                totalRevenue: Math.round(totalRevenue)
+            }
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error fetching dashboard stats' });
+        req.flash('error_msg', 'Server error loading dashboard.');
+        res.redirect('/');
     }
 });
 
-// @route   PUT /api/admin/approve-restaurant/:id
+// @route   GET /admin/users
+// @desc    List all users for management
+router.get('/users', async (req, res) => {
+    try {
+        const users = await User.find().select('-password').sort({ createdAt: -1 });
+        res.render('admin/users', { title: 'User Management', users });
+    } catch (error) {
+        req.flash('error_msg', 'Server error loading users.');
+        res.redirect('/admin/dashboard');
+    }
+});
+
+// @route   GET /admin/restaurants
+// @desc    List all restaurants for approval management
+router.get('/restaurants', async (req, res) => {
+    try {
+        const restaurants = await Restaurant.find().populate('ownerId', 'name email').sort({ createdAt: -1 });
+        res.render('admin/restaurants', { title: 'Restaurant Applications', restaurants });
+    } catch (error) {
+        req.flash('error_msg', 'Server error loading restaurants.');
+        res.redirect('/admin/dashboard');
+    }
+});
+
+// @route   GET /admin/riders
+// @desc    List all riders for approval management
+router.get('/riders', async (req, res) => {
+    try {
+        const riders = await User.find({ role: 'rider' }).select('-password').sort({ createdAt: -1 });
+        res.render('admin/riders', { title: 'Rider Applications', riders });
+    } catch (error) {
+        req.flash('error_msg', 'Server error loading riders.');
+        res.redirect('/admin/dashboard');
+    }
+});
+
+// @route   POST /admin/approve-restaurant/:id
 // @desc    Approve a restaurant to go live
-router.put('/approve-restaurant/:id', async (req, res) => {
+router.post('/approve-restaurant/:id', async (req, res) => {
     try {
         const shop = await Restaurant.findById(req.params.id);
-        if (!shop) return res.status(404).json({ message: 'Restaurant not found' });
+        if (!shop) {
+            req.flash('error_msg', 'Restaurant not found.');
+            return res.redirect('/admin/restaurants');
+        }
 
         shop.isApproved = true;
         shop.adminStatusMessage = 'Approved and active.';
         await shop.save();
 
-        res.status(200).json({ message: `${shop.name} has been APPROVED.`, shop });
+        req.flash('success_msg', `"${shop.name}" has been APPROVED.`);
+        res.redirect('/admin/restaurants');
     } catch (error) {
-        res.status(500).json({ message: 'Server error during approval' });
+        req.flash('error_msg', 'Server error during approval.');
+        res.redirect('/admin/restaurants');
     }
 });
 
-// @route   PUT /api/admin/revoke-restaurant/:id
+// @route   POST /admin/revoke-restaurant/:id
 // @desc    Suspend a restaurant and provide a reason
-router.put('/revoke-restaurant/:id', async (req, res) => {
+router.post('/revoke-restaurant/:id', async (req, res) => {
     try {
         const { reason } = req.body;
         if (!reason) {
-            return res.status(400).json({ message: 'You must provide a reason for revocation.' });
+            req.flash('error_msg', 'You must provide a reason for revocation.');
+            return res.redirect('/admin/restaurants');
         }
 
         const shop = await Restaurant.findById(req.params.id);
-        if (!shop) return res.status(404).json({ message: 'Restaurant not found' });
+        if (!shop) {
+            req.flash('error_msg', 'Restaurant not found.');
+            return res.redirect('/admin/restaurants');
+        }
 
         shop.isApproved = false;
-        shop.isOpen = false; // Force the shop to close immediately
+        shop.isOpen = false;
         shop.adminStatusMessage = `Suspended by Admin: ${reason}`;
-        
+
         await shop.save();
 
-        res.status(200).json({ 
-            message: `${shop.name} has been REVOKED.`, 
-            reason: shop.adminStatusMessage 
-        });
+        req.flash('success_msg', `"${shop.name}" has been REVOKED.`);
+        res.redirect('/admin/restaurants');
     } catch (error) {
-        res.status(500).json({ message: 'Server error during revocation' });
+        req.flash('error_msg', 'Server error during revocation.');
+        res.redirect('/admin/restaurants');
     }
 });
 
-// @route   PUT /api/admin/change-role/:userId
+// @route   POST /admin/change-role/:userId
 // @desc    Promote or demote a user account
-router.put('/change-role/:userId', async (req, res) => {
+router.post('/change-role/:userId', async (req, res) => {
     try {
         const { newRole } = req.body;
         const validRoles = ['customer', 'restaurant_owner', 'admin', 'rider'];
 
         if (!validRoles.includes(newRole)) {
-            return res.status(400).json({ message: 'Invalid role provided.' });
+            req.flash('error_msg', 'Invalid role provided.');
+            return res.redirect('/admin/users');
         }
 
         // Prevent the admin from accidentally demoting themselves
         if (req.params.userId === req.user.userId) {
-            return res.status(400).json({ message: 'You cannot change your own admin role.' });
+            req.flash('error_msg', 'You cannot change your own admin role.');
+            return res.redirect('/admin/users');
         }
 
         const user = await User.findById(req.params.userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            req.flash('error_msg', 'User not found.');
+            return res.redirect('/admin/users');
+        }
 
         user.role = newRole;
         await user.save();
 
-        res.status(200).json({ 
-            message: `User ${user.name} is now a ${newRole.toUpperCase()}`,
-            user: { id: user._id, name: user.name, role: user.role }
-        });
+        req.flash('success_msg', `${user.name} is now a ${newRole.toUpperCase().replace('_', ' ')}.`);
+        res.redirect('/admin/users');
     } catch (error) {
-        res.status(500).json({ message: 'Server error changing role' });
+        req.flash('error_msg', 'Server error changing role.');
+        res.redirect('/admin/users');
     }
 });
 
-// @route   PUT /api/admin/settings
+// @route   GET /admin/settings
+// @desc    Show settings form
+router.get('/settings', async (req, res) => {
+    try {
+        const settings = await AdminSettings.findOne();
+        res.render('admin/settings', { title: 'Platform Settings', settings, layout: 'layouts/main' });
+    } catch (error) {
+        req.flash('error_msg', 'Server error loading settings.');
+        res.redirect('/admin/dashboard');
+    }
+});
+
+// @route   POST /admin/settings
 // @desc    Update global financial markup and delivery rates
-router.put('/settings', async (req, res) => {
+router.post('/settings', async (req, res) => {
     try {
         const { platformMarkupPercentage, perKmDeliveryRate } = req.body;
 
-        // There should only ever be ONE settings document in the database
         let settings = await AdminSettings.findOne();
-        
+
         if (!settings) {
             settings = new AdminSettings({ platformMarkupPercentage, perKmDeliveryRate });
         } else {
@@ -131,28 +191,32 @@ router.put('/settings', async (req, res) => {
         }
 
         await settings.save();
-        res.status(200).json({ message: 'Platform financial settings updated!', settings });
+        req.flash('success_msg', 'Platform settings updated!');
+        res.redirect('/admin/settings');
     } catch (error) {
-        res.status(500).json({ message: 'Server error updating settings' });
+        req.flash('error_msg', 'Server error updating settings.');
+        res.redirect('/admin/settings');
     }
 });
 
-// @route   PUT /api/admin/approve-rider/:id
+// @route   POST /admin/approve-rider/:id
 // @desc    Approve a rider after checking their uploaded proofs
-// @access  Protected (Admin Only)
-router.put('/approve-rider/:id', async (req, res) => {
+router.post('/approve-rider/:id', async (req, res) => {
     try {
         const rider = await User.findById(req.params.id);
         if (!rider || rider.role !== 'rider') {
-            return res.status(404).json({ message: 'Rider not found' });
+            req.flash('error_msg', 'Rider not found.');
+            return res.redirect('/admin/riders');
         }
 
         rider.isApprovedRider = true;
         await rider.save();
 
-        res.status(200).json({ message: `${rider.name} is now an APPROVED Rider.`, rider });
+        req.flash('success_msg', `${rider.name} is now an APPROVED Rider.`);
+        res.redirect('/admin/riders');
     } catch (error) {
-        res.status(500).json({ message: 'Server error during approval' });
+        req.flash('error_msg', 'Server error during approval.');
+        res.redirect('/admin/riders');
     }
 });
 

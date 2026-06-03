@@ -6,7 +6,14 @@ const User = require('../models/User');
 const upload = require('../middleware/uploadMiddleware');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
-// @route   POST /api/riders/submit-proofs
+// @route   GET /riders/submit-proofs
+// @desc    Show proof upload form
+// @access  Protected (Riders Only)
+router.get('/submit-proofs', protect, authorize('rider'), (req, res) => {
+    res.render('riders/submit-proofs', { title: 'Submit Proofs' });
+});
+
+// @route   POST /riders/submit-proofs
 // @desc    Upload bike and license proofs for Admin review
 // @access  Protected (Riders Only)
 router.post('/submit-proofs', protect, authorize('rider'), upload.array('documents', 5), async (req, res) => {
@@ -33,13 +40,20 @@ router.post('/submit-proofs', protect, authorize('rider'), upload.array('documen
             user.isApprovedRider = false; // Resets approval if they upload new documents
             await user.save();
 
-            res.status(200).json({ message: 'Proofs submitted successfully! Pending Admin review.', proofs: finalFilePaths });
+            // Update session with new proof data
+            req.session.user.riderProofs = finalFilePaths;
+            req.session.user.isApprovedRider = false;
+
+            req.flash('success_msg', 'Proofs submitted successfully! Pending Admin review.');
         } else {
-            res.status(400).json({ message: 'No files were uploaded.' });
+            req.flash('error_msg', 'No files were uploaded.');
         }
+
+        res.redirect('/riders/submit-proofs');
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error uploading proofs' });
+        req.flash('error_msg', 'Server error uploading proofs.');
+        res.redirect('/riders/submit-proofs');
     }
 });
 

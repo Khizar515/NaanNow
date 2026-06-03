@@ -1,0 +1,42 @@
+<% layout('layouts/main') %>
+
+<div class="container" style="max-width: 600px;">
+    <div class="page-header">
+        <div>
+            <h1>Edit Menu Item</h1>
+            <p>Update the details for "<%= item.name %>"</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <form action="/menu/<%= item._id %>/update" method="POST">
+            <div class="form-group">
+                <label for="name" class="form-label">Item Name</label>
+                <input type="text" id="name" name="name" class="form-control" value="<%= item.name %>">
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-control"><%= item.description %></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="basePrice" class="form-label">Base Price (Rs.)</label>
+                    <input type="number" id="basePrice" name="basePrice" class="form-control" value="<%= item.basePrice %>" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="category" class="form-label">Category</label>
+                    <input type="text" id="category" name="category" class="form-control" value="<%= item.category %>">
+                </div>
+            </div>
+
+            <div class="d-flex gap-md">
+                <button type="submit" class="btn btn-primary btn-lg" style="flex:1;">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+                <a href="/restaurants/my-shop" class="btn btn-secondary btn-lg">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

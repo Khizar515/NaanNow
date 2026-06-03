@@ -1,0 +1,83 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>My Wallet</h1>
+            <p>Manage your payment cards</p>
+        </div>
+        <a href="/wallet/add-card" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Card
+        </a>
+    </div>
+
+    <% if (cards.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-credit-card"></i></div>
+            <h3>No Cards Added</h3>
+            <p>Add a payment card to start ordering.</p>
+            <a href="/wallet/add-card" class="btn btn-primary">Add Your First Card</a>
+        </div>
+    <% } else { %>
+        <div class="grid grid-2">
+            <% cards.forEach(card => { %>
+                <div class="wallet-card">
+                    <div>
+                        <div class="wallet-card-balance">
+                            <span>Rs.</span> <%= card.balance.toLocaleString() %>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="wallet-card-number"><%= card.cardNumberMasked %></div>
+                        <div class="wallet-card-holder">
+                            <%= card.cardHolderName %> &bull; Exp: <%= card.expiryDate %>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+
+        <!-- Top-up Section -->
+        <div class="grid grid-2 mt-xl">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-arrow-up text-success"></i> Top Up</h3>
+                </div>
+                <form action="/wallet/top-up" method="POST">
+                    <div class="form-group">
+                        <label for="topUpCard" class="form-label">Select Card</label>
+                        <select id="topUpCard" name="cardId" class="form-select" required>
+                            <% cards.forEach(card => { %>
+                                <option value="<%= card.id %>"><%= card.cardNumberMasked %> (Rs. <%= card.balance %>)</option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="topUpAmount" class="form-label">Amount (Rs.)</label>
+                        <input type="number" id="topUpAmount" name="amount" class="form-control" placeholder="e.g. 5000" required min="1" max="20000">
+                        <span class="form-text">Max Rs. 20,000 per transaction. Max balance Rs. 50,000.</span>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block">
+                        <i class="fas fa-plus-circle"></i> Add Funds
+                    </button>
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-trash text-danger"></i> Manage Cards</h3>
+                </div>
+                <% cards.forEach(card => { %>
+                    <div class="d-flex justify-between align-center" style="padding:var(--space-sm) 0;border-bottom:1px solid var(--color-border);">
+                        <span style="font-size:var(--font-size-sm);"><%= card.cardNumberMasked %></span>
+                        <form action="/wallet/<%= card.id %>/deactivate" method="POST" style="display:inline;">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--color-danger);" data-confirm="Deactivate this card?">
+                                <i class="fas fa-ban"></i> Deactivate
+                            </button>
+                        </form>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+    <% } %>
+</div>

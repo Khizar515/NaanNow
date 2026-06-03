@@ -1,0 +1,78 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Admin Dashboard</h1>
+            <p>Platform overview and management</p>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-4 mb-xl">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+            <div>
+                <div class="stat-value"><%= stats.totalUsers %></div>
+                <div class="stat-label">Total Users</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon orange"><i class="fas fa-store"></i></div>
+            <div>
+                <div class="stat-value"><%= stats.totalRestaurants %></div>
+                <div class="stat-label">Restaurants</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon yellow"><i class="fas fa-clock"></i></div>
+            <div>
+                <div class="stat-value"><%= stats.activeOrders %></div>
+                <div class="stat-label">Active Orders</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-coins"></i></div>
+            <div>
+                <div class="stat-value">Rs. <%= stats.totalRevenue.toLocaleString() %></div>
+                <div class="stat-label">Total Revenue (GMV)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="grid grid-3">
+        <a href="/admin/users" class="card" style="text-decoration:none;">
+            <div class="d-flex align-center gap-lg">
+                <div class="stat-icon blue"><i class="fas fa-user-cog"></i></div>
+                <div>
+                    <h4>User Management</h4>
+                    <p class="text-muted" style="font-size:var(--font-size-sm);">View, search, and change user roles</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="/admin/restaurants" class="card" style="text-decoration:none;">
+            <div class="d-flex align-center gap-lg">
+                <div class="stat-icon orange"><i class="fas fa-clipboard-check"></i></div>
+                <div>
+                    <h4>Restaurant Applications</h4>
+                    <p class="text-muted" style="font-size:var(--font-size-sm);">Approve or revoke restaurants</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="/admin/settings" class="card" style="text-decoration:none;">
+            <div class="d-flex align-center gap-lg">
+                <div class="stat-icon green"><i class="fas fa-sliders-h"></i></div>
+                <div>
+                    <h4>Platform Settings</h4>
+                    <p class="text-muted" style="font-size:var(--font-size-sm);">Markup and delivery rate config</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>

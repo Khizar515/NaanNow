@@ -1,0 +1,109 @@
+<% layout('layouts/main') %>
+
+<div class="container" style="max-width: 600px;">
+    <div class="page-header d-flex justify-between align-center">
+        <div>
+            <h1>Order Chat</h1>
+            <p>Chatting with <%= otherParty.name %> (Order #<%= order._id.toString().slice(-6).toUpperCase() %>)</p>
+        </div>
+        <a href="javascript:history.back()" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back</a>
+    </div>
+
+    <div class="card chat-container" style="display: flex; flex-direction: column; height: 60vh;">
+        <div id="chatBox" style="flex: 1; overflow-y: auto; padding: var(--space-md); background: var(--color-bg-elevated); border-radius: var(--radius-sm); margin-bottom: var(--space-md);">
+            <% chatSession.messages.forEach(msg => { %>
+                <% const isMine = msg.senderId._id.toString() === currentUser.userId; %>
+                <div style="margin-bottom: var(--space-sm); text-align: <%= isMine ? 'right' : 'left' %>;">
+                    <div style="display: inline-block; padding: var(--space-sm) var(--space-md); border-radius: 18px; max-width: 80%;
+                        background: <%= isMine ? 'var(--color-primary)' : '#e4e6eb' %>; 
+                        color: <%= isMine ? '#fff' : '#000' %>;">
+                        <% if (!isMine) { %>
+                            <div style="font-size: 0.7rem; font-weight: bold; margin-bottom: 2px; color: #555;"><%= msg.senderId.name %></div>
+                        <% } %>
+                        <%= msg.text %>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+
+        <div style="display: flex; gap: var(--space-sm);">
+            <input type="text" id="chatInput" class="form-control" placeholder="Type a message..." style="flex: 1;" autocomplete="off">
+            <button id="sendBtn" class="btn btn-primary"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const socket = io();
+        const orderId = "<%= order._id %>";
+        const senderId = "<%= currentUser.userId %>";
+        const senderName = "<%= currentUser.name %>";
+        
+        socket.emit('join_room', orderId);
+
+        const chatBox = document.getElementById('chatBox');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        function scrollToBottom() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        scrollToBottom();
+
+        function appendMessage(text, isMine, name) {
+            const wrapper = document.createElement('div');
+            wrapper.style.marginBottom = 'var(--space-sm)';
+            wrapper.style.textAlign = isMine ? 'right' : 'left';
+
+            const bubble = document.createElement('div');
+            bubble.style.display = 'inline-block';
+            bubble.style.padding = 'var(--space-sm) var(--space-md)';
+            bubble.style.borderRadius = '18px';
+            bubble.style.maxWidth = '80%';
+            bubble.style.background = isMine ? 'var(--color-primary)' : '#e4e6eb';
+            bubble.style.color = isMine ? '#fff' : '#000';
+
+            if (!isMine && name) {
+                const nameLabel = document.createElement('div');
+                nameLabel.style.fontSize = '0.7rem';
+                nameLabel.style.fontWeight = 'bold';
+                nameLabel.style.marginBottom = '2px';
+                nameLabel.style.color = '#555';
+                nameLabel.innerText = name;
+                bubble.appendChild(nameLabel);
+            }
+
+            const textNode = document.createTextNode(text);
+            bubble.appendChild(textNode);
+            wrapper.appendChild(bubble);
+            chatBox.appendChild(wrapper);
+            scrollToBottom();
+        }
+
+        sendBtn.addEventListener('click', () => {
+            const text = chatInput.value.trim();
+            if (text) {
+                appendMessage(text, true);
+                socket.emit('send_message', {
+                    orderId,
+                    senderId,
+                    senderName,
+                    text
+                });
+                chatInput.value = '';
+            }
+        });
+
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendBtn.click();
+            }
+        });
+
+        socket.on('receive_message', (data) => {
+            appendMessage(data.text, false, data.senderName);
+        });
+    });
+</script>

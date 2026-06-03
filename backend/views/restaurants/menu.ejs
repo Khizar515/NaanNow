@@ -1,0 +1,77 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1><%= restaurant.name %></h1>
+            <p><i class="fas fa-tag text-primary"></i> <%= restaurant.cuisineType %> &bull; <i class="fas fa-map-marker-alt"></i> <%= restaurant.address %></p>
+        </div>
+        <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'customer') { %>
+            <form action="/users/wishlist/<%= restaurant._id %>" method="POST" style="display:inline;">
+                <button type="submit" class="btn btn-ghost">
+                    <i class="fas fa-heart"></i> Wishlist
+                </button>
+            </form>
+        <% } %>
+    </div>
+
+    <div class="mb-xl">
+        <div id="restaurant-map" style="height: 250px; width: 100%; border-radius: var(--radius-md); z-index: 1; box-shadow: var(--shadow-sm);"></div>
+    </div>
+
+    <% if (menuItems.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-utensils"></i></div>
+            <h3>Menu Coming Soon</h3>
+            <p>This restaurant hasn't added any items yet.</p>
+        </div>
+    <% } else { %>
+        <div class="menu-grid">
+            <% menuItems.forEach(item => { %>
+                <div class="menu-item-card">
+                    <% if (item.imageUrl) { %>
+                        <img src="<%= item.imageUrl %>" alt="<%= item.name %>" class="menu-item-img">
+                    <% } else { %>
+                        <div class="menu-item-img" style="display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-hamburger" style="font-size:2rem;color:var(--color-text-dim);"></i>
+                        </div>
+                    <% } %>
+                    <div class="menu-item-body">
+                        <div class="menu-item-name"><%= item.name %></div>
+                        <div class="menu-item-desc"><%= item.description %></div>
+                        <div class="menu-item-footer">
+                            <span class="menu-item-price">Rs. <%= item.displayPrice %></span>
+                            <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'customer') { %>
+                                <form action="/cart/add" method="POST">
+                                    <input type="hidden" name="menuItemId" value="<%= item.id %>">
+                                    <input type="hidden" name="quantity" value="1">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-plus"></i> Add
+                                    </button>
+                                </form>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    <% } %>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const lat = <%= restaurant.location.coordinates[1] %>;
+        const lng = <%= restaurant.location.coordinates[0] %>;
+
+        const map = L.map('restaurant-map').setView([lat, lng], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        L.marker([lat, lng]).addTo(map)
+            .bindPopup("<b><%= restaurant.name %></b><br><%= restaurant.address %>")
+            .openPopup();
+    });
+</script>

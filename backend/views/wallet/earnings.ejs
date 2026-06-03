@@ -1,0 +1,52 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Platform Earnings</h1>
+            <p>Your delivery and restaurant earnings</p>
+        </div>
+    </div>
+
+    <div class="grid grid-2">
+        <!-- Earnings Balance Card -->
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-wallet"></i></div>
+            <div>
+                <div class="stat-value">Rs. <%= earningsBalance.toLocaleString() %></div>
+                <div class="stat-label">Available Earnings</div>
+            </div>
+        </div>
+
+        <!-- Withdraw Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-arrow-down text-primary"></i> Withdraw to Card</h3>
+            </div>
+
+            <% if (cards.length === 0) { %>
+                <p class="text-muted" style="font-size:var(--font-size-sm);">
+                    You need to <a href="/wallet/add-card">add a card</a> first to withdraw earnings.
+                </p>
+            <% } else { %>
+                <form action="/wallet/withdraw" method="POST">
+                    <div class="form-group">
+                        <label for="cardId" class="form-label">Destination Card</label>
+                        <select id="cardId" name="cardId" class="form-select" required>
+                            <% cards.forEach(card => { %>
+                                <option value="<%= card.id %>"><%= card.cardNumberMasked %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount" class="form-label">Amount (Rs.)</label>
+                        <input type="number" id="amount" name="amount" class="form-control" placeholder="Enter amount" required min="1" max="<%= earningsBalance %>">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" <%= earningsBalance <= 0 ? 'disabled' : '' %>>
+                        <i class="fas fa-download"></i> Withdraw
+                    </button>
+                </form>
+            <% } %>
+        </div>
+    </div>
+</div>

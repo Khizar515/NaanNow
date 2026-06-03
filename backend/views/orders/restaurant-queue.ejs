@@ -1,0 +1,75 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Incoming Orders</h1>
+            <p>Manage your restaurant's order queue</p>
+        </div>
+    </div>
+
+    <% if (orders.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-inbox"></i></div>
+            <h3>No Orders Yet</h3>
+            <p>New orders will appear here as customers place them.</p>
+        </div>
+    <% } else { %>
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Delivery Address</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% orders.forEach(order => { %>
+                        <tr>
+                            <td>
+                                <code style="font-size:var(--font-size-xs);color:var(--color-text-dim);">#<%= order._id.toString().slice(-6).toUpperCase() %></code>
+                                <div class="text-dim" style="font-size:var(--font-size-xs);margin-top:2px;">
+                                    <%= new Date(order.createdAt).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }) %>
+                                </div>
+                            </td>
+                            <td>
+                                <% order.items.forEach(item => { %>
+                                    <div style="font-size:var(--font-size-sm);"><%= item.quantity %>x <%= item.name %></div>
+                                <% }) %>
+                            </td>
+                            <td><strong>Rs. <%= order.financials.grandTotal %></strong></td>
+                            <td style="max-width:200px;font-size:var(--font-size-sm);"><%= order.deliveryAddress %></td>
+                            <td>
+                                <span class="badge
+                                    <%= order.status === 'Delivered' ? 'badge-success' :
+                                       order.status === 'Cancelled' ? 'badge-danger' :
+                                       order.status === 'Pending' ? 'badge-pending' : 'badge-info' %>">
+                                    <%= order.status %>
+                                </span>
+                            </td>
+                            <td>
+                                <% if (order.status === 'Pending') { %>
+                                    <form action="/orders/<%= order._id %>/status" method="POST" style="display:inline;">
+                                        <input type="hidden" name="status" value="Preparing">
+                                        <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+                                    </form>
+                                <% } else if (order.status === 'Preparing') { %>
+                                    <form action="/orders/<%= order._id %>/status" method="POST" style="display:inline;">
+                                        <input type="hidden" name="status" value="Ready for Pickup">
+                                        <button type="submit" class="btn btn-success btn-sm">Ready!</button>
+                                    </form>
+                                <% } else { %>
+                                    <span class="text-dim">—</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } %>
+</div>

@@ -1,0 +1,47 @@
+<% layout('layouts/main') %>
+
+<div class="container">
+    <!-- Hero Section -->
+    <div style="text-align: center; padding: var(--space-3xl) 0 var(--space-2xl);">
+        <h1 style="font-size: var(--font-size-5xl); font-weight: 800; margin-bottom: var(--space-md);">
+            Craving Something? <span class="text-primary">Get it Now.</span>
+        </h1>
+        <p class="text-muted" style="font-size: var(--font-size-lg); max-width: 600px; margin: 0 auto;">
+            Discover the best restaurants near you and get food delivered fast.
+        </p>
+    </div>
+
+    <!-- Restaurant Listing -->
+    <div class="page-header">
+        <div>
+            <h2>Open Restaurants</h2>
+            <p><%= restaurants.length %> restaurant<%= restaurants.length !== 1 ? 's' : '' %> available</p>
+        </div>
+    </div>
+
+    <% if (restaurants.length === 0) { %>
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="fas fa-store-slash"></i></div>
+            <h3>No Restaurants Open Right Now</h3>
+            <p>Check back later — restaurants are preparing to open!</p>
+        </div>
+    <% } else { %>
+        <div class="restaurant-grid">
+            <% restaurants.forEach(shop => { %>
+                <a href="/restaurants/<%= shop._id %>/menu" class="restaurant-card">
+                    <div class="restaurant-card-img" style="display:flex;align-items:center;justify-content:center;background:var(--color-bg-elevated);">
+                        <i class="fas fa-utensils" style="font-size:2rem;color:var(--color-text-dim);"></i>
+                    </div>
+                    <div class="restaurant-card-body">
+                        <div class="restaurant-card-name"><%= shop.name %></div>
+                        <div class="restaurant-card-cuisine"><i class="fas fa-tag"></i> <%= shop.cuisineType %></div>
+                        <div class="restaurant-card-meta">
+                            <span><i class="fas fa-map-marker-alt"></i> <%= shop.address %></span>
+                            <span><i class="fas fa-phone"></i> <%= shop.phone %></span>
+                        </div>
+                    </div>
+                </a>
+            <% }) %>
+        </div>
+    <% } %>
+</div>
