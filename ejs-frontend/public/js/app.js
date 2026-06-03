@@ -93,6 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
         profileDropdown.classList.toggle('open');
       });
 
+      profileDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+
       document.addEventListener('click', () => {
         profileDropdown.classList.remove('open');
       });

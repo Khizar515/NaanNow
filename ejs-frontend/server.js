@@ -145,6 +145,43 @@ app.get('/favorites', (req, res) => {
   });
 });
 
+app.get('/profile', (req, res) => {
+  const mockOrders = [
+    {
+      id: "NN-4921",
+      date: "02 Jun 2026",
+      status: "Delivered",
+      items: "2x Garlic Naan, 1x Chicken Karahi",
+      total: 1350
+    },
+    {
+      id: "NN-3819",
+      date: "28 May 2026",
+      status: "Delivered",
+      items: "3x Roghni Naan, 1x Beef Seekh Kebab",
+      total: 980
+    },
+    {
+      id: "NN-1290",
+      date: "15 May 2026",
+      status: "Cancelled",
+      items: "1x Nutella Naan",
+      total: 280
+    }
+  ];
+
+  res.render('profile', {
+    userName: "Muhammad Saad",
+    userEmail: "saad@example.com",
+    userPhone: "+92 300 1234567",
+    userMemberSince: "October 2024",
+    userAddress: "House 45, Street 11, F-11/1, Islamabad",
+    userAvatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+    orders: mockOrders,
+    page: 'profile'
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
 });

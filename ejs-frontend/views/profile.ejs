@@ -1,0 +1,290 @@
+<%- include('partials/head') %>
+<!-- Bootstrap Icons for Profile Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+<%- include('partials/navbar') %>
+<%- include('partials/cart-sidebar') %>
+
+<div class="profile-page-container">
+  <!-- Breadcrumbs & Header Bar -->
+  <div class="profile-header-bar">
+    <div class="profile-breadcrumbs">
+      <button class="breadcrumb-link" onclick="window.location.href='/'">Home</button>
+      <span class="breadcrumb-separator">/</span>
+      <span class="breadcrumb-current">My Profile</span>
+    </div>
+    <button class="back-home-btn" onclick="window.location.href='/'">← Back to Shopping</button>
+  </div>
+
+  <div class="profile-grid">
+    <!-- Sidebar Card -->
+    <aside class="profile-sidebar-card">
+      <div class="avatar-upload-container">
+        <div class="avatar-wrapper">
+          <img id="sidebarAvatar" src="<%= userAvatar %>" alt="<%= userName %>" class="profile-avatar">
+          <label for="profilePicInput" class="avatar-overlay">
+            <i class="bi bi-camera-fill"></i>
+            <span>Change</span>
+          </label>
+        </div>
+        <input type="file" id="profilePicInput" accept="image/*" style="display: none;">
+      </div>
+
+      <h2 id="sidebarName" class="profile-display-name"><%= userName %></h2>
+      <p id="sidebarEmail" class="profile-display-email"><%= userEmail %></p>
+      
+      <div class="profile-badge">
+        <span class="badge-icon">🎖️</span>
+        <span class="badge-text">Naan Enthusiast</span>
+      </div>
+
+      <div class="sidebar-meta">
+        <div class="meta-item">
+          <span class="meta-label">Joined</span>
+          <span class="meta-value"><%= userMemberSince %></span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Status</span>
+          <span class="meta-value active-status">Active Account</span>
+        </div>
+      </div>
+
+      <div class="sidebar-actions">
+        <button class="btn-primary edit-profile-btn" onclick="openProfileEdit()">
+          <i class="bi bi-pencil-square"></i> Edit Profile
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Panel -->
+    <div class="profile-content-area">
+      <!-- Custom Toast Notification inside page -->
+      <div id="toastAlert" class="toast-alert" style="display: none;">
+        <span class="toast-message">Profile updated successfully!</span>
+        <button class="toast-close" onclick="closeToast()">&times;</button>
+      </div>
+
+      <!-- Section: Account Information -->
+      <section class="profile-section" id="viewProfile">
+        <div class="section-header">
+          <h3>Account Information</h3>
+        </div>
+        <div class="info-rows">
+          <div class="info-row">
+            <span class="info-label">Full Name</span>
+            <span class="info-value" id="username"><%= userName %></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Email Address</span>
+            <span class="info-value" id="userEmailVal"><%= userEmail %></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Phone Number</span>
+            <span class="info-value" id="phone"><%= userPhone %></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Edit Profile (Hidden by default) -->
+      <section class="profile-section" id="editProfile" style="display: none;">
+        <div class="section-header">
+          <h3>Edit Profile</h3>
+        </div>
+        <form id="editProfileForm" onsubmit="saveProfile(event)" class="profile-form">
+          <div class="form-group">
+            <label for="editNameInput">Full Name</label>
+            <input type="text" id="editNameInput" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="editEmailInput">Email Address</label>
+            <input type="email" id="editEmailInput" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="editPhoneInput">Phone Number</label>
+            <input type="text" id="editPhoneInput" class="form-control">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save Changes</button>
+            <button type="button" class="btn-outline" onclick="cancelProfile()">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Section: Shipping Address -->
+      <section class="profile-section" id="viewAddress">
+        <div class="section-header">
+          <h3>Shipping Address</h3>
+          <button class="btn-link" onclick="openAddressEdit()">
+            <i class="bi bi-pencil"></i> Edit Address
+          </button>
+        </div>
+        <div class="address-box">
+          <div class="address-icon">
+            <i class="bi bi-geo-alt-fill"></i>
+          </div>
+          <div class="address-details">
+            <strong class="address-title">Primary Address</strong>
+            <p id="address" class="address-text"><%= userAddress %></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Edit Address (Hidden by default) -->
+      <section class="profile-section" id="editAddress" style="display: none;">
+        <div class="section-header">
+          <h3>Edit Shipping Address</h3>
+        </div>
+        <form id="editAddressForm" onsubmit="saveAddress(event)" class="profile-form">
+          <div class="form-group">
+            <label for="editAddressInput">Address Details</label>
+            <textarea id="editAddressInput" class="form-control" rows="3" required></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Update Address</button>
+            <button type="button" class="btn-outline" onclick="cancelAddress()">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Section: Payment Methods -->
+      <section class="profile-section" id="viewPayments">
+        <div class="section-header">
+          <h3>Payment Methods</h3>
+          <button class="btn-link" onclick="openAddPayment()">
+            <i class="bi bi-plus-circle"></i> Add Payment Method
+          </button>
+        </div>
+        <div id="paymentMethodsList" class="payment-methods-list">
+          <!-- Dynamic Payment Cards will be injected by profile.js -->
+        </div>
+      </section>
+
+      <!-- Section: Add Payment Form (Hidden by default) -->
+      <section class="profile-section" id="addPaymentForm" style="display: none;">
+        <div class="section-header">
+          <h3>Add New Card</h3>
+        </div>
+        <form id="newCardForm" onsubmit="savePayment(event)" class="profile-form">
+          <div class="form-group">
+            <label for="cardHolderInput">Name on Card</label>
+            <input type="text" id="cardHolderInput" class="form-control" placeholder="e.g. Muhammad Saad" required>
+          </div>
+          <div class="form-group">
+            <label for="cardNumberInput">Card Number</label>
+            <input type="text" id="cardNumberInput" class="form-control" placeholder="1234 5678 1234 5678" maxlength="19" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label for="expiryInput">Expiry (MM/YY)</label>
+              <input type="text" id="expiryInput" class="form-control" placeholder="MM/YY" maxlength="5" required>
+            </div>
+            <div class="form-group col-half">
+              <label for="cvvInput">CVV</label>
+              <input type="password" id="cvvInput" class="form-control" placeholder="•••" maxlength="3" required>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Add Card</button>
+            <button type="button" class="btn-outline" onclick="cancelAddPayment()">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Section: Order History -->
+      <section class="profile-section">
+        <div class="section-header">
+          <h3>Order History</h3>
+        </div>
+        <div class="table-wrapper">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Date</th>
+                <th>Items Ordered</th>
+                <th>Status</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (orders && orders.length > 0) { %>
+                <% orders.forEach(order => { %>
+                  <tr>
+                    <td class="order-id-cell">#<%= order.id %></td>
+                    <td><%= order.date %></td>
+                    <td class="order-items-cell"><%= order.items %></td>
+                    <td>
+                      <span class="status-badge <%= order.status.toLowerCase() %>">
+                        <%= order.status %>
+                      </span>
+                    </td>
+                    <td class="order-total-cell">Rs <%= order.total.toLocaleString() %></td>
+                  </tr>
+                <% }); %>
+              <% } else { %>
+                <tr>
+                  <td colspan="5" class="empty-orders-cell">No order history found.</td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section: Security -->
+      <section class="profile-section" id="securitySection">
+        <div class="section-header">
+          <h3>Security & Account Actions</h3>
+        </div>
+        <div class="security-box">
+          <div class="security-action-row">
+            <div class="security-info">
+              <strong class="security-title">Password</strong>
+              <p class="security-desc">Last updated 3 months ago</p>
+            </div>
+            <button class="btn-outline" onclick="openPasswordEdit()">Change Password</button>
+          </div>
+          <hr class="security-divider">
+          <div class="security-action-row">
+            <div class="security-info">
+              <strong class="security-title">Account Session</strong>
+              <p class="security-desc">Logout of your account on this device</p>
+            </div>
+            <button class="btn-danger" onclick="handleLogout()">Logout</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Change Password (Hidden by default) -->
+      <section class="profile-section" id="changePassword" style="display: none;">
+        <div class="section-header">
+          <h3>Change Password</h3>
+        </div>
+        <form id="changePasswordForm" onsubmit="savePassword(event)" class="profile-form">
+          <div class="form-group">
+            <label for="currentPasswordInput">Current Password</label>
+            <input type="password" id="currentPasswordInput" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="newPasswordInput">New Password</label>
+            <input type="password" id="newPasswordInput" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="confirmPasswordInput">Confirm New Password</label>
+            <input type="password" id="confirmPasswordInput" class="form-control" required>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Update Password</button>
+            <button type="button" class="btn-outline" onclick="cancelPasswordEdit()">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Custom Page Scripts -->
+<script src="/js/profile.js"></script>
+
+<%- include('partials/footer') %>

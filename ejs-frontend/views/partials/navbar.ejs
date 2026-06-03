@@ -2,7 +2,7 @@
   <!-- --- TOP ROW --- -->
   <div class="navbar-top">
     <!-- Mobile Profile Icon (Visible only on mobile, Left side) -->
-    <button class="icon-btn mobile-only" aria-label="Profile">
+    <button class="icon-btn mobile-only" aria-label="Profile" onclick="window.location.href='/profile'">
       <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
         <circle cx="12" cy="7" r="4"></circle>
@@ -45,9 +45,9 @@
 
         <div class="profile-dropdown">
           <ul>
-            <li>Profile</li>
-            <li>Help Center</li>
-            <li class="logout-item">Logout</li>
+            <li onclick="window.location.href='/profile'">Profile</li>
+            <li onclick="window.location.href='#'">Help Center</li>
+            <li class="logout-item" onclick="alert('Logged out (Mock)')">Logout</li>
           </ul>
         </div>
       </div>
