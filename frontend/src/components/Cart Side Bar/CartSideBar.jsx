@@ -1,8 +1,10 @@
 import "./CartSidebar.css";
 import { useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import { CartContext } from "../Context/CartContext";
 
 function CartSidebar({ isOpen, onClose }) {
+    const navigate = useNavigate();
     const {
         cartItems,
         increaseQuantity,
@@ -120,7 +122,14 @@ function CartSidebar({ isOpen, onClose }) {
                         <span>Rs {total}</span>
                     </div>
 
-                    <button className="checkout-btn">
+                    <button 
+                        className="checkout-btn"
+                        disabled={cartItems.length === 0}
+                        onClick={() => {
+                            navigate('/checkout');
+                            onClose();
+                        }}
+                    >
                         Proceed To Checkout
                     </button>
 

@@ -1,6 +1,16 @@
 const express = require('express');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 
@@ -182,6 +192,52 @@ app.get('/profile', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+app.get('/checkout', (req, res) => {
+  res.render('checkout', {
+    userName: "Muhammad Saad",
+    page: 'checkout'
+  });
+});
+
+app.get('/orders', (req, res) => {
+  res.render('orders', {
+    userName: "Muhammad Saad",
+    page: 'orders'
+  });
+});
+
+app.get('/track-order/:orderId', (req, res) => {
+  res.render('track-order', {
+    userName: "Muhammad Saad",
+    orderId: req.params.orderId,
+    page: 'track-order'
+  });
+});
+
+// Socket.IO event handler
+io.on('connection', (socket) => {
+  console.log(`⚡ User connected to ejs-frontend Socket: ${socket.id}`);
+
+  socket.on('join_room', (orderId) => {
+    socket.join(orderId);
+    console.log(`👤 User joined Order Room: ${orderId}`);
+  });
+
+  socket.on('send_message', (data) => {
+    // Broadcast received message to everyone in the room
+    io.to(data.orderId).emit('receive_message', data);
+  });
+
+  socket.on('update_location', (data) => {
+    // Broadcast rider coordinates to everyone in the room
+    io.to(data.orderId).emit('location_updated', data.coordinates);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔴 User disconnected: ${socket.id}`);
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
 });

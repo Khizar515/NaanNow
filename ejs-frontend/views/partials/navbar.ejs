@@ -110,11 +110,14 @@
   <!-- --- BOTTOM ROW --- -->
   <div class="navbar-bottom">
     <div class="nav-tabs">
-      <button class="tab active">
+      <button class="tab <%= (typeof page !== 'undefined' && page === 'home') ? 'active' : '' %>" onclick="window.location.href='/'">
         <span class="tab-icon">🛵</span> <span class="tab-text">Delivery</span>
       </button>
-      <button class="tab">
+      <button class="tab" onclick="window.location.href='/'">
         <span class="tab-icon">🏪</span> <span class="tab-text">Shops</span>
+      </button>
+      <button class="tab <%= (typeof page !== 'undefined' && page === 'orders') ? 'active' : '' %>" onclick="window.location.href='/orders'">
+        <span class="tab-icon">📋</span> <span class="tab-text">Order</span>
       </button>
     </div>
 

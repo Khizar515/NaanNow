@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCuisineFilters();
   initFavorites();
   initCart();
+  filterRestaurants();
   
   // --- NAVBAR SCROLL BEHAVIOR ---
   function initScrollNav() {

@@ -4,6 +4,7 @@ import Navbar from './components/Navbar/Navbar';
 import CartSidebar from './components/Cart Side bar/CartSidebar';
 import HomePage from './pages/HomePage/HomePage';
 import FavoritesPage from './pages/FavoritesPage/FavoritesPage';
+import CheckoutPage from './pages/CheckoutPage/CheckoutPage';
 import './index.css'; // The CSS file for the layout below
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
         </Routes>
       </div>
     </Router>
