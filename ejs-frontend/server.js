@@ -21,6 +21,50 @@ app.set('views', path.join(__dirname, 'views'));
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Parse JSON and urlencoded request bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Custom lightweight cookie parser middleware
+app.use((req, res, next) => {
+  const cookieHeader = req.headers.cookie || '';
+  const cookies = {};
+  cookieHeader.split(';').forEach(cookie => {
+    let [name, ...rest] = cookie.split('=');
+    name = name.trim();
+    if (!name) return;
+    const value = rest.join('=');
+    try {
+      cookies[name] = decodeURIComponent(value);
+    } catch {
+      cookies[name] = value;
+    }
+  });
+  req.cookies = cookies;
+
+  req.currentUser = null;
+  if (cookies.user) {
+    try {
+      req.currentUser = JSON.parse(cookies.user);
+    } catch (e) {
+      req.currentUser = null;
+    }
+  }
+  
+  res.locals.currentUser = req.currentUser;
+  res.locals.userName = req.currentUser ? req.currentUser.name : null;
+  res.locals.userRole = req.currentUser ? req.currentUser.role : null;
+  next();
+});
+
+// Middleware to protect routes that require authentication
+const requireAuth = (req, res, next) => {
+  if (!req.currentUser) {
+    return res.redirect('/login');
+  }
+  next();
+};
+
 // Mock data to match original React app
 const TOP_RESTAURANTS = [
   {
@@ -140,7 +184,7 @@ app.get('/', (req, res) => {
     restaurants: TOP_RESTAURANTS,
     cuisines: CUISINES,
     categories: ALL_CATEGORIES,
-    userName: "Muhammad Saad",
+    userName: req.currentUser ? req.currentUser.name : null,
     page: 'home'
   });
 });
@@ -150,12 +194,58 @@ app.get('/favorites', (req, res) => {
     restaurants: TOP_RESTAURANTS,
     cuisines: CUISINES,
     categories: ALL_CATEGORIES,
-    userName: "Muhammad Saad",
+    userName: req.currentUser ? req.currentUser.name : null,
     page: 'favorites'
   });
 });
 
-app.get('/profile', (req, res) => {
+app.get('/login', (req, res) => {
+  if (req.currentUser) {
+    return res.redirect('/');
+  }
+  res.render('login', { page: 'login' });
+});
+
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+
+  // Demonstration: simulate search or user creation based on email
+  const namePart = email.split('@')[0];
+  const name = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+  const user = { name, email, role: 'user' };
+
+  res.cookie('user', JSON.stringify(user), { maxAge: 86400000, path: '/' });
+  res.json({ success: true, redirect: '/' });
+});
+
+app.get('/register', (req, res) => {
+  if (req.currentUser) {
+    return res.redirect('/');
+  }
+  res.render('register', { page: 'register' });
+});
+
+app.post('/register', (req, res) => {
+  const { name, email, password, role } = req.body;
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
+
+  const user = { name, email, role };
+
+  res.cookie('user', JSON.stringify(user), { maxAge: 86400000, path: '/' });
+  res.json({ success: true, redirect: '/' });
+});
+
+app.get('/logout', (req, res) => {
+  res.clearCookie('user', { path: '/' });
+  res.redirect('/');
+});
+
+app.get('/profile', requireAuth, (req, res) => {
   const mockOrders = [
     {
       id: "NN-4921",
@@ -181,8 +271,8 @@ app.get('/profile', (req, res) => {
   ];
 
   res.render('profile', {
-    userName: "Muhammad Saad",
-    userEmail: "saad@example.com",
+    userName: req.currentUser.name,
+    userEmail: req.currentUser.email,
     userPhone: "+92 300 1234567",
     userMemberSince: "October 2024",
     userAddress: "House 45, Street 11, F-11/1, Islamabad",
@@ -192,23 +282,23 @@ app.get('/profile', (req, res) => {
   });
 });
 
-app.get('/checkout', (req, res) => {
+app.get('/checkout', requireAuth, (req, res) => {
   res.render('checkout', {
-    userName: "Muhammad Saad",
+    userName: req.currentUser.name,
     page: 'checkout'
   });
 });
 
-app.get('/orders', (req, res) => {
+app.get('/orders', requireAuth, (req, res) => {
   res.render('orders', {
-    userName: "Muhammad Saad",
+    userName: req.currentUser.name,
     page: 'orders'
   });
 });
 
-app.get('/track-order/:orderId', (req, res) => {
+app.get('/track-order/:orderId', requireAuth, (req, res) => {
   res.render('track-order', {
-    userName: "Muhammad Saad",
+    userName: req.currentUser.name,
     orderId: req.params.orderId,
     page: 'track-order'
   });

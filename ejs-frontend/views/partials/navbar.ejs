@@ -2,7 +2,7 @@
   <!-- --- TOP ROW --- -->
   <div class="navbar-top">
     <!-- Mobile Profile Icon (Visible only on mobile, Left side) -->
-    <button class="icon-btn mobile-only" aria-label="Profile" onclick="window.location.href='/profile'">
+    <button class="icon-btn mobile-only" aria-label="Profile" onclick="window.location.href='<%= userName ? '/profile' : '/login' %>'">
       <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
         <circle cx="12" cy="7" r="4"></circle>
@@ -31,26 +31,37 @@
     <!-- User Actions -->
     <div class="nav-user-actions">
       <!-- Desktop Profile Dropdown -->
-      <div class="profile-menu-container desktop-only">
-        <button class="action-btn">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-          <%= userName %>
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="chevron-icon-profile">
-            <path d="M6 9l6 6 6-6"></path>
-          </svg>
-        </button>
+      <% if (userName) { %>
+        <div class="profile-menu-container desktop-only">
+          <button class="action-btn">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <%= userName %>
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="chevron-icon-profile">
+              <path d="M6 9l6 6 6-6"></path>
+            </svg>
+          </button>
 
-        <div class="profile-dropdown">
-          <ul>
-            <li onclick="window.location.href='/profile'">Profile</li>
-            <li onclick="window.location.href='#'">Help Center</li>
-            <li class="logout-item" onclick="alert('Logged out (Mock)')">Logout</li>
-          </ul>
+          <div class="profile-dropdown">
+            <ul>
+              <li onclick="window.location.href='/profile'">Profile</li>
+              <li onclick="window.location.href='#'">Help Center</li>
+              <li class="logout-item" onclick="window.location.href='/logout'">Logout</li>
+            </ul>
+          </div>
         </div>
-      </div>
+      <% } else { %>
+        <div class="desktop-only" style="display: flex; gap: 12px; align-items: center; margin-right: 10px;">
+          <button class="action-btn" onclick="window.location.href='/login'">
+            Sign In
+          </button>
+          <button class="action-btn" onclick="window.location.href='/register'" style="background: var(--color-tandoori); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 10px rgba(229,121,25,0.2);">
+            Register
+          </button>
+        </div>
+      <% } %>
 
       <button class="action-btn desktop-only">
         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
