@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let riderMarker = null;
   let routePolyline = null;
   let simulationInterval = null;
+  let simulationTimers = [];
+  let isLiveRider = false;
   let countdownVal = 25;
   let unreadCount = 0;
   let isChatScrolledToBottom = true;
@@ -198,9 +200,26 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('location_updated', (coordinates) => {
       // coordinates = [lat, lng]
       if (riderMarker && coordinates) {
+        isLiveRider = true;
+        cancelOfflineSimulation();
         riderMarker.setLatLng(coordinates);
         // smooth pan map to rider
         map.panTo(coordinates);
+      }
+    });
+
+    // Live order status updates
+    socket.on('status_updated', (data) => {
+      if (data.orderId === orderId) {
+        isLiveRider = true;
+        cancelOfflineSimulation();
+        updateTimelineStage(data.stageId, data.timeStr);
+        if (data.stageId === 'ontheway') {
+          infoCountdown.textContent = `${data.countdown} mins`;
+        } else if (data.stageId === 'delivered') {
+          infoCountdown.textContent = "Arrived!";
+          riderMarker.bindPopup("<b>Rider Arrived!</b>").openPopup();
+        }
       }
     });
 
@@ -289,8 +308,20 @@ document.addEventListener('DOMContentLoaded', () => {
     chatMsgContainer.scrollTop = chatMsgContainer.scrollHeight;
   }
 
+  function cancelOfflineSimulation() {
+    if (simulationInterval) {
+      clearInterval(simulationInterval);
+      simulationInterval = null;
+    }
+    simulationTimers.forEach(t => clearTimeout(t));
+    simulationTimers = [];
+  }
+
   // --- 9. ORDER TIMELINE & LOCATION UPDATES SIMULATION ---
   function startTrackingTimelineSimulation() {
+    // If a live rider is already handling the order, don't start the offline simulation
+    if (isLiveRider) return;
+
     // Current timings
     const now = new Date();
     const getFormattedTime = (offsetSecs) => {
@@ -303,18 +334,23 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTimelineStage('placed', getFormattedTime(0));
 
     // Stage 2: Preparing (after 4 seconds)
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
+      if (isLiveRider) return;
       updateTimelineStage('preparing', getFormattedTime(0));
       appendMessage(riderMock.name, "Salam! I'm your NaanNow rider. I've arrived at the kitchen and they are wrapping up baking your order. I will update you as soon as I pick it up! 👍", 'incoming');
     }, 4500);
+    simulationTimers.push(t2);
 
     // Stage 3: Rider Assigned (after 12 seconds)
-    setTimeout(() => {
+    const t3 = setTimeout(() => {
+      if (isLiveRider) return;
       updateTimelineStage('assigned', getFormattedTime(0));
     }, 12000);
+    simulationTimers.push(t3);
 
     // Stage 4: On The Way & Move Rider (after 18 seconds)
-    setTimeout(() => {
+    const t4 = setTimeout(() => {
+      if (isLiveRider) return;
       updateTimelineStage('ontheway', getFormattedTime(0));
       appendMessage(riderMock.name, "Hot Naans are packed in the thermal box! I'm leaving the restaurant now and heading towards your location. 🛵🔥", 'incoming');
       
@@ -324,6 +360,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Movement updates every 6 seconds
       simulationInterval = setInterval(() => {
+        if (isLiveRider) {
+          clearInterval(simulationInterval);
+          return;
+        }
         stepIndex++;
         if (stepIndex < routePoints.length) {
           const newCoords = routePoints[stepIndex];
@@ -361,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 7000);
 
     }, 18000);
+    simulationTimers.push(t4);
   }
 
   function updateTimelineStage(stageId, timeStr) {

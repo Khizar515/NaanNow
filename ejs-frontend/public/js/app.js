@@ -370,6 +370,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // Global Event Delegation for dynamic Add to Cart buttons
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.add-to-cart-btn');
+      if (btn) {
+        e.preventDefault();
+        const id = parseInt(btn.dataset.id);
+        const name = btn.dataset.name;
+        const price = parseInt(btn.dataset.price);
+        const image = btn.dataset.image;
+        addToCart({ id, name, price, image });
+      }
+    });
+
     // Initialize/Render
     renderCart();
   }

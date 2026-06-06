@@ -74,10 +74,16 @@ const TOP_RESTAURANTS = [
     rating: 4.8,
     deliveryTime: "20-30 min",
     deliveryFee: "Free Delivery",
-    image: "/assets/gourmet.jpg", // We will use generic but premium Unsplash images in client or direct links
+    image: "/assets/gourmet.jpg",
     rawImage: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&auto=format&fit=crop&q=60",
     isSuper: true,
-    deal: "20% OFF"
+    deal: "20% OFF",
+    menu: [
+      { id: 101, name: "Gourmet Beef Burger", description: "Juicy prime beef patty, melted cheddar, lettuce, caramelized onions, house sauce on brioche bun.", price: 650, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60", category: "Burgers" },
+      { id: 102, name: "Alfredo Pasta", description: "Fettuccine pasta in rich creamy parmesan alfredo sauce topped with grilled chicken breast.", price: 790, image: "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=500&auto=format&fit=crop&q=60", category: "Mains" },
+      { id: 103, name: "Club Sandwich", description: "Classic triple-decker sandwich with chicken, egg, cheese, lettuce, tomato and signature spread.", price: 580, image: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500&auto=format&fit=crop&q=60", category: "Snacks" },
+      { id: 104, name: "Loaded Fries", description: "Crispy skin-on fries topped with cheese sauce, diced jalapenos, bacon bits and spring onion.", price: 390, image: "https://images.unsplash.com/photo-1585109649139-366815a0d713?w=500&auto=format&fit=crop&q=60", category: "Snacks" }
+    ]
   },
   {
     id: 2,
@@ -88,7 +94,13 @@ const TOP_RESTAURANTS = [
     deliveryFee: "$1.50 Delivery",
     rawImage: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=500&auto=format&fit=crop&q=60",
     isSuper: false,
-    deal: "Free Item on $15+"
+    deal: "Free Item on $15+",
+    menu: [
+      { id: 201, name: "Chicken Biryani", description: "Fragrant basmati rice layered with spiced marinated chicken, cooked in authentic dum style.", price: 450, image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&auto=format&fit=crop&q=60", category: "Desi" },
+      { id: 202, name: "Garlic Naan", description: "Soft, leavened clay oven bread brushed with garlic butter and fresh coriander.", price: 150, image: "https://images.unsplash.com/photo-1601050690597-df056fb4ce78?w=500&auto=format&fit=crop&q=60", category: "Naan" },
+      { id: 203, name: "Chicken Karahi", description: "Bone-in chicken cooked with fresh tomatoes, ginger, garlic, and special spices in a karahi.", price: 1250, image: "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?w=500&auto=format&fit=crop&q=60", category: "Karahi" },
+      { id: 204, name: "Beef Seekh Kebab", description: "Minced beef blended with fresh herbs and spices, grilled to perfection on skewers.", price: 620, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60", category: "BBQ" }
+    ]
   },
   {
     id: 3,
@@ -99,7 +111,13 @@ const TOP_RESTAURANTS = [
     deliveryFee: "Free Delivery",
     rawImage: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&auto=format&fit=crop&q=60",
     isSuper: true,
-    deal: null
+    deal: null,
+    menu: [
+      { id: 301, name: "Caramel Macchiato", description: "Freshly steamed milk with vanilla-flavored syrup marked with espresso and caramel drizzle.", price: 480, image: "https://images.unsplash.com/photo-1541167760496-1628856ab772?w=500&auto=format&fit=crop&q=60", category: "Beverages" },
+      { id: 302, name: "Chocolate Fudge Cake", description: "Rich, moist chocolate cake with layers of decadent chocolate fudge icing.", price: 350, image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=60", category: "Bakery" },
+      { id: 303, name: "Cinnamon Roll", description: "Warm, soft dough roll filled with sweet cinnamon sugar and topped with cream cheese glaze.", price: 280, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop&q=60", category: "Bakery" },
+      { id: 304, name: "Flat White", description: "Espresso with microfoam poured over it, yielding a silky texture and strong coffee taste.", price: 420, image: "https://images.unsplash.com/photo-1577968897966-3d4325b36b61?w=500&auto=format&fit=crop&q=60", category: "Beverages" }
+    ]
   },
   {
     id: 4,
@@ -110,7 +128,13 @@ const TOP_RESTAURANTS = [
     deliveryFee: "$2.00 Delivery",
     rawImage: "https://images.unsplash.com/photo-1525755662778-989d0524087e?w=500&auto=format&fit=crop&q=60",
     isSuper: false,
-    deal: "10% OFF"
+    deal: "10% OFF",
+    menu: [
+      { id: 401, name: "Kung Pao Chicken", description: "Szechuan-style chicken stir-fry with peanuts, chili peppers and vegetables in sweet-savory sauce.", price: 850, image: "https://images.unsplash.com/photo-1525755662778-989d0524087e?w=500&auto=format&fit=crop&q=60", category: "Chinese" },
+      { id: 402, name: "Chicken Chow Mein", description: "Stir-fried noodles with shredded chicken, cabbage, carrots, onion and seasoned soy sauce.", price: 720, image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=500&auto=format&fit=crop&q=60", category: "Chinese" },
+      { id: 403, name: "Spring Rolls (4 Pcs)", description: "Crispy rolls filled with seasoned mixed vegetables and transparent glass noodles.", price: 250, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60", category: "Chinese" },
+      { id: 404, name: "Egg Fried Rice", description: "Fluffy jasmine rice wok-tossed with scrambled eggs, scallions and soy seasoning.", price: 450, image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=500&auto=format&fit=crop&q=60", category: "Chinese" }
+    ]
   },
   {
     id: 5,
@@ -121,7 +145,13 @@ const TOP_RESTAURANTS = [
     deliveryFee: "$2.00 Delivery",
     rawImage: "https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?q=80&w=1167&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     isSuper: true,
-    deal: "15% OFF"
+    deal: "15% OFF",
+    menu: [
+      { id: 501, name: "Zinger Burger", description: "Signature crispy fried chicken fillet topped with spicy mayo and fresh lettuce in sesame bun.", price: 550, image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500&auto=format&fit=crop&q=60", category: "Burgers" },
+      { id: 502, name: "Krunch Burger", description: "Crispy chicken patty with classic burger sauce and shredded lettuce.", price: 320, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60", category: "Burgers" },
+      { id: 503, name: "Hot Shots (9 Pcs)", description: "Bite-sized chicken nuggets, coated in a spicy, crunchy batter and deep-fried.", price: 490, image: "https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?w=500&auto=format&fit=crop&q=60", category: "Snacks" },
+      { id: 504, name: "Dinner Roll", description: "Soft, fresh, oven-baked roll - perfect side companion.", price: 80, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop&q=60", category: "Snacks" }
+    ]
   },
   {
     id: 6,
@@ -132,7 +162,13 @@ const TOP_RESTAURANTS = [
     deliveryFee: "$2.00 Delivery",
     rawImage: "https://images.unsplash.com/photo-1619881589670-43629f0e90f1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG1jZG9uYWxkfGVufDB8fDB8fHww",
     isSuper: true,
-    deal: "10% OFF"
+    deal: "10% OFF",
+    menu: [
+      { id: 601, name: "McSpicy Burger", description: "Spicy chicken breast fillet, crispy lettuce and creamy mayonnaise on toasted sesame seed bun.", price: 620, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60", category: "Burgers" },
+      { id: 602, name: "Big Mac", description: "Two 100% pure beef patties, special sauce, lettuce, cheese, pickles, onions on sesame bun.", price: 750, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60", category: "Burgers" },
+      { id: 603, name: "Large Fries", description: "World-famous french fries, hot, crispy, salted and golden.", price: 350, image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&auto=format&fit=crop&q=60", category: "Snacks" },
+      { id: 604, name: "Apple Pie", description: "Turnover pie with a warm apple filling in a flaky, crispy golden crust.", price: 250, image: "https://images.unsplash.com/photo-1519869325930-281384150729?w=500&auto=format&fit=crop&q=60", category: "Desserts" }
+    ]
   }
 ];
 
@@ -282,6 +318,19 @@ app.get('/profile', requireAuth, (req, res) => {
   });
 });
 
+app.get('/restaurant/:id', (req, res) => {
+  const restaurantId = parseInt(req.params.id);
+  const restaurant = TOP_RESTAURANTS.find(r => r.id === restaurantId);
+  if (!restaurant) {
+    return res.redirect('/');
+  }
+  res.render('restaurant', {
+    restaurant,
+    userName: req.currentUser ? req.currentUser.name : null,
+    page: 'restaurant'
+  });
+});
+
 app.get('/checkout', requireAuth, (req, res) => {
   res.render('checkout', {
     userName: req.currentUser.name,
@@ -304,6 +353,21 @@ app.get('/track-order/:orderId', requireAuth, (req, res) => {
   });
 });
 
+app.get('/rider', (req, res) => {
+  res.render('rider/dashboard', {
+    userName: req.currentUser ? req.currentUser.name : null,
+    page: 'rider'
+  });
+});
+
+app.get('/rider/deliver/:orderId', (req, res) => {
+  res.render('rider/deliver', {
+    orderId: req.params.orderId,
+    userName: req.currentUser ? req.currentUser.name : null,
+    page: 'rider'
+  });
+});
+
 // Socket.IO event handler
 io.on('connection', (socket) => {
   console.log(`⚡ User connected to ejs-frontend Socket: ${socket.id}`);
@@ -321,6 +385,11 @@ io.on('connection', (socket) => {
   socket.on('update_location', (data) => {
     // Broadcast rider coordinates to everyone in the room
     io.to(data.orderId).emit('location_updated', data.coordinates);
+  });
+
+  socket.on('update_status', (data) => {
+    // Broadcast status updates to everyone in the room
+    io.to(data.orderId).emit('status_updated', data);
   });
 
   socket.on('disconnect', () => {

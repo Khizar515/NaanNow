@@ -11,7 +11,8 @@
 <div class="restaurant-grid">
   <% restaurants.forEach(restaurant=> { %>
     <div class="restaurant-card" data-id="<%= restaurant.id %>" data-cuisine="<%= restaurant.cuisine %>"
-      style="<%= page === 'favorites' ? 'display: none;' : '' %>">
+      style="<%= page === 'favorites' ? 'display: none;' : '' %>"
+      onclick="if (!event.target.closest('.wishlist-btn')) window.location.href='/restaurant/<%= restaurant.id %>';">
       <div class="card-image-wrapper">
         <img src="<%= restaurant.rawImage %>" alt="<%= restaurant.name %>" class="restaurant-img" />
 

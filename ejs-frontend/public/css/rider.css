@@ -1,0 +1,434 @@
+/* Rider Portal Styling (Cohesive Warm Theme) */
+
+body.rider-theme {
+  background-color: #FAFAF5;
+  color: var(--color-roasted);
+}
+
+.rider-theme :root {
+  --color-tandoori: #E57919;
+  --color-roasted: #4F2E1D;
+  --color-dough: #FAFAF5;
+}
+
+.rider-container {
+  max-width: 1400px;
+  width: 90%;
+  margin: 0 auto;
+  padding: 40px 0 80px 0;
+  font-family: 'Poppins', sans-serif;
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header styling */
+.rider-header-block {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  border-bottom: 1.5px solid rgba(79, 46, 29, 0.08);
+  padding-bottom: 20px;
+}
+
+.rider-header-block h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-roasted);
+}
+
+.rider-badge {
+  background-color: rgba(229, 121, 25, 0.15);
+  border: 1px solid var(--color-tandoori);
+  color: var(--color-tandoori);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+/* Queue grid */
+.orders-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.no-orders-box {
+  background-color: #ffffff;
+  border: 1px solid rgba(79, 46, 29, 0.08);
+  border-radius: 20px;
+  padding: 60px 40px;
+  text-align: center;
+  width: 100%;
+  grid-column: 1 / -1;
+  box-shadow: 0 4px 16px rgba(79, 46, 29, 0.02);
+}
+
+.no-orders-box span {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.no-orders-box h3 {
+  font-size: 1.35rem;
+  margin-bottom: 8px;
+  color: var(--color-roasted);
+}
+
+.no-orders-box p {
+  color: rgba(79, 46, 29, 0.6);
+  font-size: 0.95rem;
+}
+
+/* Order Queue Card */
+.order-queue-card {
+  background-color: #ffffff;
+  border: 1.5px solid rgba(79, 46, 29, 0.08);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(79, 46, 29, 0.02);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.order-queue-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(229, 121, 25, 0.4);
+  box-shadow: 0 10px 25px rgba(229, 121, 25, 0.08);
+}
+
+.queue-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(79, 46, 29, 0.08);
+  padding-bottom: 12px;
+}
+
+.queue-card-id {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-roasted);
+}
+
+.queue-card-date {
+  font-size: 0.85rem;
+  color: rgba(79, 46, 29, 0.6);
+}
+
+.queue-card-body {
+  margin-bottom: 24px;
+}
+
+.queue-meta-row {
+  display: flex;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.queue-meta-row strong {
+  width: 90px;
+  color: rgba(79, 46, 29, 0.6);
+  flex-shrink: 0;
+}
+
+.queue-meta-row span {
+  color: var(--color-roasted);
+}
+
+.queue-card-action-btn {
+  width: 100%;
+  background-color: var(--color-tandoori);
+  color: white;
+  border: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(229, 121, 25, 0.2);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.queue-card-action-btn:hover {
+  background-color: #cf6710;
+  box-shadow: 0 6px 20px rgba(229, 121, 25, 0.3);
+}
+
+/* RIDER WORKSPACE (rider-deliver.ejs) */
+.rider-workspace-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr 340px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .rider-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card layout wrapper */
+.rider-card {
+  background-color: #ffffff;
+  border: 1.5px solid rgba(79, 46, 29, 0.08);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(79, 46, 29, 0.02);
+  margin-bottom: 24px;
+  color: var(--color-roasted);
+}
+
+.rider-card h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--color-roasted);
+  border-left: 3.5px solid var(--color-tandoori);
+  padding-left: 10px;
+}
+
+/* Status control controls */
+.rider-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rider-status-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background-color: rgba(79, 46, 29, 0.02);
+  border: 1px solid rgba(79, 46, 29, 0.05);
+  color: rgba(79, 46, 29, 0.6);
+  font-size: 0.9rem;
+}
+
+.rider-status-step.completed {
+  background-color: rgba(92, 161, 54, 0.08);
+  border-color: rgba(92, 161, 54, 0.15);
+  color: #5CA136;
+  font-weight: 600;
+}
+
+.rider-status-step.active {
+  background-color: rgba(229, 121, 25, 0.08);
+  border-color: rgba(229, 121, 25, 0.15);
+  color: var(--color-tandoori);
+  font-weight: 700;
+}
+
+.status-step-icon {
+  font-size: 1.25rem;
+}
+
+/* Stepper actions button */
+.status-action-btn {
+  width: 100%;
+  background-color: #5CA136;
+  color: white;
+  border: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(92, 161, 54, 0.2);
+  transition: all 0.25s ease;
+  margin-top: 10px;
+}
+
+.status-action-btn:hover {
+  background-color: #4b852a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(92, 161, 54, 0.3);
+}
+
+.status-action-btn.delivering {
+  background-color: var(--color-tandoori);
+  box-shadow: 0 4px 15px rgba(229, 121, 25, 0.2);
+}
+
+.status-action-btn.delivering:hover {
+  background-color: #cf6710;
+  box-shadow: 0 6px 20px rgba(229, 121, 25, 0.3);
+}
+
+.status-action-btn:disabled {
+  background-color: rgba(79, 46, 29, 0.05);
+  border: 1px solid rgba(79, 46, 29, 0.03);
+  color: rgba(79, 46, 29, 0.4);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Rider Map and simulation button */
+.rider-map-wrapper {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(79, 46, 29, 0.1);
+  margin-bottom: 24px;
+  border: 1px solid rgba(79, 46, 29, 0.08);
+}
+
+#rider-map {
+  width: 100%;
+  height: 480px;
+  background-color: #FAFAF5;
+}
+
+.map-control-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: 90%;
+  max-width: 400px;
+}
+
+.simulate-btn {
+  width: 100%;
+  background-color: var(--color-tandoori);
+  color: white;
+  border: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px 20px;
+  border-radius: 14px;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(229, 121, 25, 0.25);
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.simulate-btn:hover {
+  background-color: #cf6710;
+  transform: scale(1.025);
+}
+
+.simulate-btn:disabled {
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(79, 46, 29, 0.6);
+  cursor: not-allowed;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transform: none;
+  border: 1px solid rgba(79, 46, 29, 0.08);
+}
+
+.sim-running-dots::after {
+  content: '...';
+  display: inline-block;
+  width: 15px;
+  text-align: left;
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+
+/* Chat Panel */
+.rider-chat-msg-log {
+  height: 300px;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: rgba(0, 0, 0, 0.01);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(79, 46, 29, 0.08);
+}
+
+.rider-chat-msg-log::-webkit-scrollbar {
+  width: 5px;
+}
+.rider-chat-msg-log::-webkit-scrollbar-thumb {
+  background-color: rgba(79, 46, 29, 0.15);
+  border-radius: 10px;
+}
+
+.message-bubble.rider-incoming {
+  align-self: flex-start;
+  background-color: rgba(79, 46, 29, 0.08);
+  color: var(--color-roasted);
+  border-bottom-left-radius: 4px;
+}
+
+.message-bubble.rider-outgoing {
+  align-self: flex-end;
+  background-color: var(--color-tandoori);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+/* Customer details card row */
+.detail-info-row {
+  display: flex;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.detail-info-row strong {
+  width: 90px;
+  flex-shrink: 0;
+  color: rgba(79, 46, 29, 0.6);
+}
+
+.detail-info-row span {
+  color: var(--color-roasted);
+}
+
+/* Map pin overrides */
+.leaflet-container {
+  font-family: 'Poppins', sans-serif !important;
+}
+
+.custom-restaurant-icon-pin div,
+.custom-customer-icon-pin div,
+.custom-rider-icon-pin div {
+  animation: pulsePin 2s infinite;
+}
+
+@keyframes pulsePin {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
