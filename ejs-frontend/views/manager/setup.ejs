@@ -1,0 +1,101 @@
+<%- include('../partials/manager-head') %>
+
+  <!-- setup.ejs -->
+  <div class="setup-layout-container">
+    <div class="setup-form-card">
+      <!-- Brand Header -->
+      <div class="setup-card-header">
+        <img src="/assets/logo-removebg.png" alt="NaanNow Logo" class="setup-header-logo">
+        <h3 class="setup-header-title">Restaurant Profile Setup</h3>
+        <p class="setup-header-subtitle">Tell us about your restaurant to access your dashboard</p>
+      </div>
+
+      <div class="setup-card-body">
+        <form id="setupForm" class="portal-form" novalidate>
+
+          <!-- Logo Upload -->
+          <div class="form-group mb-4">
+            <label class="portal-form-label">Restaurant Logo</label>
+            <div class="portal-upload-zone" onclick="document.getElementById('logoInput').click()">
+              <div id="defaultPlaceholder" class="upload-placeholder">
+                <i class="bi bi-cloud-arrow-up upload-icon"></i>
+                <p class="upload-prompt">Click to upload logo image</p>
+                <p class="upload-help">Supports JPG, PNG (Recommended 1:1 ratio)</p>
+              </div>
+              <div id="previewWrapper" class="upload-preview-wrapper d-none">
+                <img id="logoPreview" src="#" alt="Logo Preview" class="upload-preview-image">
+                <p class="upload-success-text"><i class="bi bi-check-circle-fill"></i> Logo Ready</p>
+              </div>
+              <input type="file" id="logoInput" class="d-none" accept="image/*">
+            </div>
+          </div>
+
+          <!-- Restaurant Name -->
+          <div class="form-group">
+            <label for="restaurantName" class="portal-form-label">Restaurant Name</label>
+            <div class="portal-input-group">
+              <span class="input-group-icon"><i class="bi bi-shop"></i></span>
+              <input type="text" class="portal-input" id="restaurantName"
+                placeholder="e.g. The Naan Factory" required>
+            </div>
+          </div>
+
+          <!-- Phone Number -->
+          <div class="form-group">
+            <label for="restaurantPhone" class="portal-form-label">Phone Number</label>
+            <div class="portal-input-group">
+              <span class="input-group-icon"><i class="bi bi-telephone"></i></span>
+              <input type="tel" class="portal-input" id="restaurantPhone"
+                placeholder="e.g. +92 300 1234567" required>
+            </div>
+          </div>
+
+          <!-- Address -->
+          <div class="form-group">
+            <label for="restaurantAddress" class="portal-form-label">Address</label>
+            <div class="portal-input-group">
+              <span class="input-group-icon"><i class="bi bi-geo-alt"></i></span>
+              <input type="text" class="portal-input" id="restaurantAddress"
+                placeholder="e.g. Shop 4, F-11 Markaz, Islamabad" required>
+            </div>
+          </div>
+
+          <!-- Location Area -->
+          <div class="form-group">
+            <label for="restaurantLocation" class="portal-form-label">Delivery Location Area</label>
+            <div class="portal-input-group">
+              <span class="input-group-icon"><i class="bi bi-map"></i></span>
+              <input type="text" class="portal-input" id="restaurantLocation"
+                placeholder="e.g. F-11 & G-11, Islamabad" required>
+            </div>
+          </div>
+
+          <!-- Opening and Closing times -->
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label for="openingTime" class="portal-form-label">Opening Time</label>
+              <div class="portal-input-group">
+                <span class="input-group-icon"><i class="bi bi-clock"></i></span>
+                <input type="time" class="portal-input" id="openingTime" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="closingTime" class="portal-form-label">Closing Time</label>
+              <div class="portal-input-group">
+                <span class="input-group-icon"><i class="bi bi-clock-fill"></i></span>
+                <input type="time" class="portal-input" id="closingTime" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-portal btn-submit-setup">
+            <i class="bi bi-save"></i> Save Information
+          </button>
+
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <%- include('../partials/manager-footer') %>

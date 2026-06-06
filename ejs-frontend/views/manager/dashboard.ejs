@@ -1,0 +1,164 @@
+<%- include('../partials/manager-head') %>
+  <%- include('../partials/manager-navbar') %>
+
+    <!-- dashboard.ejs -->
+    <div class="portal-container">
+      <!-- Profile & Welcome Banner -->
+      <div class="profile-banner-wrapper">
+        <div class="profile-banner">
+          <div class="profile-details-group">
+            <img id="dashboardRestLogo" src="https://placehold.co/200x200/5CA136/FFFFFF?text=Logo"
+              alt="Restaurant Logo" class="profile-logo">
+            <div class="profile-meta">
+              <h1 class="profile-title" id="dashboardRestName">Loading Restaurant...</h1>
+              <p class="profile-contact"><i class="bi bi-geo-alt-fill"></i> <span
+                  id="dashboardRestAddress">Loading Address...</span></p>
+              <p class="profile-contact"><i class="bi bi-telephone-fill"></i> <span
+                  id="dashboardRestPhone">Loading Phone...</span></p>
+            </div>
+          </div>
+          <div class="profile-actions-group">
+            <!-- Live Status Badge -->
+            <div id="restaurantStatusBadge">
+              <span class="portal-badge badge-light">Status Checking...</span>
+            </div>
+            <a href="/manager/setup" class="btn-portal btn-portal-light btn-edit-profile">
+              <i class="bi bi-pencil-square"></i> Edit Profile
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Overview Statistics -->
+      <h4 class="section-title"><i class="bi bi-grid-fill"></i> Performance Overview</h4>
+      
+      <div class="stats-grid">
+        <!-- Stat 1: Total Menu Items -->
+        <div class="stat-card">
+          <div class="stat-content">
+            <h6 class="stat-label">Total Menu Items</h6>
+            <h2 class="stat-value" id="totalItemsCount">0</h2>
+          </div>
+          <div class="stat-icon-wrapper">
+            <i class="bi bi-egg-fried"></i>
+          </div>
+        </div>
+
+        <!-- Stat 2: Active Orders -->
+        <div class="stat-card border-tandoori">
+          <div class="stat-content">
+            <h6 class="stat-label">Active Orders</h6>
+            <h2 class="stat-value">3</h2>
+          </div>
+          <div class="stat-icon-wrapper icon-tandoori">
+            <i class="bi bi-bag-check"></i>
+          </div>
+        </div>
+
+        <!-- Stat 3: Today's Revenue -->
+        <div class="stat-card border-blue">
+          <div class="stat-content">
+            <h6 class="stat-label">Today's Sales</h6>
+            <h2 class="stat-value">Rs. 4,850</h2>
+          </div>
+          <div class="stat-icon-wrapper icon-blue">
+            <i class="bi bi-currency-dollar"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-columns">
+        <!-- Left Column: Quick Actions & Links -->
+        <div class="column-quick-actions">
+          <div class="portal-card h-100">
+            <h5 class="card-title border-bottom pb-2">Quick Actions</h5>
+            <div class="actions-list">
+              <!-- Add New Item Button -->
+              <a href="/manager/menu?add=true" class="btn-portal-action highlight">
+                <span><i class="bi bi-plus-circle"></i> Add New Menu Item</span>
+                <i class="bi bi-chevron-right icon-arrow"></i>
+              </a>
+              <!-- Menu Management Page Button -->
+              <a href="/manager/menu" class="btn-portal-action outline">
+                <span><i class="bi bi-egg-fried"></i> Manage Menu Items</span>
+                <i class="bi bi-chevron-right icon-arrow"></i>
+              </a>
+              <!-- Edit profile settings -->
+              <a href="/manager/setup" class="btn-portal-action secondary">
+                <span><i class="bi bi-gear"></i> Restaurant Profile</span>
+                <i class="bi bi-chevron-right icon-arrow"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Recent Activity Feed (Mocked) -->
+        <div class="column-recent-orders">
+          <div class="portal-card h-100">
+            <div class="card-header-row border-bottom pb-2">
+              <h5 class="card-title">Recent Incoming Orders</h5>
+              <span class="portal-badge badge-live"><i class="bi bi-lightning-fill"></i> Live Orders</span>
+            </div>
+            
+            <div class="table-container">
+              <table class="portal-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Items</th>
+                    <th>Total Price</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Order 1 -->
+                  <tr>
+                    <td class="order-id">#NN-5912</td>
+                    <td>
+                      <span class="item-name">2x Garlic Naan</span>
+                      <span class="item-subtext">1x Chicken Karahi</span>
+                    </td>
+                    <td class="order-total">Rs. 1,550</td>
+                    <td><span class="portal-badge badge-warning"><i class="bi bi-clock"></i> Preparing</span></td>
+                    <td class="text-end">
+                      <button class="btn-portal btn-portal-light btn-table-action"
+                        onclick="alert('Order accepted! Client has been notified.')">Accept</button>
+                    </td>
+                  </tr>
+                  <!-- Order 2 -->
+                  <tr>
+                    <td class="order-id">#NN-5911</td>
+                    <td>
+                      <span class="item-name">3x Roghni Naan</span>
+                      <span class="item-subtext">2x Beef Seekh Kebab</span>
+                    </td>
+                    <td class="order-total">Rs. 1,600</td>
+                    <td><span class="portal-badge badge-warning"><i class="bi bi-clock"></i> Preparing</span></td>
+                    <td class="text-end">
+                      <button class="btn-portal btn-portal-light btn-table-action"
+                        onclick="alert('Order accepted! Client has been notified.')">Accept</button>
+                    </td>
+                  </tr>
+                  <!-- Order 3 -->
+                  <tr>
+                    <td class="order-id">#NN-5908</td>
+                    <td>
+                      <span class="item-name">1x Nutella Naan</span>
+                      <span class="item-subtext">1x Mint Margarita</span>
+                    </td>
+                    <td class="order-total">Rs. 500</td>
+                    <td><span class="portal-badge badge-success"><i class="bi bi-truck"></i> Out for Delivery</span></td>
+                    <td class="text-end">
+                      <button class="btn-portal btn-portal-light btn-table-action" disabled>Dispatched</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%- include('../partials/manager-footer') %>

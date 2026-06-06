@@ -53,6 +53,9 @@
               <% if (typeof userRole !== 'undefined' && userRole === 'rider') { %>
                 <li onclick="window.location.href='/rider'">Rider Portal</li>
               <% } %>
+              <% if (typeof userRole !== 'undefined' && userRole === 'restaurant') { %>
+                <li onclick="window.location.href='/manager'">Manager Portal</li>
+              <% } %>
               <li onclick="window.location.href='#'">Help Center</li>
               <li class="logout-item" onclick="window.location.href='/logout'">Logout</li>
             </ul>

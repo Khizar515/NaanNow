@@ -368,6 +368,32 @@ app.get('/rider/deliver/:orderId', (req, res) => {
   });
 });
 
+app.get('/manager', requireAuth, (req, res) => {
+  res.redirect('/manager/dashboard');
+});
+
+app.get('/manager/setup', requireAuth, (req, res) => {
+  res.render('manager/setup', {
+    userName: req.currentUser.name,
+    page: 'manager-setup'
+  });
+});
+
+app.get('/manager/dashboard', requireAuth, (req, res) => {
+  res.render('manager/dashboard', {
+    userName: req.currentUser.name,
+    page: 'manager-dashboard'
+  });
+});
+
+app.get('/manager/menu', requireAuth, (req, res) => {
+  res.render('manager/menu', {
+    userName: req.currentUser.name,
+    page: 'manager-menu'
+  });
+});
+
+
 // Socket.IO event handler
 io.on('connection', (socket) => {
   console.log(`⚡ User connected to ejs-frontend Socket: ${socket.id}`);
