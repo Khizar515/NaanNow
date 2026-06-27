@@ -1,78 +1,13 @@
 import React, { useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './RestaurantGrid.css';
 import { CartContext } from '../Context/CartContext';
-
-const TOP_RESTAURANTS = [
-  {
-    id: 1,
-    name: "The Gourmet Pavilion",
-    cuisine: "Continental • Burgers",
-    rating: 4.8,
-    deliveryTime: "20-30 min",
-    deliveryFee: "Free Delivery",
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&auto=format&fit=crop&q=60",
-    isSuper: true,
-    deal: "20% OFF"
-  },
-  {
-    id: 2,
-    name: "Tandoori Flames",
-    cuisine: "Biryani • BBQ • Desi",
-    rating: 4.6,
-    deliveryTime: "30-45 min",
-    deliveryFee: "$1.50 Delivery",
-    image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=500&auto=format&fit=crop&q=60",
-    isSuper: false,
-    deal: "Free Item on $15+"
-  },
-  {
-    id: 3,
-    name: "Caffeine & Co.",
-    cuisine: "Beverages • Cakes & Bakery",
-    rating: 4.9,
-    deliveryTime: "15-25 min",
-    deliveryFee: "Free Delivery",
-    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&auto=format&fit=crop&q=60",
-    isSuper: true,
-    deal: null
-  },
-  {
-    id: 4,
-    name: "Wok in the Park",
-    cuisine: "Chinese • Noodles",
-    rating: 4.4,
-    deliveryTime: "25-35 min",
-    deliveryFee: "$2.00 Delivery",
-    image: "https://images.unsplash.com/photo-1525755662778-989d0524087e?w=500&auto=format&fit=crop&q=60",
-    isSuper: false,
-    deal: "10% OFF"
-  },
-  {
-    id: 5,
-    name: "KFC",
-    cuisine: "Fast Food • Burgers",
-    rating: 4.8,
-    deliveryTime: "25-35 min",
-    deliveryFee: "$2.00 Delivery",
-    image: "https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?q=80&w=1167&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    isSuper: true,
-    deal: "15% OFF"
-  },
-  {
-    id: 6,
-    name: "McDonald's - Islamabad",
-    cuisine: "Fast Food • Burgers",
-    rating: 4.7,
-    deliveryTime: "25-35 min",
-    deliveryFee: "$2.00 Delivery",
-    image: "https://images.unsplash.com/photo-1619881589670-43629f0e90f1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG1jZG9uYWxkfGVufDB8fDB8fHww",
-    isSuper: true,
-    deal: "10% OFF"
-  }
-];
+import { TOP_RESTAURANTS } from '../../data/restaurants';
 
 const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) => {
   const { favorites, toggleFavorite } = useContext(CartContext);
+  const navigate = useNavigate();
+
 
   const filteredRestaurants = showFavoritesOnly
     ? TOP_RESTAURANTS.filter(restaurant => favorites.includes(restaurant.id))
@@ -113,7 +48,12 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) 
           {filteredRestaurants.map((restaurant) => {
             const isFavorited = favorites.includes(restaurant.id);
             return (
-              <div key={restaurant.id} className="restaurant-card">
+              <div 
+                key={restaurant.id} 
+                className="restaurant-card"
+                onClick={() => navigate(`/restaurant/${restaurant.id}`)}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className="card-image-wrapper">
                   <img src={restaurant.image} alt={restaurant.name} className="restaurant-img" />
                   

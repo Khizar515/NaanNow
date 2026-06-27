@@ -50,17 +50,20 @@
   border-radius: 8px;
   font-family: inherit;
   transition: all 0.2s ease;
-  z-index: 1; /* Ensures it stays above the dropdown when it appears */
+  z-index: 1;
+  /* Ensures it stays above the dropdown when it appears */
 }
 
 /* Interactive Hover State */
 .location-btn:hover {
-  background-color: rgba(229, 121, 25, 0.08); /* Very light Tandoori Orange background */
+  background-color: rgba(229, 121, 25, 0.08);
+  /* Very light Tandoori Orange background */
   color: var(--color-tandoori);
 }
 
 .location-btn:hover .chevron-icon {
-  transform: translateY(2px); /* Makes the arrow gently bounce down on hover */
+  transform: translateY(2px);
+  /* Makes the arrow gently bounce down on hover */
   transition: transform 0.2s ease;
 }
 
@@ -68,7 +71,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px; /* Prevents extremely long addresses from breaking the navbar */
+  max-width: 200px;
+  /* Prevents extremely long addresses from breaking the navbar */
 }
 
 .nav-user-actions {
@@ -79,7 +83,8 @@
 
 /* Profile Dropdown Container */
 .profile-menu-container {
-  position: relative; /* Keeps the dropdown attached to this specific button */
+  position: relative;
+  /* Keeps the dropdown attached to this specific button */
 }
 
 /* The Dropdown Card */
@@ -90,7 +95,8 @@
   margin-top: 12px;
   background-color: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(79, 46, 29, 0.12); /* Soft roasted brown shadow */
+  box-shadow: 0 8px 24px rgba(79, 46, 29, 0.12);
+  /* Soft roasted brown shadow */
   width: 220px;
   z-index: 1000;
   border: 1px solid rgba(79, 46, 29, 0.05);
@@ -141,7 +147,8 @@
   transition: color 0.2s;
 }
 
-.action-btn:hover, .icon-btn:hover {
+.action-btn:hover,
+.icon-btn:hover {
   color: var(--color-tandoori);
 }
 
@@ -280,7 +287,7 @@
    Math: 50px (logo) + 12px (padding-top) + 12px (padding-bottom) = 74px 
 */
 .navbar.hide-top {
-  transform: translateY(-60px); 
+  transform: translateY(-60px);
 }
 
 /* 3. Fade out the top row content so it doesn't accidentally peek through */
@@ -293,6 +300,7 @@
   opacity: 0;
   pointer-events: none;
 }
+
 /* Default display states */
 .mobile-only {
   display: none;
@@ -302,25 +310,30 @@
 
 /* --- MOBILE RESPONSIVENESS (< 768px) --- */
 @media (max-width: 768px) {
-  
+
   /* Show/Hide specific elements */
   .desktop-only {
     display: none !important;
   }
+
   .mobile-only {
     display: flex;
   }
+
   /* Redesign Top Row */
   .navbar-top {
     position: relative;
     padding: 12px 5%;
-    justify-content: space-between; /* Profile left, Cart right */
+    justify-content: space-between;
+    /* Profile left, Cart right */
   }
-.heart-icon {
-  position: relative;
-  /* left: 30px; Nudge the heart icon slightly left to visually balance with the cart */
-   /* Adds a bit of breathing room between the heart and cart icons */
-}
+
+  .heart-icon {
+    position: relative;
+    /* left: 30px; Nudge the heart icon slightly left to visually balance with the cart */
+    /* Adds a bit of breathing room between the heart and cart icons */
+  }
+
   /* Force Brand to exact center of the screen */
   .nav-brand {
     position: absolute;
@@ -329,12 +342,14 @@
   }
 
   .nav-user-actions {
-    gap: 12px; /* Tighter gap between wishlist and cart */
+    gap: 12px;
+    /* Tighter gap between wishlist and cart */
   }
 
   /* Middle Row Design */
   .navbar-middle {
-    justify-content: center; /* Centers the location button */
+    justify-content: center;
+    /* Centers the location button */
     padding: 0 5% 12px 5%;
   }
 
@@ -349,20 +364,25 @@
     gap: 12px;
     display: flex;
     overflow: hidden;
-    white-space: nowrap; /* Prevents text from stacking as it shrinks */
-    max-width: 300px; /* A safe maximum width to animate from */
+    white-space: nowrap;
+    /* Prevents text from stacking as it shrinks */
+    max-width: 300px;
+    /* A safe maximum width to animate from */
     opacity: 1;
-    transition: 
+    transition:
       max-width 0.35s cubic-bezier(0.22, 1, 0.36, 1),
       opacity 0.2s ease,
       gap 0.3s ease;
   }
+
   .navbar-bottom.search-focused .nav-tabs {
     max-width: 0;
     opacity: 0;
     gap: 0;
-    pointer-events: none; /* Prevents accidental phantom clicks */
+    pointer-events: none;
+    /* Prevents accidental phantom clicks */
   }
+
   .nav-search {
     padding: 8px 12px;
     transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
@@ -418,7 +438,15 @@
 }
 
 @keyframes heartPulse {
-  0% { transform: scale(1); }
-  55% { transform: scale(1.35); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  55% {
+    transform: scale(1.35);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }

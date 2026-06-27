@@ -5,11 +5,12 @@ import CartSidebar from './components/Cart Side bar/CartSidebar';
 import HomePage from './pages/HomePage/HomePage';
 import FavoritesPage from './pages/FavoritesPage/FavoritesPage';
 import CheckoutPage from './pages/CheckoutPage/CheckoutPage';
+import RestaurantPage from './pages/RestaurantPage/RestaurantPage';
 import './index.css'; // The CSS file for the layout below
 
 function App() {
   const [cartOpen, setCartOpen] = useState(false);
-  
+
   return (
     <Router>
       <div className="app-container">
@@ -23,6 +24,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/restaurant/:id" element={<RestaurantPage />} />
         </Routes>
       </div>
     </Router>

@@ -31,8 +31,8 @@ function HomePage() {
             selectedCuisine={selectedCuisine}
             onSelectCuisine={handleSelectCuisine}
           />
-          <RestaurantGrid 
-            selectedCuisine={selectedCuisine} 
+          <RestaurantGrid
+            selectedCuisine={selectedCuisine}
             showFavoritesOnly={false}
           />
         </div>
