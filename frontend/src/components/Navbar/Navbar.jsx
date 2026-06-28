@@ -83,7 +83,7 @@ function Navbar({ setCartOpen }) {
 
 
         {/* Mobile Profile Icon (Visible only on mobile, Left side) */}
-        <button className="icon-btn mobile-only">
+        <button className="icon-btn mobile-only" onClick={() => navigate('/profile')}>
           <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         </button>
 
@@ -122,9 +122,9 @@ function Navbar({ setCartOpen }) {
             {isProfileOpen && (
               <div className="profile-dropdown">
                 <ul>
-                  <li>Profile</li>
-                  <li>Help Center</li>
-                  <li className="logout-item">Logout</li>
+                  <li onClick={() => { navigate('/profile'); setIsProfileOpen(false); }}>Profile</li>
+                  <li onClick={() => setIsProfileOpen(false)}>Help Center</li>
+                  <li className="logout-item" onClick={() => { setIsProfileOpen(false); alert('Logout clicked'); }}>Logout</li>
                 </ul>
               </div>
             )}
