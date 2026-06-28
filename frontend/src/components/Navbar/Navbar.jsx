@@ -204,11 +204,17 @@ function Navbar({ setCartOpen }) {
       <div className={`navbar-bottom ${isSearchFocused ? 'search-focused' : ''}`}>
 
         <div className="nav-tabs">
-          <button className="tab active">
+          <button
+            className={`tab ${location.pathname !== '/orders' ? 'active' : ''}`}
+            onClick={() => navigate('/')}
+          >
             <span className="tab-icon">🛵</span> <span className="tab-text">Delivery</span>
           </button>
-          <button className="tab">
-            <span className="tab-icon">🏪</span> <span className="tab-text">Shops</span>
+          <button
+            className={`tab ${location.pathname === '/orders' ? 'active' : ''}`}
+            onClick={() => navigate('/orders')}
+          >
+            <span className="tab-icon">📋</span> <span className="tab-text">Orders</span>
           </button>
         </div>
 

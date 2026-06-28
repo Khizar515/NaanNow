@@ -168,9 +168,35 @@ function CheckoutPage() {
     // Simulate baking state sequence
     setTimeout(() => {
       setIsPlacingOrder(false);
-      setOrderPlaced(true);
-      setOrderId('NN-' + Math.floor(100000 + Math.random() * 900000));
+      const newOrderId = 'NN-' + Math.floor(100000 + Math.random() * 900000);
+      const newOrder = {
+        id: newOrderId,
+        restaurantName: "NaanNow Kitchen",
+        items: [...cartItems],
+        subtotal,
+        deliveryFee,
+        platformFee,
+        discount,
+        grandTotal,
+        date: new Date().toISOString(),
+        status: 'Preparing', // Preparing | Baking | Delivering | Completed
+        address: formData.address,
+        name: formData.name,
+        phone: formData.phone,
+        instructions: formData.instructions,
+        paymentMethod: paymentMethod,
+        deliverySpeed: formData.deliverySpeed
+      };
+
+      try {
+        const existingOrders = JSON.parse(localStorage.getItem('naannow_orders') || '[]');
+        localStorage.setItem('naannow_orders', JSON.stringify([newOrder, ...existingOrders]));
+      } catch (err) {
+        console.error("Failed to save order to localStorage:", err);
+      }
+
       clearCart();
+      navigate('/orders');
     }, 2500);
   };
 

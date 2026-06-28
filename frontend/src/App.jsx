@@ -7,6 +7,7 @@ import FavoritesPage from './pages/FavoritesPage/FavoritesPage';
 import CheckoutPage from './pages/CheckoutPage/CheckoutPage';
 import RestaurantPage from './pages/RestaurantPage/RestaurantPage';
 import ProfilePage from './pages/ProfilePage/ProfilePage';
+import OrdersPage from './pages/OrdersPage/OrdersPage';
 import './index.css'; // The CSS file for the layout below
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/restaurant/:id" element={<RestaurantPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/orders" element={<OrdersPage />} />
         </Routes>
       </div>
     </Router>
