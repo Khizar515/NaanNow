@@ -226,7 +226,7 @@ function OrdersPage() {
                             className="track-order-btn"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedOrderId(order.id);
+                              navigate(`/track-order/${order.id}`);
                             }}
                           >
                             Track Order 🎯

@@ -169,20 +169,6 @@ function Navbar({ setCartOpen }) {
               }
             </span>
           </div>
-          <button
-            onClick={() =>
-              addToCart({
-                id: 1,
-                name: "Garlic Naan",
-                price: 150,
-                image: naan
-              })
-            }
-          >
-            Add Test Item
-          </button>
-
-
         </div>
       </div>
 
@@ -205,13 +191,13 @@ function Navbar({ setCartOpen }) {
 
         <div className="nav-tabs">
           <button
-            className={`tab ${location.pathname !== '/orders' ? 'active' : ''}`}
+            className={`tab ${(!location.pathname.startsWith('/orders') && !location.pathname.startsWith('/track-order')) ? 'active' : ''}`}
             onClick={() => navigate('/')}
           >
             <span className="tab-icon">🛵</span> <span className="tab-text">Delivery</span>
           </button>
           <button
-            className={`tab ${location.pathname === '/orders' ? 'active' : ''}`}
+            className={`tab ${(location.pathname.startsWith('/orders') || location.pathname.startsWith('/track-order')) ? 'active' : ''}`}
             onClick={() => navigate('/orders')}
           >
             <span className="tab-icon">📋</span> <span className="tab-text">Orders</span>

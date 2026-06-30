@@ -4,10 +4,11 @@
   flex-direction: column;
   background-color: var(--color-dough);
   color: var(--color-roasted);
-  border-bottom: 1px solid rgba(79, 46, 29, 0.1);
+  border-bottom: 1px solid rgba(79, 46, 29, 0.08);
+  box-shadow: 0 4px 20px rgba(79, 46, 29, 0.08);
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 900;
   height: auto;
 }
 
@@ -271,7 +272,7 @@
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 900;
   background: var(--color-dough);
 }
 
