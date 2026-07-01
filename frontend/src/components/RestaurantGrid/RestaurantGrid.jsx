@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './RestaurantGrid.css';
 import { CartContext } from '../Context/CartContext';
@@ -7,13 +7,22 @@ import { TOP_RESTAURANTS } from '../../data/restaurants';
 const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) => {
   const { favorites, toggleFavorite } = useContext(CartContext);
   const navigate = useNavigate();
+  const [restaurants, setRestaurants] = useState([]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('naannow_restaurants');
+    if (saved) {
+      setRestaurants(JSON.parse(saved));
+    } else {
+      setRestaurants(TOP_RESTAURANTS);
+    }
+  }, []);
 
   const filteredRestaurants = showFavoritesOnly
-    ? TOP_RESTAURANTS.filter(restaurant => favorites.includes(restaurant.id))
+    ? restaurants.filter(restaurant => favorites.includes(restaurant.id))
     : (selectedCuisine === 'All'
-        ? TOP_RESTAURANTS
-        : TOP_RESTAURANTS.filter(restaurant =>
+        ? restaurants
+        : restaurants.filter(restaurant =>
             restaurant.cuisine.toLowerCase().includes(selectedCuisine.toLowerCase())
           )
       );

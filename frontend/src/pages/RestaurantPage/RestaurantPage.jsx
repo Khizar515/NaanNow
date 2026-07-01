@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { TOP_RESTAURANTS } from '../../data/restaurants';
 import { CartContext } from '../../components/Context/CartContext';
@@ -17,11 +17,28 @@ function RestaurantPage() {
     toggleFavorite
   } = useContext(CartContext);
 
-  const restaurant = TOP_RESTAURANTS.find(r => r.id === parseInt(id));
+  const [restaurant, setRestaurant] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Search and Category states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('naannow_restaurants');
+    const list = saved ? JSON.parse(saved) : TOP_RESTAURANTS;
+    const found = list.find(r => r.id === parseInt(id));
+    setRestaurant(found || null);
+    setLoading(false);
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="loading-container" style={{ padding: '60px', textAlign: 'center', fontSize: '1.2rem', color: 'var(--color-roasted)' }}>
+        Loading restaurant details...
+      </div>
+    );
+  }
 
   if (!restaurant) {
     return (
@@ -226,7 +243,9 @@ function RestaurantPage() {
                                 id: item.id,
                                 name: item.name,
                                 price: item.price,
-                                image: item.image
+                                image: item.image,
+                                restaurantId: restaurant.id,
+                                restaurantName: restaurant.name
                               })}
                             >
                               Add to Tokri

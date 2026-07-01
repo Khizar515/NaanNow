@@ -84,6 +84,24 @@ const playNotificationSound = () => {
 };
 
 const getOrderProgress = (order) => {
+  if (order.isManual) {
+    switch (order.status) {
+      case 'Preparing':
+        return { status: 'Preparing', step: 1, remaining: 45 };
+      case 'Baking':
+        return { status: 'Baking', step: 2, remaining: 30 };
+      case 'Waiting for Rider':
+        return { status: 'Waiting for Rider', step: 2.5, remaining: 15 };
+      case 'Delivering':
+      case 'Sent':
+        return { status: 'Delivering', step: 3, remaining: 10 };
+      case 'Completed':
+        return { status: 'Completed', step: 4, remaining: 0 };
+      default:
+        return { status: order.status, step: 1, remaining: 10 };
+    }
+  }
+
   if (order.status === 'Completed') {
     return { status: 'Completed', step: 4, remaining: 0 };
   }
@@ -123,13 +141,29 @@ function TrackOrderPage() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
+  // Rating states
+  const [riderRating, setRiderRating] = useState(5);
+  const [riderReview, setRiderReview] = useState('');
+  const [itemRatings, setItemRatings] = useState({});
+
+  useEffect(() => {
+    if (order && order.items && Object.keys(itemRatings).length === 0) {
+      const initial = {};
+      order.items.forEach(item => {
+        initial[item.id] = 5;
+      });
+      setItemRatings(initial);
+    }
+  }, [order]);
+
   // Leaflet refs
   const mapRef = useRef(null);
   const riderMarkerRef = useRef(null);
   const polylineRef = useRef(null);
   const mapInitRef = useRef(false);
-  const chatEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
   const chatSectionRef = useRef(null);
+  const isInitializedRef = useRef(false);
 
   const scrollToChat = () => {
     if (chatSectionRef.current) {
@@ -140,6 +174,7 @@ function TrackOrderPage() {
   // Message trigger refs to prevent double messages on ticks
   const triggeredMsgs = useRef({
     baking: false,
+    waitingForRider: false,
     delivering: false,
     completed: false
   });
@@ -151,17 +186,51 @@ function TrackOrderPage() {
     });
   }, []);
 
-  // Fetch Order
+  // Sync order status and chat messages from localStorage periodically
   useEffect(() => {
-    const saved = localStorage.getItem('naannow_orders');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setOrders(parsed);
-      const found = parsed.find(o => o.id === orderId);
-      if (found) {
-        setOrder(found);
+    if (!orderId) return;
+    const syncOrder = () => {
+      const saved = localStorage.getItem('naannow_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setOrders(parsed);
+        const found = parsed.find(o => o.id === orderId);
+        if (found) {
+          setOrder(found);
+          if (found.messages) {
+            setMessages(found.messages);
+          } else {
+            // Initialize default welcome message if not present
+            const defaultMsgs = [
+              {
+                id: 1,
+                sender: 'rider',
+                text: 'Salam! I am Raja Kamran, your rider. I am heading to the restaurant to collect your hot order. 🛵',
+                time: new Date(Date.now() - 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              }
+            ];
+            const updated = parsed.map(o => {
+              if (o.id === orderId) {
+                return { ...o, messages: defaultMsgs };
+              }
+              return o;
+            });
+            localStorage.setItem('naannow_orders', JSON.stringify(updated));
+            setMessages(defaultMsgs);
+          }
+          // Defer setting the initialized flag to prevent scrolling on mount
+          if (!isInitializedRef.current) {
+            setTimeout(() => {
+              isInitializedRef.current = true;
+            }, 500);
+          }
+        }
       }
-    }
+    };
+
+    syncOrder();
+    const interval = setInterval(syncOrder, 1000);
+    return () => clearInterval(interval);
   }, [orderId]);
 
   // Tick timer
@@ -185,25 +254,27 @@ function TrackOrderPage() {
     });
 
     // Write back completed state to localStorage if transitioned
-    const elapsed = (new Date().getTime() - new Date(order.date).getTime()) / 1000;
-    if (elapsed >= 55 && order.status !== 'Completed') {
-      const updatedOrders = JSON.parse(localStorage.getItem('naannow_orders') || '[]').map(o => {
-        if (o.id === order.id) {
-          return { ...o, status: 'Completed' };
-        }
-        return o;
-      });
-      localStorage.setItem('naannow_orders', JSON.stringify(updatedOrders));
-      setOrder(prev => ({ ...prev, status: 'Completed' }));
+    if (!order.isManual) {
+      const elapsed = (new Date().getTime() - new Date(order.date).getTime()) / 1000;
+      if (elapsed >= 55 && order.status !== 'Completed') {
+        const updatedOrders = JSON.parse(localStorage.getItem('naannow_orders') || '[]').map(o => {
+          if (o.id === order.id) {
+            return { ...o, status: 'Completed' };
+          }
+          return o;
+        });
+        localStorage.setItem('naannow_orders', JSON.stringify(updatedOrders));
+        setOrder(prev => ({ ...prev, status: 'Completed' }));
+      }
     }
   }, [order, tick]);
 
-  // Scroll to bottom of chat whenever messages list changes
+  // Scroll to bottom of chat container internally (does not scroll the window)
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages, isTyping]);
+  }, [messages.length, isTyping]);
 
   // Handle automatic messages from rider based on progress
   useEffect(() => {
@@ -220,6 +291,22 @@ function TrackOrderPage() {
             id: Date.now(),
             sender: 'rider',
             text: 'Tandoor is heating up! The chefs are baking your fresh naans now. Smells incredible! 🥯🔥',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+        playNotificationSound();
+      }, 1000);
+    }
+
+    if (status === 'Waiting for Rider' && !triggeredMsgs.current.waitingForRider) {
+      triggeredMsgs.current.waitingForRider = true;
+      setTimeout(() => {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: Date.now(),
+            sender: 'rider',
+            text: 'Your order is ready at the restaurant! 📦 I am arriving at the counter to pick it up. Smells delicious! 🛵',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
@@ -336,17 +423,18 @@ function TrackOrderPage() {
         mapInitRef.current = false;
       }
     };
-  }, [leafletLoaded, order]);
+  }, [leafletLoaded, orderId]);
 
   // Update Rider Location dynamically on the map based on simulated coordinates
   useEffect(() => {
-    if (!order || !riderMarkerRef.current || !liveOrderState) return;
+    if (!liveOrderState || !riderMarkerRef.current) return;
 
-    const elapsed = (new Date().getTime() - new Date(order.date).getTime()) / 1000;
     let targetCoords = restaurantCoords;
 
     if (liveOrderState.liveStatus === 'Delivering') {
-      const p = Math.min(Math.max((elapsed - 30) / 25, 0), 1);
+      const startTime = order.dispatchedAt ? new Date(order.dispatchedAt).getTime() : new Date(order.date).getTime() + 30000;
+      const deliveryElapsed = (new Date().getTime() - startTime) / 1000;
+      const p = Math.min(Math.max(deliveryElapsed / 25, 0), 1);
       targetCoords = getPointAlongPath(routePath, p);
     } else if (liveOrderState.liveStatus === 'Completed') {
       targetCoords = customerCoords;
@@ -373,7 +461,22 @@ function TrackOrderPage() {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    const saved = localStorage.getItem('naannow_orders');
+    let updatedMsgs = [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const updated = parsed.map(o => {
+        if (o.id === order.id) {
+          const msgs = o.messages || [];
+          updatedMsgs = [...msgs, userMsg];
+          return { ...o, messages: updatedMsgs };
+        }
+        return o;
+      });
+      localStorage.setItem('naannow_orders', JSON.stringify(updated));
+    }
+
+    setMessages(updatedMsgs);
     setInputText('');
     setIsTyping(true);
 
@@ -381,45 +484,90 @@ function TrackOrderPage() {
 
     // Rider automated response simulation after a short delay
     setTimeout(() => {
-      let replyText = "Got it! I am currently focused on driving safely. Will talk soon! 🛵";
-
-      if (liveOrderState?.liveStatus === 'Completed') {
-        replyText = "Your hot naan order is already delivered! Hope you love it. Please review us on the store! 😊👍";
-      } else if (lowerText.includes('where') || lowerText.includes('location') || lowerText.includes('map') || lowerText.includes('eta') || lowerText.includes('time') || lowerText.includes('kahan')) {
-        if (liveOrderState?.liveStatus === 'Preparing' || liveOrderState?.liveStatus === 'Baking') {
-          replyText = "I am waiting at the restaurant. They are cooking it right now, will pick up soon! 🍕";
-        } else {
-          const rem = liveOrderState?.remainingTime || 12;
-          replyText = `I have crossed the main road, heading towards your house. Map shows my live position! Arriving in about ${rem} seconds. 🏍️`;
+      // Re-fetch orders from localStorage to see if a human rider replied in the meantime
+      const latestSaved = localStorage.getItem('naannow_orders');
+      if (latestSaved) {
+        const latestParsed = JSON.parse(latestSaved);
+        const latestOrder = latestParsed.find(o => o.id === order.id);
+        
+        // If the last message is already from the rider, don't trigger the auto-reply
+        const lastMsg = latestOrder?.messages?.[latestOrder.messages.length - 1];
+        if (lastMsg && lastMsg.sender === 'rider') {
+          setIsTyping(false);
+          return;
         }
-      } else if (lowerText.includes('hot') || lowerText.includes('fresh') || lowerText.includes('garam') || lowerText.includes('oven')) {
-        replyText = "Don't worry! I have the food inside my special thermal heat-bag. It will remain extremely hot and soft! 🎒🔥";
-      } else if (lowerText.includes('call') || lowerText.includes('phone') || lowerText.includes('number') || lowerText.includes('contact')) {
-        replyText = `Understood! I will call you on your number (${order?.phone || '0300-1234567'}) as soon as I arrive at your gate! 📞`;
-      } else if (lowerText.includes('sauce') || lowerText.includes('raita') || lowerText.includes('coke') || lowerText.includes('chilli') || lowerText.includes('extra') || lowerText.includes('bread')) {
-        replyText = "Yes, I verified the checklist with the chef. Everything you ordered is packed inside the bag! 📦✅";
-      } else if (lowerText.includes('salam') || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey')) {
-        replyText = "Walaikum Assalam! Doing great, hope you are hungry. Speeding to bring your delicious flatbreads! 😃";
-      } else if (lowerText.includes('thank') || lowerText.includes('thanks') || lowerText.includes('shukriya') || lowerText.includes('great') || lowerText.includes('ok')) {
-        replyText = "No worries at all! Serving you fresh food is my pleasure. 🌟";
-      }
 
-      setMessages(prev => [
-        ...prev,
-        {
+        let replyText = "Got it! I am currently focused on driving safely. Will talk soon! 🛵";
+
+        if (liveOrderState?.liveStatus === 'Completed') {
+          replyText = "Your hot naan order is already delivered! Hope you love it. Please review us on the store! 😊👍";
+        } else if (lowerText.includes('where') || lowerText.includes('location') || lowerText.includes('map') || lowerText.includes('eta') || lowerText.includes('time') || lowerText.includes('kahan')) {
+          if (liveOrderState?.liveStatus === 'Preparing' || liveOrderState?.liveStatus === 'Baking') {
+            replyText = "I am waiting at the restaurant. They are cooking it right now, will pick up soon! 🍕";
+          } else {
+            const rem = liveOrderState?.remainingTime || 12;
+            replyText = `I have crossed the main road, heading towards your house. Map shows my live position! Arriving in about ${rem} seconds. 🏍️`;
+          }
+        } else if (lowerText.includes('hot') || lowerText.includes('fresh') || lowerText.includes('garam') || lowerText.includes('oven')) {
+          replyText = "Don't worry! I have the food inside my special thermal heat-bag. It will remain extremely hot and soft! 🎒🔥";
+        } else if (lowerText.includes('call') || lowerText.includes('phone') || lowerText.includes('number') || lowerText.includes('contact')) {
+          replyText = `Understood! I will call you on your number (${order?.phone || '0300-1234567'}) as soon as I arrive at your gate! 📞`;
+        } else if (lowerText.includes('sauce') || lowerText.includes('raita') || lowerText.includes('coke') || lowerText.includes('chilli') || lowerText.includes('extra') || lowerText.includes('bread')) {
+          replyText = "Yes, I verified the checklist with the chef. Everything you ordered is packed inside the bag! 📦✅";
+        } else if (lowerText.includes('salam') || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey')) {
+          replyText = "Walaikum Assalam! Doing great, hope you are hungry. Speeding to bring your delicious flatbreads! 😃";
+        } else if (lowerText.includes('thank') || lowerText.includes('thanks') || lowerText.includes('shukriya') || lowerText.includes('great') || lowerText.includes('ok')) {
+          replyText = "No worries at all! Serving you fresh food is my pleasure. 🌟";
+        }
+
+        const riderMsg = {
           id: Date.now() + 1,
           sender: 'rider',
           text: replyText,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
-      setIsTyping(false);
-      playNotificationSound();
-    }, 1500 + Math.random() * 800);
+        };
+
+        const postAutoReply = latestParsed.map(o => {
+          if (o.id === order.id) {
+            const msgs = o.messages || [];
+            return { ...o, messages: [...msgs, riderMsg] };
+          }
+          return o;
+        });
+        localStorage.setItem('naannow_orders', JSON.stringify(postAutoReply));
+        setMessages(prev => [...prev, riderMsg]);
+        setIsTyping(false);
+        playNotificationSound();
+      }
+    }, 2000 + Math.random() * 800);
   };
 
   const handleFakeCall = () => {
     alert(`📞 Calling Rider Raja Kamran (+92 300 9821245) via cellular bridge...\n\n(Rider's screen: "Incoming call from ${order?.name || 'Customer'}").`);
+  };
+
+  const handleSubmitFeedback = (e) => {
+    e.preventDefault();
+    if (!order) return;
+
+    const ratingData = {
+      riderRating,
+      riderReview: riderReview.trim(),
+      itemRatings
+    };
+
+    const saved = localStorage.getItem('naannow_orders');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const updated = parsed.map(o => {
+        if (o.id === order.id) {
+          return { ...o, rating: ratingData };
+        }
+        return o;
+      });
+      localStorage.setItem('naannow_orders', JSON.stringify(updated));
+      setOrder(prev => ({ ...prev, rating: ratingData }));
+    }
   };
 
   if (!order) {
@@ -467,38 +615,9 @@ function TrackOrderPage() {
           {/* LEFT: MAP & PROGRESS */}
           <div className="track-map-column">
             
-            {/* Map Container */}
-            <div className="map-wrapper-card">
-              <div id="map-tracker"></div>
-              
-              {/* Overlay Float Card */}
-              {liveOrderState && (
-                <div className="map-overlay-banner">
-                  <div className="overlay-indicator">
-                    <span className="live-dot"></span>
-                    <span className="live-status-lbl">
-                      {liveOrderState.liveStatus === 'Preparing' && '🥣 Kitchen Preparing'}
-                      {liveOrderState.liveStatus === 'Baking' && '🔥 Baking Hot Naan'}
-                      {liveOrderState.liveStatus === 'Delivering' && '🛵 Transit to Address'}
-                      {liveOrderState.liveStatus === 'Completed' && '✅ Order Arrived'}
-                    </span>
-                  </div>
-                  {liveOrderState.liveStatus !== 'Completed' ? (
-                    <div className="overlay-eta">
-                      ETA: <strong>{liveOrderState.remainingTime}s</strong>
-                    </div>
-                  ) : (
-                    <div className="overlay-eta arrived">
-                      Delivered
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Stepper Progress */}
             {liveOrderState && (
-              <div className="status-progress-card">
+              <div className="status-progress-card" style={{ marginBottom: '24px' }}>
                 <h3>Delivery Status</h3>
                 
                 <div className="stepper-horizontal">
@@ -509,6 +628,7 @@ function TrackOrderPage() {
                         width: `${
                           liveOrderState.liveStep === 1 ? '0%' :
                           liveOrderState.liveStep === 2 ? '33%' :
+                          liveOrderState.liveStep === 2.5 ? '50%' :
                           liveOrderState.liveStep === 3 ? '66%' : '100%'
                         }` 
                       }}
@@ -541,11 +661,135 @@ function TrackOrderPage() {
                 <div className="progress-note">
                   {liveOrderState.liveStep === 1 && "👩‍🍳 The chef is preparing your customized naans and curries."}
                   {liveOrderState.liveStep === 2 && "🔥 Baking your flatbreads inside the clay oven tandoor for perfect crunch."}
+                  {liveOrderState.liveStep === 2.5 && "📦 Order is ready & packaged! Waiting for the rider to arrive at the tandoor."}
                   {liveOrderState.liveStep === 3 && "🛵 Rider has collected the order and is driving to your location."}
                   {liveOrderState.liveStep === 4 && "✨ Food is here! Please open the door and enjoy your fresh warm meal."}
                 </div>
               </div>
             )}
+
+            {/* Map Container */}
+            <div className="map-wrapper-card">
+              <div id="map-tracker"></div>
+              
+              {/* Overlay Float Card */}
+              {liveOrderState && (
+                <div className="map-overlay-banner">
+                  <div className="overlay-indicator">
+                    <span className="live-dot"></span>
+                    <span className="live-status-lbl">
+                      {liveOrderState.liveStatus === 'Preparing' && '🥣 Kitchen Preparing'}
+                      {liveOrderState.liveStatus === 'Baking' && '🔥 Baking Hot Naan'}
+                      {liveOrderState.liveStatus === 'Waiting for Rider' && '📦 Packaged & Ready'}
+                      {liveOrderState.liveStatus === 'Delivering' && '🛵 Transit to Address'}
+                      {liveOrderState.liveStatus === 'Completed' && '✅ Order Arrived'}
+                    </span>
+                  </div>
+                  {liveOrderState.liveStatus !== 'Completed' ? (
+                    <div className="overlay-eta">
+                      ETA: <strong>{liveOrderState.remainingTime}s</strong>
+                    </div>
+                  ) : (
+                    <div className="overlay-eta arrived">
+                      Delivered
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Rating & Review Section (Only when Completed) */}
+            {order.status === 'Completed' && (
+              <div className="rating-feedback-card">
+                {order.rating ? (
+                  <div className="rating-success-message">
+                    <h4>🎉 Thank you for your feedback!</h4>
+                    <p>Your review helps us keep NaanNow high quality.</p>
+                    <div className="rating-summary-stars">
+                      Rider: {'⭐'.repeat(order.rating.riderRating)}
+                    </div>
+                    {order.rating.riderReview && (
+                      <p style={{ fontStyle: 'italic', color: '#666', marginTop: '8px' }}>
+                        "{order.rating.riderReview}"
+                      </p>
+                    )}
+                    <div style={{ marginTop: '16px', borderTop: '1px solid rgba(79,46,29,0.1)', paddingTop: '12px' }}>
+                      <p style={{ fontWeight: '600', marginBottom: '8px' }}>Food Ratings:</p>
+                      {order.items.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', margin: '4px 0' }}>
+                          <span>{item.name}</span>
+                          <span>{'⭐'.repeat(order.rating.itemRatings?.[item.id] || 5)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmitFeedback}>
+                    <h3>⭐ Share Your Experience</h3>
+                    <p className="subtitle">Tell us how your rider did and how you liked the food!</p>
+
+                    {/* Rider Rating */}
+                    <div className="rating-section">
+                      <h4>How was your Rider (Raja Kamran)?</h4>
+                      <div className="stars-selector-row">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <button
+                            key={star}
+                            type="button"
+                            className={`star-btn ${riderRating >= star ? 'active' : ''}`}
+                            onClick={() => setRiderRating(star)}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        className="review-textarea"
+                        placeholder="Write a message about the delivery... (optional)"
+                        rows={2}
+                        value={riderReview}
+                        onChange={(e) => setRiderReview(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Items Rating */}
+                    <div className="rating-section">
+                      <h4>Rate Your Food Items:</h4>
+                      {order.items.map(item => (
+                        <div key={item.id} className="rating-item-row">
+                          <div className="item-info">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name} className="item-thumb" />
+                            ) : (
+                              <span style={{ fontSize: '20px' }}>🍕</span>
+                            )}
+                            <span className="item-name">{item.name}</span>
+                          </div>
+                          <div className="stars-selector-row" style={{ marginBottom: 0 }}>
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <button
+                                key={star}
+                                type="button"
+                                className={`star-btn ${itemRatings[item.id] >= star ? 'active' : ''}`}
+                                onClick={() => setItemRatings(prev => ({ ...prev, [item.id]: star }))}
+                                style={{ fontSize: '24px' }}
+                              >
+                                ★
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button type="submit" className="btn-submit-rating">
+                      Submit Feedback
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
           </div>
 
           {/* RIGHT: RIDER PROFILE & CHAT */}
@@ -580,7 +824,7 @@ function TrackOrderPage() {
               </div>
               
               {/* Message List */}
-              <div className="chat-messages-container">
+              <div className="chat-messages-container" ref={chatContainerRef}>
                 {messages.map(msg => (
                   <div key={msg.id} className={`message-bubble-wrapper ${msg.sender}`}>
                     <div className="bubble">
@@ -601,8 +845,6 @@ function TrackOrderPage() {
                     </div>
                   </div>
                 )}
-                
-                <div ref={chatEndRef} />
               </div>
 
               {/* Chat Input */}

@@ -169,9 +169,14 @@ function CheckoutPage() {
     setTimeout(() => {
       setIsPlacingOrder(false);
       const newOrderId = 'NN-' + Math.floor(100000 + Math.random() * 900000);
+      const firstItem = cartItems[0];
+      const resId = firstItem?.restaurantId || 1;
+      const resName = firstItem?.restaurantName || "NaanNow Kitchen";
+
       const newOrder = {
         id: newOrderId,
-        restaurantName: "NaanNow Kitchen",
+        restaurantId: resId,
+        restaurantName: resName,
         items: [...cartItems],
         subtotal,
         deliveryFee,

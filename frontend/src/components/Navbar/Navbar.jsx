@@ -16,6 +16,31 @@ function Navbar({ setCartOpen }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const user = localStorage.getItem('naannow_currentUser');
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    } else {
+      // Auto-initialize default customer Muhammad Saad on initial launch
+      const defaultUser = {
+        name: 'Muhammad Saad',
+        email: 'saad@naannow.com',
+        role: 'customer'
+      };
+      localStorage.setItem('naannow_currentUser', JSON.stringify(defaultUser));
+      setCurrentUser(defaultUser);
+    }
+  }, [location]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('naannow_currentUser');
+    setCurrentUser(null);
+    setIsProfileOpen(false);
+    navigate('/');
+  };
+
   const lastScrollY = useRef(0);
 
   useEffect(() => {
@@ -109,26 +134,39 @@ function Navbar({ setCartOpen }) {
         {/* User Actions */}
         <div className="nav-user-actions">
 
-          {/* Desktop Profile Dropdown */}
-          <div className="profile-menu-container desktop-only">
-            <button className="action-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
-              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              Muhammad Saad
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ transform: isProfileOpen ? 'rotate(180deg)' : 'rotate(0)', transition: '0.2s' }}>
-                <path d="M6 9l6 6 6-6"></path>
-              </svg>
-            </button>
+          {/* Desktop Profile Dropdown or Login Button */}
+          {currentUser ? (
+            <div className="profile-menu-container desktop-only">
+              <button className="action-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                {currentUser.name}
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ transform: isProfileOpen ? 'rotate(180deg)' : 'rotate(0)', transition: '0.2s' }}>
+                  <path d="M6 9l6 6 6-6"></path>
+                </svg>
+              </button>
 
-            {isProfileOpen && (
-              <div className="profile-dropdown">
-                <ul>
-                  <li onClick={() => { navigate('/profile'); setIsProfileOpen(false); }}>Profile</li>
-                  <li onClick={() => setIsProfileOpen(false)}>Help Center</li>
-                  <li className="logout-item" onClick={() => { setIsProfileOpen(false); alert('Logout clicked'); }}>Logout</li>
-                </ul>
-              </div>
-            )}
-          </div>
+              {isProfileOpen && (
+                <div className="profile-dropdown">
+                  <ul>
+                    <li onClick={() => { navigate('/profile'); setIsProfileOpen(false); }}>Profile</li>
+                    {currentUser.role === 'manager' && (
+                      <li onClick={() => { navigate('/restaurant-dashboard'); setIsProfileOpen(false); }}>Restaurant Portal</li>
+                    )}
+                    {currentUser.role === 'rider' && (
+                      <li onClick={() => { navigate('/rider-dashboard'); setIsProfileOpen(false); }}>Rider Portal</li>
+                    )}
+                    <li onClick={() => setIsProfileOpen(false)}>Help Center</li>
+                    <li className="logout-item" onClick={handleLogout}>Logout</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button className="action-btn login-btn desktop-only" onClick={() => navigate('/login')}>
+              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              Login / Register
+            </button>
+          )}
 
           <button className="action-btn desktop-only">
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
@@ -191,7 +229,7 @@ function Navbar({ setCartOpen }) {
 
         <div className="nav-tabs">
           <button
-            className={`tab ${(!location.pathname.startsWith('/orders') && !location.pathname.startsWith('/track-order')) ? 'active' : ''}`}
+            className={`tab ${(!location.pathname.startsWith('/orders') && !location.pathname.startsWith('/track-order') && !location.pathname.startsWith('/restaurant-dashboard') && !location.pathname.startsWith('/rider-dashboard')) ? 'active' : ''}`}
             onClick={() => navigate('/')}
           >
             <span className="tab-icon">🛵</span> <span className="tab-text">Delivery</span>
@@ -201,6 +239,18 @@ function Navbar({ setCartOpen }) {
             onClick={() => navigate('/orders')}
           >
             <span className="tab-icon">📋</span> <span className="tab-text">Orders</span>
+          </button>
+          <button
+            className={`tab ${location.pathname.startsWith('/restaurant-dashboard') ? 'active' : ''}`}
+            onClick={() => navigate('/restaurant-dashboard')}
+          >
+            <span className="tab-icon">🏪</span> <span className="tab-text">Restaurant Portal</span>
+          </button>
+          <button
+            className={`tab ${location.pathname.startsWith('/rider-dashboard') ? 'active' : ''}`}
+            onClick={() => navigate('/rider-dashboard')}
+          >
+            <span className="tab-icon">🚴</span> <span className="tab-text">Rider Portal</span>
           </button>
         </div>
 

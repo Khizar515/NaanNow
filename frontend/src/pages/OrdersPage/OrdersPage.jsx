@@ -50,6 +50,24 @@ const MOCK_ORDERS = [
 
 // Helper to determine simulated progress status based on creation time
 const getOrderProgress = (order) => {
+  if (order.isManual) {
+    switch (order.status) {
+      case 'Preparing':
+        return { status: 'Preparing', step: 1, remaining: 45 };
+      case 'Baking':
+        return { status: 'Baking', step: 2, remaining: 30 };
+      case 'Waiting for Rider':
+        return { status: 'Waiting for Rider', step: 2.5, remaining: 15 };
+      case 'Delivering':
+      case 'Sent':
+        return { status: 'Delivering', step: 3, remaining: 10 };
+      case 'Completed':
+        return { status: 'Completed', step: 4, remaining: 0 };
+      default:
+        return { status: order.status, step: 1, remaining: 10 };
+    }
+  }
+
   if (order.status === 'Completed') {
     return { status: 'Completed', step: 4, remaining: 0 };
   }
@@ -136,6 +154,7 @@ function OrdersPage() {
     switch (step) {
       case 1: return 12;
       case 2: return 40;
+      case 2.5: return 55;
       case 3: return 72;
       case 4: return 100;
       default: return 0;
