@@ -85,3 +85,67 @@ body {
     top: 0;
   }
 }
+
+/* Dashboard Status/Overlay Screen */
+.dashboard-status-screen {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--color-dough);
+  padding: 120px 24px;
+}
+
+.status-card {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(79, 46, 29, 0.08);
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  border: 1px solid rgba(79, 46, 29, 0.05);
+}
+
+.status-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.status-card h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-roasted);
+  margin-bottom: 16px;
+}
+
+.status-card p {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.btn-logout {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  background-color: var(--color-tandoori);
+  color: white;
+  border: none;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-logout:hover {
+  background-color: #d1640c;
+  transform: translateY(-1px);
+}

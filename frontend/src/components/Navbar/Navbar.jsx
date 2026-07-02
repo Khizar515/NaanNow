@@ -155,6 +155,9 @@ function Navbar({ setCartOpen }) {
                     {currentUser.role === 'rider' && (
                       <li onClick={() => { navigate('/rider-dashboard'); setIsProfileOpen(false); }}>Rider Portal</li>
                     )}
+                    {currentUser.role === 'admin' && (
+                      <li onClick={() => { navigate('/admin-dashboard'); setIsProfileOpen(false); }} style={{ fontWeight: 'bold', color: 'var(--color-tandoori)' }}>Admin Dashboard</li>
+                    )}
                     <li onClick={() => setIsProfileOpen(false)}>Help Center</li>
                     <li className="logout-item" onClick={handleLogout}>Logout</li>
                   </ul>

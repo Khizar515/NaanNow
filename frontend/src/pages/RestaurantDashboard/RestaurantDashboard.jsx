@@ -15,6 +15,123 @@ const IMAGE_TEMPLATES = [
 
 function RestaurantDashboard() {
   const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Wizard state for restaurant verification
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardData, setWizardData] = useState({
+    cnicNumber: '',
+    cnicFront: '',
+    cnicBack: '',
+    restaurantName: '',
+    restaurantAddress: '',
+    city: '',
+    mapsLocation: '',
+    restaurantPhone: '',
+    restaurantEmail: '',
+    logo: '',
+    cover: '',
+    photoFront: '',
+    photoKitchen: '',
+    photoDining: '',
+    certDoc: '',
+    licenseDoc: '',
+    ntnDoc: '',
+    bankName: '',
+    holderName: '',
+    accountNumber: ''
+  });
+  const [wizardError, setWizardError] = useState('');
+
+  const handleFileChange = (e, field) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setWizardData(prev => ({ ...prev, [field]: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAutoFillWizard = () => {
+    setWizardData({
+      cnicNumber: '37405-9876543-1',
+      cnicFront: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?w=500',
+      cnicBack: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
+      restaurantName: 'KFC (F-10)',
+      restaurantAddress: 'Plot 14-B, Markaz F-10, Islamabad',
+      city: 'Islamabad',
+      mapsLocation: 'https://maps.google.com/?q=KFC+F-10+Markaz',
+      restaurantPhone: '051-111-532-532',
+      restaurantEmail: 'f10@kfc.com.pk',
+      logo: 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?q=80&w=1167',
+      cover: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000',
+      photoFront: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500',
+      photoKitchen: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=500',
+      photoDining: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500',
+      certDoc: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=500',
+      licenseDoc: 'https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=500',
+      ntnDoc: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500',
+      bankName: 'Habib Bank Limited (HBL)',
+      holderName: 'KFC Pakistan Private Limited',
+      accountNumber: 'PK21HABB001122334455'
+    });
+    setWizardError('');
+  };
+
+  const handleResubmitAction = () => {
+    setWizardStep(1);
+    setCurrentUser(prev => ({ ...prev, status: 'unverified' }));
+  };
+
+  const handleWizardSubmit = (e) => {
+    e.preventDefault();
+    setWizardError('');
+
+    const { cnicNumber, cnicFront, cnicBack, restaurantName, restaurantAddress, city, restaurantPhone, restaurantEmail, logo, cover, photoFront, photoKitchen, certDoc, licenseDoc, bankName, holderName, accountNumber } = wizardData;
+
+    if (!cnicNumber || !cnicFront || !cnicBack || !restaurantName || !restaurantAddress || !city || !restaurantPhone || !restaurantEmail || !logo || !cover || !photoFront || !photoKitchen || !certDoc || !licenseDoc || !bankName || !holderName || !accountNumber) {
+      setWizardError('Please fill in all required fields and upload all requested documents.');
+      return;
+    }
+
+    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
+    const updated = registeredUsers.map(u => {
+      if (u.email.toLowerCase() === currentUser.email.toLowerCase()) {
+        return {
+          ...u,
+          ...wizardData,
+          status: 'pending',
+          rejectionReason: ''
+        };
+      }
+      return u;
+    });
+    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updated));
+
+    const currentDbUser = updated.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+    localStorage.setItem('naannow_currentUser', JSON.stringify(currentDbUser));
+    setCurrentUser(currentDbUser);
+  };
+
+  // Load user details and verify role/status on mount
+  useEffect(() => {
+    const userStr = localStorage.getItem('naannow_currentUser');
+    if (!userStr) {
+      navigate('/login');
+      return;
+    }
+    const user = JSON.parse(userStr);
+    if (user.role !== 'manager') {
+      navigate('/login');
+      return;
+    }
+
+    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
+    const dbUser = registeredUsers.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+    setCurrentUser(dbUser || user);
+  }, [navigate]);
 
   // State definitions
   const [restaurants, setRestaurants] = useState([]);
@@ -275,6 +392,391 @@ function RestaurantDashboard() {
   const filteredMenuItems = selectedRestaurant.menu.filter(item => {
     return menuFilter === 'All' || item.category === menuFilter;
   });
+
+  if (currentUser && currentUser.status !== 'approved') {
+    const isRejected = currentUser.status === 'rejected';
+    const isPending = currentUser.status === 'pending';
+
+    return (
+      <div className="dashboard-status-screen">
+        {isPending ? (
+          <div className="status-card" style={{ maxWidth: '600px' }}>
+            <div className="status-icon">⏳</div>
+            <h2>Restaurant Pending Approval</h2>
+            <p className="status-message" style={{ fontSize: '15px', color: '#666', lineHeight: '1.6', marginBottom: '24px' }}>
+              Your restaurant is currently being verified.<br />
+              <strong>Orders will become available once your account has been approved.</strong>
+            </p>
+            <div className="submitted-details-box" style={{ background: '#fcfaf7', border: '1px solid rgba(79,46,29,0.08)', borderRadius: '12px', padding: '20px', textAlign: 'left', marginBottom: '24px', fontSize: '13px' }}>
+              <h4 style={{ color: 'var(--color-roasted)', marginBottom: '10px', fontSize: '14px', fontWeight: '700' }}>Submitted Venue Details:</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div><strong>Owner Name:</strong> {currentUser.name}</div>
+                <div><strong>Restaurant Name:</strong> {currentUser.restaurantName}</div>
+                <div><strong>City:</strong> {currentUser.city || 'Submitted'}</div>
+                <div><strong>Verification Code:</strong> Pending Review</div>
+              </div>
+            </div>
+            <button className="btn-logout" onClick={() => {
+              localStorage.removeItem('naannow_currentUser');
+              navigate('/login');
+            }}>
+              Log Out
+            </button>
+          </div>
+        ) : (
+          <div className="status-card" style={{ maxWidth: '720px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+              <div>
+                <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification Portal</span>
+                <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>Restaurant Profile Verification</h2>
+              </div>
+              <button className="btn-detail-view" onClick={handleAutoFillWizard} style={{ padding: '8px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                ⚡ Auto-fill Demo Data
+              </button>
+            </div>
+
+            {isRejected && (
+              <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px', borderRadius: '10px', color: '#b91c1c' }}>
+                <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>⚠️ Venue Verification Rejected by Admin:</strong>
+                <p style={{ fontSize: '13px', margin: 0 }}>Reason: "{currentUser.rejectionReason || 'Please check and resubmit your details.'}"</p>
+              </div>
+            )}
+
+            <div className="wizard-progress-bar" style={{ display: 'flex', gap: '4px', marginBottom: '24px', height: '6px' }}>
+              <div style={{ flex: 1, backgroundColor: wizardStep >= 1 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
+              <div style={{ flex: 1, backgroundColor: wizardStep >= 2 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
+              <div style={{ flex: 1, backgroundColor: wizardStep >= 3 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#888', marginBottom: '24px', fontWeight: '600' }}>
+              <span style={{ color: wizardStep === 1 ? 'var(--color-tandoori)' : '#888' }}>1. Owner Details</span>
+              <span style={{ color: wizardStep === 2 ? 'var(--color-tandoori)' : '#888' }}>2. Restaurant & Branding</span>
+              <span style={{ color: wizardStep === 3 ? 'var(--color-tandoori)' : '#888' }}>3. Business Docs & Bank</span>
+            </div>
+
+            {wizardError && <div className="auth-error-alert" style={{ marginBottom: '16px' }}>{wizardError}</div>}
+
+            <form onSubmit={handleWizardSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {wizardStep === 1 && (
+                <>
+                  <div className="form-group-field">
+                    <label>Owner Full Name</label>
+                    <input 
+                      type="text" 
+                      value={currentUser.name} 
+                      disabled 
+                      style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                    />
+                  </div>
+                  <div className="form-group-field">
+                    <label>Owner CNIC Number</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 37405-9876543-1" 
+                      value={wizardData.cnicNumber} 
+                      onChange={(e) => setWizardData({...wizardData, cnicNumber: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>CNIC Front Image</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'cnicFront')} 
+                        required={!wizardData.cnicFront} 
+                      />
+                      {wizardData.cnicFront && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.cnicFront} alt="CNIC Front Preview" style={{ height: '55px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group-field">
+                      <label>CNIC Back Image</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'cnicBack')} 
+                        required={!wizardData.cnicBack} 
+                      />
+                      {wizardData.cnicBack && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.cnicBack} alt="CNIC Back Preview" style={{ height: '55px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {wizardStep === 2 && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Restaurant Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. KFC (F-10)" 
+                        value={wizardData.restaurantName} 
+                        onChange={(e) => setWizardData({...wizardData, restaurantName: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group-field">
+                      <label>City</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Islamabad" 
+                        value={wizardData.city} 
+                        onChange={(e) => setWizardData({...wizardData, city: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group-field">
+                    <label>Restaurant Address</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Plot 14-B, Markaz F-10" 
+                      value={wizardData.restaurantAddress} 
+                      onChange={(e) => setWizardData({...wizardData, restaurantAddress: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group-field">
+                    <label>Google Maps Location link (Optional)</label>
+                    <input 
+                      type="text" 
+                      placeholder="Maps URL" 
+                      value={wizardData.mapsLocation} 
+                      onChange={(e) => setWizardData({...wizardData, mapsLocation: e.target.value})} 
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Restaurant Phone</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 051-111-532-532" 
+                        value={wizardData.restaurantPhone} 
+                        onChange={(e) => setWizardData({...wizardData, restaurantPhone: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Restaurant Email</label>
+                      <input 
+                        type="email" 
+                        placeholder="e.g. branch@restaurant.com" 
+                        value={wizardData.restaurantEmail} 
+                        onChange={(e) => setWizardData({...wizardData, restaurantEmail: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Restaurant Logo</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'logo')} 
+                        required={!wizardData.logo} 
+                      />
+                      {wizardData.logo && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.logo} alt="Logo Preview" style={{ height: '50px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'contain', padding: '4px' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group-field">
+                      <label>Cover Banner</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'cover')} 
+                        required={!wizardData.cover} 
+                      />
+                      {wizardData.cover && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.cover} alt="Cover Preview" style={{ height: '50px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {wizardStep === 3 && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Front View Photo</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'photoFront')} 
+                        required={!wizardData.photoFront} 
+                      />
+                      {wizardData.photoFront && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.photoFront} alt="Front Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group-field">
+                      <label>Kitchen Photo</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'photoKitchen')} 
+                        required={!wizardData.photoKitchen} 
+                      />
+                      {wizardData.photoKitchen && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.photoKitchen} alt="Kitchen Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group-field">
+                      <label>Dining Photo (Optional)</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'photoDining')} 
+                      />
+                      {wizardData.photoDining && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.photoDining} alt="Dining Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Registration Cert</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'certDoc')} 
+                        required={!wizardData.certDoc} 
+                      />
+                      {wizardData.certDoc && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.certDoc} alt="Cert Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group-field">
+                      <label>Food Auth License</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'licenseDoc')} 
+                        required={!wizardData.licenseDoc} 
+                      />
+                      {wizardData.licenseDoc && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.licenseDoc} alt="License Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group-field">
+                      <label>NTN Certificate (Optional)</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'ntnDoc')} 
+                      />
+                      {wizardData.ntnDoc && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.ntnDoc} alt="NTN Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '10px' }}>
+                    <div className="form-group-field">
+                      <label>Bank Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="HBL" 
+                        value={wizardData.bankName} 
+                        onChange={(e) => setWizardData({...wizardData, bankName: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Account Holder Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="Owner Name" 
+                        value={wizardData.holderName} 
+                        onChange={(e) => setWizardData({...wizardData, holderName: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Account Number / IBAN</label>
+                      <input 
+                        type="text" 
+                        placeholder="IBAN" 
+                        value={wizardData.accountNumber} 
+                        onChange={(e) => setWizardData({...wizardData, accountNumber: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                {wizardStep > 1 && (
+                  <button type="button" className="btn-detail-view" onClick={() => setWizardStep(wizardStep - 1)} style={{ flex: 1, padding: '14px', borderRadius: '12px', fontWeight: '600' }}>
+                    Back
+                  </button>
+                )}
+                {wizardStep < 3 ? (
+                  <button type="button" className="btn-logout" onClick={() => {
+                    const { cnicNumber, cnicFront, cnicBack, restaurantName, restaurantAddress, city, restaurantPhone, restaurantEmail, logo, cover } = wizardData;
+                    if (wizardStep === 1 && (!cnicNumber || !cnicFront || !cnicBack)) {
+                      setWizardError('Please fill in all fields before proceeding.');
+                      return;
+                    }
+                    if (wizardStep === 2 && (!restaurantName || !restaurantAddress || !city || !restaurantPhone || !restaurantEmail || !logo || !cover)) {
+                      setWizardError('Please fill in all fields before proceeding.');
+                      return;
+                    }
+                    setWizardError('');
+                    setWizardStep(wizardStep + 1);
+                  }} style={{ flex: 1 }}>
+                    Next Step
+                  </button>
+                ) : (
+                  <button type="submit" className="btn-logout" style={{ flex: 1, backgroundColor: 'var(--color-coriander)' }}>
+                    Submit Verification
+                  </button>
+                )}
+                {isRejected && (
+                  <button type="button" className="btn-detail-view" onClick={handleResubmitAction} style={{ padding: '14px', borderRadius: '12px', fontWeight: '600' }}>
+                    Resubmit Documents
+                  </button>
+                )}
+              </div>
+            </form>
+            <button className="btn-logout" onClick={() => {
+              localStorage.removeItem('naannow_currentUser');
+              navigate('/login');
+            }} style={{ marginTop: '24px', backgroundColor: '#e5e7eb', color: '#4b5563' }}>
+              Log Out
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="restaurant-portal-container">

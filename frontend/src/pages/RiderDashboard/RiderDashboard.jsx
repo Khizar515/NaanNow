@@ -60,6 +60,113 @@ const getPointAlongPath = (path, p) => {
 
 function RiderDashboard() {
   const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Wizard state for verification
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardData, setWizardData] = useState({
+    dob: '',
+    address: '',
+    cnicNumber: '',
+    cnicFront: '',
+    cnicBack: '',
+    licenseNumber: '',
+    licenseImage: '',
+    bikeRegistration: '',
+    bikeModel: '',
+    bikeColor: '',
+    avatar: '',
+    bankName: '',
+    accountNumber: '',
+    walletNumber: ''
+  });
+  const [wizardError, setWizardError] = useState('');
+
+  const handleFileChange = (e, field) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setWizardData(prev => ({ ...prev, [field]: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAutoFillWizard = () => {
+    setWizardData({
+      dob: '1995-08-15',
+      address: 'House 22, Sector G-11, Islamabad',
+      cnicNumber: '37405-1234567-3',
+      cnicFront: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?w=500',
+      cnicBack: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
+      licenseNumber: 'KP-882199A',
+      licenseImage: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500',
+      bikeRegistration: 'ICT-4491',
+      bikeModel: 'Honda CD70',
+      bikeColor: 'Red',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+      bankName: 'Meezan Bank',
+      accountNumber: 'PK92MEZN001234567890',
+      walletNumber: '0300-1234567'
+    });
+    setWizardError('');
+  };
+
+  const handleResubmitAction = () => {
+    setWizardStep(1);
+    setCurrentUser(prev => ({ ...prev, status: 'unverified' }));
+  };
+
+  const handleWizardSubmit = (e) => {
+    e.preventDefault();
+    setWizardError('');
+
+    const { dob, address, cnicNumber, cnicFront, cnicBack, licenseNumber, licenseImage, bikeRegistration, bikeModel, bikeColor, avatar } = wizardData;
+
+    if (!dob || !address || !cnicNumber || !cnicFront || !cnicBack || !licenseNumber || !licenseImage || !bikeRegistration || !bikeModel || !bikeColor || !avatar) {
+      setWizardError('Please fill in all required fields and upload all requested documents.');
+      return;
+    }
+
+    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
+    const updated = registeredUsers.map(u => {
+      if (u.email.toLowerCase() === currentUser.email.toLowerCase()) {
+        return {
+          ...u,
+          ...wizardData,
+          vehicleDetails: `${wizardData.bikeModel} (${wizardData.bikeColor})`,
+          licensePlate: wizardData.bikeRegistration,
+          status: 'pending',
+          rejectionReason: ''
+        };
+      }
+      return u;
+    });
+    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updated));
+
+    const currentDbUser = updated.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+    localStorage.setItem('naannow_currentUser', JSON.stringify(currentDbUser));
+    setCurrentUser(currentDbUser);
+  };
+
+  // Load user details and verify role/status on mount
+  useEffect(() => {
+    const userStr = localStorage.getItem('naannow_currentUser');
+    if (!userStr) {
+      navigate('/login');
+      return;
+    }
+    const user = JSON.parse(userStr);
+    if (user.role !== 'rider') {
+      navigate('/login');
+      return;
+    }
+
+    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
+    const dbUser = registeredUsers.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+    setCurrentUser(dbUser || user);
+  }, [navigate]);
 
   // Rider state
   const [isOnline, setIsOnline] = useState(true);
@@ -473,6 +580,287 @@ function RiderDashboard() {
     setActiveTab('history');
   };
 
+  if (currentUser && currentUser.status !== 'approved') {
+    const isRejected = currentUser.status === 'rejected';
+    const isPending = currentUser.status === 'pending';
+
+    return (
+      <div className="dashboard-status-screen">
+        {isPending ? (
+          <div className="status-card" style={{ maxWidth: '600px' }}>
+            <div className="status-icon">⏳</div>
+            <h2>Application Under Review</h2>
+            <p className="status-message" style={{ fontSize: '15px', color: '#666', lineHeight: '1.6', marginBottom: '24px' }}>
+              Your documents are currently under review.<br />
+              <strong>Our team will verify your information before activating your account.</strong>
+            </p>
+            <div className="submitted-details-box" style={{ background: '#fcfaf7', border: '1px solid rgba(79,46,29,0.08)', borderRadius: '12px', padding: '20px', textAlign: 'left', marginBottom: '24px', fontSize: '13px' }}>
+              <h4 style={{ color: 'var(--color-roasted)', marginBottom: '10px', fontSize: '14px', fontWeight: '700' }}>Submitted Verification Summary:</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div><strong>Full Name:</strong> {currentUser.name}</div>
+                <div><strong>CNIC Number:</strong> {currentUser.cnicNumber || 'Submitted'}</div>
+                <div><strong>Vehicle details:</strong> {currentUser.vehicleDetails || 'Submitted'}</div>
+                <div><strong>License Plate:</strong> {currentUser.licensePlate || 'Submitted'}</div>
+              </div>
+            </div>
+            <button className="btn-logout" onClick={() => {
+              localStorage.removeItem('naannow_currentUser');
+              navigate('/login');
+            }}>
+              Log Out
+            </button>
+          </div>
+        ) : (
+          <div className="status-card" style={{ maxWidth: '680px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+              <div>
+                <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification Portal</span>
+                <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>Rider Registration Verification</h2>
+              </div>
+              <button className="btn-detail-view" onClick={handleAutoFillWizard} style={{ padding: '8px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                ⚡ Auto-fill Demo Data
+              </button>
+            </div>
+
+            {isRejected && (
+              <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px', borderRadius: '10px', color: '#b91c1c' }}>
+                <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>⚠️ Registration Rejected by Admin:</strong>
+                <p style={{ fontSize: '13px', margin: 0 }}>Reason: "{currentUser.rejectionReason || 'Please check and resubmit your details.'}"</p>
+              </div>
+            )}
+
+            <div className="wizard-progress-bar" style={{ display: 'flex', gap: '4px', marginBottom: '24px', height: '6px' }}>
+              <div style={{ flex: 1, backgroundColor: wizardStep >= 1 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
+              <div style={{ flex: 1, backgroundColor: wizardStep >= 2 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
+              <div style={{ flex: 1, backgroundColor: wizardStep >= 3 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#888', marginBottom: '24px', fontWeight: '600' }}>
+              <span style={{ color: wizardStep === 1 ? 'var(--color-tandoori)' : '#888' }}>1. Personal & CNIC</span>
+              <span style={{ color: wizardStep === 2 ? 'var(--color-tandoori)' : '#888' }}>2. Bike & License</span>
+              <span style={{ color: wizardStep === 3 ? 'var(--color-tandoori)' : '#888' }}>3. Profile & Bank</span>
+            </div>
+
+            {wizardError && <div className="auth-error-alert" style={{ marginBottom: '16px' }}>{wizardError}</div>}
+
+            <form onSubmit={handleWizardSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {wizardStep === 1 && (
+                <>
+                  <div className="form-group-field">
+                    <label>Date of Birth</label>
+                    <input 
+                      type="date" 
+                      value={wizardData.dob} 
+                      onChange={(e) => setWizardData({...wizardData, dob: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group-field">
+                    <label>Current Address</label>
+                    <input 
+                      type="text" 
+                      placeholder="Enter your home address" 
+                      value={wizardData.address} 
+                      onChange={(e) => setWizardData({...wizardData, address: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group-field">
+                    <label>CNIC Number</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 37405-1234567-3" 
+                      value={wizardData.cnicNumber} 
+                      onChange={(e) => setWizardData({...wizardData, cnicNumber: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>CNIC Front Image</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'cnicFront')} 
+                        required={!wizardData.cnicFront} 
+                      />
+                      {wizardData.cnicFront && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.cnicFront} alt="CNIC Front Preview" style={{ height: '55px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-group-field">
+                      <label>CNIC Back Image</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleFileChange(e, 'cnicBack')} 
+                        required={!wizardData.cnicBack} 
+                      />
+                      {wizardData.cnicBack && (
+                        <div style={{ marginTop: '8px' }}>
+                          <img src={wizardData.cnicBack} alt="CNIC Back Preview" style={{ height: '55px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {wizardStep === 2 && (
+                <>
+                  <div className="form-group-field">
+                    <label>Driving License Number</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. KP-882199A" 
+                      value={wizardData.licenseNumber} 
+                      onChange={(e) => setWizardData({...wizardData, licenseNumber: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group-field">
+                    <label>Driving License Image</label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => handleFileChange(e, 'licenseImage')} 
+                      required={!wizardData.licenseImage} 
+                    />
+                    {wizardData.licenseImage && (
+                      <div style={{ marginTop: '8px' }}>
+                        <img src={wizardData.licenseImage} alt="License Preview" style={{ height: '55px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="form-group-field">
+                    <label>Bike Registration Number</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. ICT-4491" 
+                      value={wizardData.bikeRegistration} 
+                      onChange={(e) => setWizardData({...wizardData, bikeRegistration: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Bike Model</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Honda CD70" 
+                        value={wizardData.bikeModel} 
+                        onChange={(e) => setWizardData({...wizardData, bikeModel: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Bike Color</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Red" 
+                        value={wizardData.bikeColor} 
+                        onChange={(e) => setWizardData({...wizardData, bikeColor: e.target.value})} 
+                        required 
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {wizardStep === 3 && (
+                <>
+                  <div className="form-group-field">
+                    <label>Rider Profile Picture</label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => handleFileChange(e, 'avatar')} 
+                      required={!wizardData.avatar} 
+                    />
+                    {wizardData.avatar && (
+                      <div style={{ marginTop: '8px' }}>
+                        <img src={wizardData.avatar} alt="Profile Preview" style={{ height: '65px', width: '65px', borderRadius: '50%', border: '1px solid #ddd', objectFit: 'cover' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="form-group-field">
+                    <label>Bank Name (Optional)</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Meezan Bank" 
+                      value={wizardData.bankName} 
+                      onChange={(e) => setWizardData({...wizardData, bankName: e.target.value})} 
+                    />
+                  </div>
+                  <div className="form-group-field">
+                    <label>Account Number / IBAN (Optional)</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. PK92MEZN001234567890" 
+                      value={wizardData.accountNumber} 
+                      onChange={(e) => setWizardData({...wizardData, accountNumber: e.target.value})} 
+                    />
+                  </div>
+                  <div className="form-group-field">
+                    <label>Easypaisa/JazzCash Mobile Number (Optional)</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 0300-1234567" 
+                      value={wizardData.walletNumber} 
+                      onChange={(e) => setWizardData({...wizardData, walletNumber: e.target.value})} 
+                    />
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                {wizardStep > 1 && (
+                  <button type="button" className="btn-detail-view" onClick={() => setWizardStep(wizardStep - 1)} style={{ flex: 1, padding: '14px', borderRadius: '12px', fontWeight: '600' }}>
+                    Back
+                  </button>
+                )}
+                {wizardStep < 3 ? (
+                  <button type="button" className="btn-logout" onClick={() => {
+                    const { dob, address, cnicNumber, cnicFront, cnicBack, licenseNumber, licenseImage, bikeRegistration, bikeModel, bikeColor } = wizardData;
+                    if (wizardStep === 1 && (!dob || !address || !cnicNumber || !cnicFront || !cnicBack)) {
+                      setWizardError('Please fill in all fields before proceeding.');
+                      return;
+                    }
+                    if (wizardStep === 2 && (!licenseNumber || !licenseImage || !bikeRegistration || !bikeModel || !bikeColor)) {
+                      setWizardError('Please fill in all fields before proceeding.');
+                      return;
+                    }
+                    setWizardError('');
+                    setWizardStep(wizardStep + 1);
+                  }} style={{ flex: 1 }}>
+                    Next Step
+                  </button>
+                ) : (
+                  <button type="submit" className="btn-logout" style={{ flex: 1, backgroundColor: 'var(--color-coriander)' }}>
+                    Submit Verification
+                  </button>
+                )}
+                {isRejected && (
+                  <button type="button" className="btn-detail-view" onClick={handleResubmitAction} style={{ padding: '14px', borderRadius: '12px', fontWeight: '600' }}>
+                    Resubmit Documents
+                  </button>
+                )}
+              </div>
+            </form>
+            <button className="btn-logout" onClick={() => {
+              localStorage.removeItem('naannow_currentUser');
+              navigate('/login');
+            }} style={{ marginTop: '24px', backgroundColor: '#e5e7eb', color: '#4b5563' }}>
+              Log Out
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="rider-dashboard-page">
       <div className="rider-dashboard-container">
@@ -480,10 +868,17 @@ function RiderDashboard() {
         {/* Rider Header Bar */}
         <div className="rider-header">
           <div className="rider-profile-info">
-            <div className="rider-avatar-large">RK</div>
+            <div className="rider-avatar-large">
+              {currentUser ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'RK'}
+            </div>
             <div className="rider-name-details">
-              <h2>Raja Kamran (Rider Portal)</h2>
-              <p>Honda CD70 • <strong style={{ color: '#fff' }}>ICT-9821</strong></p>
+              <h2>{currentUser ? currentUser.name : 'Raja Kamran'} (Rider Portal)</h2>
+              <p>
+                {currentUser ? currentUser.vehicleDetails : 'Honda CD70'} •{' '}
+                <strong style={{ color: '#fff' }}>
+                  {currentUser ? currentUser.licensePlate : 'ICT-9821'}
+                </strong>
+              </p>
             </div>
           </div>
           

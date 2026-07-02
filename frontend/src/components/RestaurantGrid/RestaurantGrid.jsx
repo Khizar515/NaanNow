@@ -18,11 +18,28 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) 
     }
   }, []);
 
+  const getIsRestaurantActive = (restaurantName) => {
+    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
+    const manager = registeredUsers.find(u => {
+      if (u.role !== 'manager') return false;
+      const uRes = u.restaurantName.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();
+      const rRes = restaurantName.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();
+      return uRes.includes(rRes) || rRes.includes(uRes);
+    });
+
+    if (manager) {
+      return manager.status === 'approved';
+    }
+    return true;
+  };
+
+  const activeRestaurants = restaurants.filter(r => getIsRestaurantActive(r.name));
+
   const filteredRestaurants = showFavoritesOnly
-    ? restaurants.filter(restaurant => favorites.includes(restaurant.id))
+    ? activeRestaurants.filter(restaurant => favorites.includes(restaurant.id))
     : (selectedCuisine === 'All'
-        ? restaurants
-        : restaurants.filter(restaurant =>
+        ? activeRestaurants
+        : activeRestaurants.filter(restaurant =>
             restaurant.cuisine.toLowerCase().includes(selectedCuisine.toLowerCase())
           )
       );
