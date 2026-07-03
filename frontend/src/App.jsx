@@ -99,7 +99,7 @@ function App() {
     }
   }, []);
 
-  const showNavbar = location.pathname !== '/login';
+  const showNavbar = location.pathname !== '/login' && location.pathname !== '/admin-dashboard';
 
   return (
     <div className="app-container">

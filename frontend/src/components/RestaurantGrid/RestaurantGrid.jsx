@@ -22,6 +22,7 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) 
     const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
     const manager = registeredUsers.find(u => {
       if (u.role !== 'manager') return false;
+      if (!u.restaurantName) return false;
       const uRes = u.restaurantName.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();
       const rRes = restaurantName.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();
       return uRes.includes(rRes) || rRes.includes(uRes);
