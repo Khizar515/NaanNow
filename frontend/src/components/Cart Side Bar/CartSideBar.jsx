@@ -1,4 +1,4 @@
-import "./CartSidebar.css";
+import "./CartSideBar.css";
 import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartContext } from "../Context/CartContext";
@@ -58,7 +58,7 @@ function CartSidebar({ isOpen, onClose }) {
                         </div>
                     ) : (
                         cartItems.map(item => (
-                            <div className="cart-item" key={item.id}>
+                            <div className="cart-item" key={item._id}>
 
                                 <img
                                     src={item.image}
@@ -78,7 +78,7 @@ function CartSidebar({ isOpen, onClose }) {
 
                                         <button
                                             onClick={() =>
-                                                decreaseQuantity(item.id)
+                                                decreaseQuantity(item._id)
                                             }
                                         >
                                             −
@@ -88,7 +88,7 @@ function CartSidebar({ isOpen, onClose }) {
 
                                         <button
                                             onClick={() =>
-                                                increaseQuantity(item.id)
+                                                increaseQuantity(item._id)
                                             }
                                         >
                                             +

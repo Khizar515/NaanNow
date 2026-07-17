@@ -1,39 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../api';
 import './ProfilePage.css';
 
 function ProfilePage() {
+  const { user, logout, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
-
-  // Profile State
-  const [profile, setProfile] = useState(() => {
-    const saved = localStorage.getItem('naannow_profile');
-    return saved ? JSON.parse(saved) : {
-      name: 'Muhammad Saad',
-      email: 'muhammad.saad@example.com',
-      phone: '+92 300 1234567',
-      address: 'House 45, Street 11, Sector F-11/1, Islamabad',
-      profilePic: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
-      memberSince: 'September 2024'
-    };
-  });
 
   // Edit Mode states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editName, setEditName] = useState(profile.name);
-  const [editPhone, setEditPhone] = useState(profile.phone);
-  const [editProfilePic, setEditProfilePic] = useState(profile.profilePic);
-
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  
   const [isEditingAddress, setIsEditingAddress] = useState(false);
-  const [editAddress, setEditAddress] = useState(profile.address);
+  const [editAddress, setEditAddress] = useState('');
 
-  // Cards state
-  const [paymentMethods, setPaymentMethods] = useState(() => {
-    const saved = localStorage.getItem('naannow_payment_methods');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, holder: 'Muhammad Saad', lastFour: '4321', expMonth: '12', expYear: '28', brand: 'Visa' },
-      { id: 2, holder: 'Muhammad Saad', lastFour: '8765', expMonth: '06', expYear: '29', brand: 'Mastercard' }
-    ];
-  });
+  // Data states
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [orders, setOrders] = useState([]);
 
   // Add Card states
   const [cardHolder, setCardHolder] = useState('');
@@ -49,61 +33,110 @@ function ProfilePage() {
   // Alerts
   const [notification, setNotification] = useState(null);
 
-  // Save profile to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('naannow_profile', JSON.stringify(profile));
-  }, [profile]);
+  const fileInputRef = useRef(null);
 
-  // Save payment methods when they change
+  // Initialize edit states when user changes
   useEffect(() => {
-    localStorage.setItem('naannow_payment_methods', JSON.stringify(paymentMethods));
-  }, [paymentMethods]);
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+      setEditAddress(user.address || '');
+    }
+  }, [user]);
+
+  // Fetch data
+  useEffect(() => {
+    if (user && activeTab === 'payments') {
+      fetchCards();
+    }
+    if (user && activeTab === 'orders') {
+      fetchOrders();
+    }
+  }, [user, activeTab]);
+
+  const fetchCards = async () => {
+    try {
+      const data = await api.getCards();
+      setPaymentMethods(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const data = await api.getOrders();
+      setOrders(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!editName.trim()) {
       showNotification('Name cannot be empty', 'error');
       return;
     }
-    setProfile(prev => ({
-      ...prev,
-      name: editName,
-      phone: editPhone,
-      profilePic: editProfilePic
-    }));
-    setIsEditingProfile(false);
-    showNotification('Profile updated successfully');
+    try {
+      await api.updateProfile({ name: editName, phone: editPhone });
+      await refreshUser();
+      setIsEditingProfile(false);
+      showNotification('Profile updated successfully');
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
   };
 
   const handleCancelProfile = () => {
-    setEditName(profile.name);
-    setEditPhone(profile.phone);
-    setEditProfilePic(profile.profilePic);
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+    }
     setIsEditingProfile(false);
   };
 
-  const handleSaveAddress = (e) => {
+  const handleSaveAddress = async (e) => {
     e.preventDefault();
     if (!editAddress.trim()) {
       showNotification('Address cannot be empty', 'error');
       return;
     }
-    setProfile(prev => ({
-      ...prev,
-      address: editAddress
-    }));
-    setIsEditingAddress(false);
-    showNotification('Shipping address updated successfully');
+    try {
+      await api.updateProfile({ address: editAddress });
+      await refreshUser();
+      setIsEditingAddress(false);
+      showNotification('Shipping address updated successfully');
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
   };
 
   const handleCancelAddress = () => {
-    setEditAddress(profile.address);
+    if (user) {
+      setEditAddress(user.address || '');
+    }
     setIsEditingAddress(false);
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      try {
+        await api.uploadAvatar(formData);
+        await refreshUser();
+        showNotification('Avatar updated successfully');
+      } catch (err) {
+        showNotification(err.message, 'error');
+      }
+    }
   };
 
   // Card Number Formatting
@@ -132,7 +165,7 @@ function ProfilePage() {
     }
   };
 
-  const handleAddCard = (e) => {
+  const handleAddCard = async (e) => {
     e.preventDefault();
     const rawNumber = cardNumber.replace(/\s/g, '');
     if (rawNumber.length !== 16) {
@@ -152,37 +185,37 @@ function ProfilePage() {
       return;
     }
 
-    const [month, year] = cardExpiry.split('/');
-    const lastFour = rawNumber.slice(-4);
-    const brand = rawNumber.startsWith('4') ? 'Visa' : rawNumber.startsWith('5') ? 'Mastercard' : 'Express';
-
-    const newCard = {
-      id: Date.now(),
-      holder: cardHolder,
-      lastFour,
-      expMonth: month,
-      expYear: year,
-      brand
-    };
-
-    setPaymentMethods(prev => [...prev, newCard]);
-
-    // Reset fields
-    setCardHolder('');
-    setCardNumber('');
-    setCardExpiry('');
-    setCardCvv('');
-    showNotification('Card added successfully');
-  };
-
-  const handleDeleteCard = (id) => {
-    if (window.confirm('Are you sure you want to remove this card?')) {
-      setPaymentMethods(prev => prev.filter(c => c.id !== id));
-      showNotification('Card deleted successfully');
+    try {
+      await api.addCard({
+        cardNumber: rawNumber,
+        expiryDate: cardExpiry,
+        cvv: cardCvv
+      });
+      // Reset fields
+      setCardHolder('');
+      setCardNumber('');
+      setCardExpiry('');
+      setCardCvv('');
+      fetchCards();
+      showNotification('Card added successfully');
+    } catch (err) {
+      showNotification(err.message, 'error');
     }
   };
 
-  const handleChangePassword = (e) => {
+  const handleDeleteCard = async (id) => {
+    if (window.confirm('Are you sure you want to remove this card?')) {
+      try {
+        await api.deleteCard(id);
+        fetchCards();
+        showNotification('Card deleted successfully');
+      } catch (err) {
+        showNotification(err.message, 'error');
+      }
+    }
+  };
+
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     if (!currentPassword || !newPassword || !confirmPassword) {
       showNotification('All password fields are required', 'error');
@@ -196,24 +229,34 @@ function ProfilePage() {
       showNotification('New passwords do not match', 'error');
       return;
     }
-    showNotification('Password updated successfully');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      showNotification('Password updated successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
   };
 
   const handleLogout = (e) => {
     e.preventDefault();
     if (window.confirm('Are you sure you want to log out?')) {
-      showNotification('Successfully logged out (Demo mode)');
+      logout();
+      showNotification('Successfully logged out');
     }
   };
 
-  const mockOrders = [
-    { id: 'NN-1082', date: '24 Jun 2026', status: 'Delivered', items: 'Garlic Naan x2, Cheese Naan x1, Chicken Karahi x1', total: 1850 },
-    { id: 'NN-1049', date: '15 Jun 2026', status: 'In Transit', items: 'Tandoori Platter x1, Mint Raita x2, Sprite Can x3', total: 2400 },
-    { id: 'NN-0992', date: '02 Jun 2026', status: 'Delivered', items: 'Aloo Naan x3, Lassi x3', total: 1150 }
-  ];
+  if (!user) {
+    return <div className="profile-container"><div style={{padding: '100px', textAlign:'center'}}>Please log in to view profile.</div></div>;
+  }
+
+  const defaultAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150';
+  const getAvatarUrl = () => {
+    if (!user.avatar) return defaultAvatar;
+    return user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000/${user.avatar.replace(/\\/g, '/')}`;
+  };
 
   return (
     <div className="profile-container">
@@ -230,21 +273,21 @@ function ProfilePage() {
         <aside className="profile-sidebar">
           <div className="avatar-section">
             <div className="avatar-wrapper">
-              <img src={profile.profilePic} alt={profile.name} className="profile-avatar" />
-              <div className="avatar-overlay" onClick={() => {
-                const url = window.prompt("Enter new Image URL:", profile.profilePic);
-                if (url) {
-                  setProfile(prev => ({ ...prev, profilePic: url }));
-                  setEditProfilePic(url);
-                  showNotification('Avatar URL updated!');
-                }
-              }}>
+              <img src={getAvatarUrl()} alt={user.name} className="profile-avatar" />
+              <div className="avatar-overlay" onClick={() => fileInputRef.current.click()}>
                 <span>Change Image</span>
               </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                style={{ display: 'none' }} 
+                accept="image/*"
+                onChange={handleAvatarChange} 
+              />
             </div>
-            <h2>{profile.name}</h2>
-            <p className="sidebar-email">{profile.email}</p>
-            <span className="member-tag">Member since {profile.memberSince}</span>
+            <h2>{user.name}</h2>
+            <p className="sidebar-email">{user.email}</p>
+            <span className="member-tag">Member since {new Date(user.createdAt || Date.now()).toLocaleDateString('en-US', {month: 'short', year:'numeric'})}</span>
           </div>
 
           <nav className="sidebar-tabs">
@@ -310,15 +353,15 @@ function ProfilePage() {
                   <div className="details-grid">
                     <div className="details-row">
                       <span className="label">Full Name</span>
-                      <span className="value">{profile.name}</span>
+                      <span className="value">{user.name}</span>
                     </div>
                     <div className="details-row">
                       <span className="label">Email Address</span>
-                      <span className="value">{profile.email}</span>
+                      <span className="value">{user.email}</span>
                     </div>
                     <div className="details-row">
                       <span className="label">Phone Number</span>
-                      <span className="value">{profile.phone || 'Not set'}</span>
+                      <span className="value">{user.phone || 'Not set'}</span>
                     </div>
                   </div>
                 ) : (
@@ -338,16 +381,7 @@ function ProfilePage() {
                         type="text"
                         value={editPhone}
                         onChange={(e) => setEditPhone(e.target.value)}
-                        placeholder="+92 300 0000000"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Avatar URL</label>
-                      <input
-                        type="text"
-                        value={editProfilePic}
-                        onChange={(e) => setEditProfilePic(e.target.value)}
-                        placeholder="https://..."
+                        placeholder="03000000000"
                       />
                     </div>
                     <div className="form-actions">
@@ -372,7 +406,7 @@ function ProfilePage() {
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                       <circle cx="12" cy="10" r="3"></circle>
                     </svg>
-                    <p>{profile.address || 'No saved address. Add one now!'}</p>
+                    <p>{user.address || 'No saved address. Add one now!'}</p>
                   </div>
                 ) : (
                   <form onSubmit={handleSaveAddress} className="profile-form">
@@ -493,25 +527,27 @@ function ProfilePage() {
                   <p className="no-data">No saved cards found. Add a payment card above.</p>
                 ) : (
                   <div className="saved-cards-list">
-                    {paymentMethods.map(card => (
-                      <div key={card.id} className="saved-card-item">
+                    {paymentMethods.map(card => {
+                      const brand = card.cardNumber.startsWith('4') ? 'Visa' : 'Mastercard';
+                      return (
+                      <div key={card._id} className="saved-card-item">
                         <div className="card-info-left">
-                          <div className={`card-icon-avatar ${card.brand.toLowerCase()}`}>
-                            {card.brand === 'Visa' ? 'V' : card.brand === 'Mastercard' ? 'M' : '💳'}
+                          <div className={`card-icon-avatar ${brand.toLowerCase()}`}>
+                            {brand === 'Visa' ? 'V' : brand === 'Mastercard' ? 'M' : '💳'}
                           </div>
                           <div className="card-digits-details">
-                            <span className="card-name-brand">{card.brand} ending in •••• {card.lastFour}</span>
-                            <span className="card-expiry-span">Expires {card.expMonth}/{card.expYear} • {card.holder}</span>
+                            <span className="card-name-brand">{brand} ending in •••• {card.cardNumber.slice(-4)}</span>
+                            <span className="card-expiry-span">Expires {card.expiryDate}</span>
                           </div>
                         </div>
-                        <button className="btn-icon-danger" onClick={() => handleDeleteCard(card.id)} title="Remove Card">
+                        <button className="btn-icon-danger" onClick={() => handleDeleteCard(card._id)} title="Remove Card">
                           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <polyline points="3 6 5 6 21 6"></polyline>
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                           </svg>
                         </button>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 )}
               </div>
@@ -537,40 +573,48 @@ function ProfilePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {mockOrders.map(order => (
-                        <tr key={order.id}>
-                          <td className="order-id-td">{order.id}</td>
-                          <td className="order-date-td">{order.date}</td>
-                          <td className="order-items-td" title={order.items}>{order.items}</td>
-                          <td className="order-total-td">Rs. {order.total.toLocaleString()}</td>
+                      {orders.map(order => (
+                        <tr key={order._id}>
+                          <td className="order-id-td">{order.orderNumber}</td>
+                          <td className="order-date-td">{new Date(order.createdAt).toLocaleDateString()}</td>
+                          <td className="order-items-td" title={order.items.map(i => i.name).join(', ')}>
+                            {order.items.map(i => i.name).join(', ')}
+                          </td>
+                          <td className="order-total-td">Rs. {order.totalAmount.toLocaleString()}</td>
                           <td>
                             <span className={`status-badge ${order.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                              {order.status}
+                              {order.status.replace(/_/g, ' ')}
                             </span>
                           </td>
                         </tr>
                       ))}
+                      {orders.length === 0 && (
+                        <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px'}}>No orders found.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Mobile-optimized order cards view */}
-                <div className="mobile-orders-list">
-                  {mockOrders.map(order => (
-                    <div key={order.id} className="mobile-order-card">
+                <div className="mobile-orders-list mobile-only">
+                  {orders.map(order => (
+                    <div key={order._id} className="mobile-order-card">
                       <div className="mobile-order-header">
-                        <span className="mobile-order-id">{order.id}</span>
+                        <span className="mobile-order-id">{order.orderNumber}</span>
                         <span className={`status-badge ${order.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                          {order.status}
+                          {order.status.replace(/_/g, ' ')}
                         </span>
                       </div>
-                      <div className="mobile-order-items">{order.items}</div>
+                      <div className="mobile-order-items">{order.items.map(i => i.name).join(', ')}</div>
                       <div className="mobile-order-footer">
-                        <span className="mobile-order-date">{order.date}</span>
-                        <span className="mobile-order-total">Rs. {order.total.toLocaleString()}</span>
+                        <span className="mobile-order-date">{new Date(order.createdAt).toLocaleDateString()}</span>
+                        <span className="mobile-order-total">Rs. {order.totalAmount.toLocaleString()}</span>
                       </div>
                     </div>
                   ))}
+                  {orders.length === 0 && (
+                     <div style={{textAlign: 'center', padding: '20px'}}>No orders found.</div>
+                  )}
                 </div>
 
               </div>

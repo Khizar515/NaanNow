@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { TOP_RESTAURANTS } from '../../data/restaurants';
+import { api } from '../../api';
 import { CartContext } from '../../components/Context/CartContext';
 import './RestaurantPage.css';
 
@@ -25,11 +25,17 @@ function RestaurantPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
-    const saved = localStorage.getItem('naannow_restaurants');
-    const list = saved ? JSON.parse(saved) : TOP_RESTAURANTS;
-    const found = list.find(r => r.id === parseInt(id));
-    setRestaurant(found || null);
-    setLoading(false);
+    const fetchRestaurant = async () => {
+      try {
+        const data = await api.getRestaurant(id);
+        setRestaurant(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRestaurant();
   }, [id]);
 
   if (loading) {
@@ -65,13 +71,15 @@ function RestaurantPage() {
     return matchesCategory && matchesSearch;
   });
 
-  const isFavorited = favorites.includes(restaurant.id);
+  const isFavorited = favorites.includes(restaurant._id);
 
   // Helper to check if item is in cart and return its quantity
   const getCartItemQuantity = (itemId) => {
-    const item = cartItems.find(cartItem => cartItem.id === itemId);
+    const item = cartItems.find(cartItem => cartItem._id === itemId);
     return item ? item.quantity : 0;
   };
+  
+  const imageSrc = restaurant.image ? (restaurant.image.startsWith('http') ? restaurant.image : `http://localhost:5000/${restaurant.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
 
   return (
     <div className="restaurant-page-container">
@@ -101,7 +109,7 @@ function RestaurantPage() {
       <div className="restaurant-hero">
         <div
           className="hero-background"
-          style={{ backgroundImage: `url(${restaurant.image})` }}
+          style={{ backgroundImage: `url(${imageSrc})` }}
         />
         <div className="hero-overlay" />
 
@@ -134,7 +142,7 @@ function RestaurantPage() {
 
           <button
             className={`hero-fav-btn ${isFavorited ? 'active' : ''}`}
-            onClick={() => toggleFavorite(restaurant.id)}
+            onClick={() => toggleFavorite(restaurant._id)}
             aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
           >
             <svg
@@ -199,11 +207,13 @@ function RestaurantPage() {
           ) : (
             <div className="menu-items-grid">
               {filteredMenu.map(item => {
-                const quantityInCart = getCartItemQuantity(item.id);
+                const quantityInCart = getCartItemQuantity(item._id);
+                const itemImgSrc = item.image ? (item.image.startsWith('http') ? item.image : `http://localhost:5000/${item.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
+                
                 return (
-                  <div key={item.id} className="menu-item-card">
+                  <div key={item._id} className="menu-item-card">
                     <div className="menu-item-image-wrapper">
-                      <img src={item.image} alt={item.name} className="menu-item-img" />
+                      <img src={itemImgSrc} alt={item.name} className="menu-item-img" />
                     </div>
 
                     <div className="menu-item-details">
@@ -222,7 +232,7 @@ function RestaurantPage() {
                             <div className="menu-qty-control">
                               <button
                                 className="qty-btn minus"
-                                onClick={() => decreaseQuantity(item.id)}
+                                onClick={() => decreaseQuantity(item._id)}
                                 aria-label="Decrease quantity"
                               >
                                 −
@@ -230,7 +240,7 @@ function RestaurantPage() {
                               <span className="qty-val">{quantityInCart}</span>
                               <button
                                 className="qty-btn plus"
-                                onClick={() => increaseQuantity(item.id)}
+                                onClick={() => increaseQuantity(item._id)}
                                 aria-label="Increase quantity"
                               >
                                 +
@@ -240,11 +250,11 @@ function RestaurantPage() {
                             <button
                               className="add-to-cart-btn"
                               onClick={() => addToCart({
-                                id: item.id,
+                                _id: item._id,
                                 name: item.name,
                                 price: item.price,
-                                image: item.image,
-                                restaurantId: restaurant.id,
+                                image: itemImgSrc,
+                                restaurantId: restaurant._id,
                                 restaurantName: restaurant.name
                               })}
                             >

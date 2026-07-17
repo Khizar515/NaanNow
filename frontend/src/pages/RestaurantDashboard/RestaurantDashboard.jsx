@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TOP_RESTAURANTS } from '../../data/restaurants';
+import { api } from '../../api';
 import './RestaurantDashboard.css';
 
 // Quick selection templates for menu items to avoid manual URL input frustration
@@ -85,7 +85,7 @@ function RestaurantDashboard() {
     setCurrentUser(prev => ({ ...prev, status: 'unverified' }));
   };
 
-  const handleWizardSubmit = (e) => {
+  const handleWizardSubmit = async (e) => {
     e.preventDefault();
     setWizardError('');
 
@@ -96,45 +96,45 @@ function RestaurantDashboard() {
       return;
     }
 
-    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
-    const updated = registeredUsers.map(u => {
-      if (u.email.toLowerCase() === currentUser.email.toLowerCase()) {
-        return {
-          ...u,
-          ...wizardData,
-          status: 'pending',
-          rejectionReason: ''
-        };
-      }
-      return u;
-    });
-    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updated));
-
-    const currentDbUser = updated.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
-    localStorage.setItem('naannow_currentUser', JSON.stringify(currentDbUser));
-    setCurrentUser(currentDbUser);
+    try {
+      const formData = new FormData();
+      Object.keys(wizardData).forEach(key => {
+        if (wizardData[key]) {
+          // If it's a data URL (from handleFileChange), we should ideally convert it to File. 
+          // For simplicity in this simulated dynamic app, we send base64 if uploadDocs supports it, 
+          // or we just rely on standard fields. We will pass it as a text field for now, 
+          // but if we had real files, we'd append them.
+          formData.append(key, wizardData[key]);
+        }
+      });
+      
+      const updatedUser = await api.uploadDocs(formData);
+      setCurrentUser(updatedUser);
+      alert('Verification submitted successfully!');
+    } catch (err) {
+      console.error(err);
+      setWizardError('Failed to submit verification.');
+    }
   };
 
   // Load user details and verify role/status on mount
   useEffect(() => {
-    const userStr = localStorage.getItem('naannow_currentUser');
-    if (!userStr) {
-      navigate('/login');
-      return;
-    }
-    const user = JSON.parse(userStr);
-    if (user.role !== 'manager') {
-      navigate('/login');
-      return;
-    }
-
-    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
-    const dbUser = registeredUsers.find(u => u.email.toLowerCase() === user.email.toLowerCase());
-    setCurrentUser(dbUser || user);
+    const fetchAuth = async () => {
+      try {
+        const user = await api.getMe();
+        if (user.role !== 'manager') {
+          navigate('/login');
+          return;
+        }
+        setCurrentUser(user);
+      } catch (err) {
+        navigate('/login');
+      }
+    };
+    fetchAuth();
   }, [navigate]);
 
   // State definitions
-  const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
@@ -159,61 +159,48 @@ function RestaurantDashboard() {
   });
   const [formError, setFormError] = useState('');
 
-  // Load baseline data from localStorage
+  // Load baseline data from API
   useEffect(() => {
-    // 1. Load Restaurants
-    const savedRes = localStorage.getItem('naannow_restaurants');
-    let resList = [];
-    if (savedRes) {
-      resList = JSON.parse(savedRes);
-    } else {
-      resList = TOP_RESTAURANTS;
-      localStorage.setItem('naannow_restaurants', JSON.stringify(TOP_RESTAURANTS));
-    }
-    setRestaurants(resList);
-    
-    // Set default selected restaurant to KFC (id: 5)
-    if (resList.length > 0) {
-      const kfc = resList.find(r => r.id === 5) || resList[0];
-      setSelectedRestaurant(kfc);
-    }
-
-    // 2. Load Orders
-    const savedOrders = localStorage.getItem('naannow_orders');
-    if (savedOrders) {
-      setOrders(JSON.parse(savedOrders));
-    } else {
-      setOrders([]);
-    }
-  }, []);
-
-  // Poll for order changes from other customer actions every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const savedOrders = localStorage.getItem('naannow_orders');
-      if (savedOrders) {
-        setOrders(JSON.parse(savedOrders));
+    const loadData = async () => {
+      try {
+        const rest = await api.getMyRestaurant();
+        setSelectedRestaurant(rest);
+      } catch (err) {
+        console.error("Failed to load restaurant profile:", err);
       }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Handler to update selected restaurant profile
-  const handleSelectRestaurant = (id) => {
-    const found = restaurants.find(r => r.id === parseInt(id));
-    if (found) {
-      setSelectedRestaurant(found);
-      setSelectedOrderId(null);
-      setMenuFilter('All');
+      
+      try {
+        const resOrders = await api.getOrders();
+        setOrders(resOrders);
+      } catch (err) {
+        console.error("Failed to load orders:", err);
+      }
+    };
+    if (currentUser?.status === 'approved') {
+      loadData();
     }
-  };
+  }, [currentUser]);
 
-  if (!selectedRestaurant) {
+  // Poll for order changes periodically
+  useEffect(() => {
+    if (currentUser?.status !== 'approved') return;
+    const interval = setInterval(async () => {
+      try {
+        const resOrders = await api.getOrders();
+        setOrders(resOrders);
+      } catch (err) {
+        // silently fail on interval
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
+  if (currentUser && currentUser.status === 'approved' && !selectedRestaurant) {
     return <div className="dashboard-loading">Loading portal configurations...</div>;
   }
 
-  // Filter orders for the selected restaurant
-  const restaurantOrders = orders.filter(o => o.restaurantId === selectedRestaurant.id || (!o.restaurantId && selectedRestaurant.id === 1));
+  // Filter orders for the selected restaurant (which is just 'orders' array from backend since API filters by manager)
+  const restaurantOrders = orders;
 
   // Compute Metrics
   const completedOrders = restaurantOrders.filter(o => o.status === 'Completed');
@@ -236,47 +223,42 @@ function RestaurantDashboard() {
 
   // Filtered orders list based on sub-tab
   const filteredOrders = restaurantOrders.filter(order => {
+    // Standardize status for checking
+    const s = order.status;
     if (orderFilter === 'active') {
-      return ['Preparing', 'Baking', 'Waiting for Rider', 'Delivering', 'Sent'].includes(order.status);
+      return ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(s);
     }
     if (orderFilter === 'past') {
-      return order.status === 'Completed';
+      return ['delivered', 'completed', 'cancelled'].includes(s);
     }
     return true; // 'all'
   });
 
   // Selected Order
-  const activeOrder = filteredOrders.find(o => o.id === selectedOrderId) || filteredOrders[0];
+  const activeOrder = filteredOrders.find(o => o._id === selectedOrderId) || filteredOrders[0];
 
   // Advance Order Lifecycle status
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        const up = { ...o, status: newStatus, isManual: true };
-        if (newStatus === 'Delivering' || newStatus === 'Sent') {
-          up.dispatchedAt = new Date().toISOString();
-        }
-        return up;
-      }
-      return o;
-    });
-
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const updatedOrder = await api.updateOrderStatus(orderId, newStatus, 'Status updated by manager');
+      setOrders(prev => prev.map(o => o._id === orderId ? updatedOrder : o));
+    } catch (err) {
+      console.error("Failed to update status", err);
+      alert("Could not update order status.");
+    }
   };
 
   // Get next step info based on current status
   const getNextStatusConfig = (status) => {
     switch (status) {
-      case 'Preparing':
-        return { label: '🍳 Confirm Order & Bake', next: 'Baking', class: 'btn-prepare' };
-      case 'Baking':
-        return { label: '📦 Mark Ready (Wait for Rider)', next: 'Waiting for Rider', class: 'btn-ready' };
-      case 'Waiting for Rider':
-        return { label: '🛵 Dispatch Order (Rider Departed)', next: 'Delivering', class: 'btn-dispatch' };
-      case 'Delivering':
-      case 'Sent':
-        return { label: '🏁 Mark as Delivered & Complete', next: 'Completed', class: 'btn-complete' };
+      case 'pending':
+        return { label: '🍳 Confirm Order & Bake', next: 'preparing', class: 'btn-prepare' };
+      case 'preparing':
+        return { label: '📦 Mark Ready (Wait for Rider)', next: 'ready_for_pickup', class: 'btn-ready' };
+      case 'ready_for_pickup':
+        return null; // Rider dispatches the order usually, or manager could force it if they have their own rider
+      case 'out_for_delivery':
+        return null;
       default:
         return null;
     }
@@ -308,7 +290,7 @@ function RestaurantDashboard() {
   };
 
   // MENU CRUD: Save / Submit
-  const handleSaveMenuItem = (e) => {
+  const handleSaveMenuItem = async (e) => {
     e.preventDefault();
     setFormError('');
 
@@ -324,67 +306,43 @@ function RestaurantDashboard() {
       return;
     }
 
-    let updatedMenu = [...selectedRestaurant.menu];
+    try {
+      const formData = new FormData();
+      formData.append('name', name.trim());
+      formData.append('price', priceNum);
+      formData.append('category', category.trim());
+      formData.append('description', description.trim());
+      // Here image is a url but the endpoint supports a file. If it's a file we'd append the file.
+      // We will just pass the url to image if it's string.
+      formData.append('image', image);
 
-    if (modalMode === 'add') {
-      const newItem = {
-        id: Date.now() + Math.floor(Math.random() * 100),
-        name: name.trim(),
-        price: priceNum,
-        image: image || IMAGE_TEMPLATES[0].url,
-        description: description.trim(),
-        category: category.trim()
-      };
-      updatedMenu.push(newItem);
-    } else if (modalMode === 'edit' && editingItem) {
-      updatedMenu = updatedMenu.map(m => {
-        if (m.id === editingItem.id) {
-          return {
-            ...m,
-            name: name.trim(),
-            price: priceNum,
-            image,
-            description: description.trim(),
-            category: category.trim()
-          };
-        }
-        return m;
-      });
-    }
-
-    const updatedRestaurantList = restaurants.map(r => {
-      if (r.id === selectedRestaurant.id) {
-        const u = { ...r, menu: updatedMenu };
-        // Sync local selected profile view
-        setSelectedRestaurant(u);
-        return u;
+      let updatedRestaurant;
+      if (modalMode === 'add') {
+        updatedRestaurant = await api.addMenuItem(selectedRestaurant._id, formData);
+      } else if (modalMode === 'edit' && editingItem) {
+        updatedRestaurant = await api.updateMenuItem(selectedRestaurant._id, editingItem._id, formData);
       }
-      return r;
-    });
-
-    setRestaurants(updatedRestaurantList);
-    localStorage.setItem('naannow_restaurants', JSON.stringify(updatedRestaurantList));
-    setIsModalOpen(false);
+      setSelectedRestaurant(updatedRestaurant);
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      setFormError('Failed to save menu item.');
+    }
   };
 
   // MENU CRUD: Delete Item
-  const handleDeleteMenuItem = (itemId) => {
+  const handleDeleteMenuItem = async (itemId) => {
     if (!window.confirm('Are you sure you want to remove this item from the restaurant menu?')) {
       return;
     }
 
-    const updatedMenu = selectedRestaurant.menu.filter(m => m.id !== itemId);
-    const updatedRestaurantList = restaurants.map(r => {
-      if (r.id === selectedRestaurant.id) {
-        const u = { ...r, menu: updatedMenu };
-        setSelectedRestaurant(u);
-        return u;
-      }
-      return r;
-    });
-
-    setRestaurants(updatedRestaurantList);
-    localStorage.setItem('naannow_restaurants', JSON.stringify(updatedRestaurantList));
+    try {
+      const updatedRestaurant = await api.deleteMenuItem(selectedRestaurant._id, itemId);
+      setSelectedRestaurant(updatedRestaurant);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete menu item.');
+    }
   };
 
   // Categories list for menu display
@@ -926,20 +884,20 @@ function RestaurantDashboard() {
             ) : (
               <div className="orders-queue-list">
                 {filteredOrders.map(order => {
-                  const isActive = activeOrder?.id === order.id;
+                  const isActive = activeOrder?._id === order._id;
                   return (
                     <div
-                      key={order.id}
+                      key={order._id}
                       className={`order-queue-card ${isActive ? 'selected' : ''}`}
-                      onClick={() => setSelectedOrderId(order.id)}
+                      onClick={() => setSelectedOrderId(order._id)}
                     >
                       <div className="card-top-row">
-                        <span className="order-id">{order.id}</span>
+                        <span className="order-id">{order.orderNumber}</span>
                         <span className={`status-badge-lbl ${order.status.toLowerCase().replace(/\s/g, '-')}`}>
                           {order.status}
                         </span>
                       </div>
-                      <div className="card-customer">{order.name}</div>
+                      <div className="card-customer">{order.customerId?.name || 'Customer'}</div>
                       <div className="card-meta-row">
                         <span>Items: {order.items.reduce((sum, i) => sum + i.quantity, 0)}</span>
                         <span>Rs. {order.grandTotal}</span>
@@ -957,7 +915,7 @@ function RestaurantDashboard() {
               <div className="details-card-pane">
                 <div className="detail-pane-header">
                   <div>
-                    <h2>Receipt Detail: {activeOrder.id}</h2>
+                    <h2>Receipt Detail: {activeOrder.orderNumber}</h2>
                     <p className="order-date-time">Placed: {new Date(activeOrder.date).toLocaleString()}</p>
                   </div>
                   <span className={`status-badge-lbl large ${activeOrder.status.toLowerCase().replace(/\s/g, '-')}`}>
@@ -970,7 +928,7 @@ function RestaurantDashboard() {
                   <h4>Pipeline Action</h4>
                   {getNextStatusConfig(activeOrder.status) ? (
                     <div className="action-row">
-                      {activeOrder.status === 'Preparing' && !activeOrder.riderId ? (
+                      {activeOrder.status === 'preparing' && !activeOrder.riderId ? (
                         <>
                           <p style={{ color: '#d97706', fontWeight: '500' }}>
                             ⚠️ Waiting for rider assignment. Kitchen preparation will begin as soon as a rider accepts the delivery.
@@ -986,20 +944,20 @@ function RestaurantDashboard() {
                       ) : (
                         <>
                           <p>
-                            {activeOrder.status === 'Preparing' 
-                              ? `✅ Rider Assigned (${activeOrder.riderName || 'Raja Kamran'}). Start cooking immediately:` 
+                            {activeOrder.status === 'preparing' 
+                              ? `✅ Rider Assigned (${activeOrder.riderId?.name || 'Raja Kamran'}). Start cooking immediately:` 
                               : "Advance this order to the next phase in the rider collection sequence:"}
                           </p>
                           <button
                             className={`action-advance-btn ${getNextStatusConfig(activeOrder.status).class}`}
-                            onClick={() => handleUpdateOrderStatus(activeOrder.id, getNextStatusConfig(activeOrder.status).next)}
+                            onClick={() => handleUpdateOrderStatus(activeOrder._id, getNextStatusConfig(activeOrder.status).next)}
                           >
                             {getNextStatusConfig(activeOrder.status).label}
                           </button>
                         </>
                       )}
                     </div>
-                  ) : activeOrder.status === 'Completed' ? (
+                  ) : activeOrder.status === 'completed' || activeOrder.status === 'delivered' ? (
                     <div className="action-success-complete">
                       <span>🎉 Order has been fully delivered and completed!</span>
                     </div>
@@ -1016,11 +974,11 @@ function RestaurantDashboard() {
                   <div className="customer-details-grid">
                     <div>
                       <strong>Full Name:</strong>
-                      <p>{activeOrder.name}</p>
+                      <p>{activeOrder.customerId?.name || 'Customer'}</p>
                     </div>
                     <div>
                       <strong>Contact:</strong>
-                      <p>{activeOrder.phone || '03001234567'}</p>
+                      <p>{activeOrder.customerId?.phone || activeOrder.phone || '03001234567'}</p>
                     </div>
                     <div>
                       <strong>Delivery Speed:</strong>
@@ -1034,9 +992,9 @@ function RestaurantDashboard() {
                       <strong>Rider Assigned:</strong>
                       {activeOrder.riderId ? (
                         <p style={{ color: '#10b981', fontWeight: '600' }}>
-                          🏍️ {activeOrder.riderName || 'Raja Kamran'}
+                          🏍️ {activeOrder.riderId?.name || 'Raja Kamran'}
                         </p>
-                      ) : activeOrder.status !== 'Completed' && activeOrder.status !== 'Cancelled' ? (
+                      ) : activeOrder.status !== 'completed' && activeOrder.status !== 'cancelled' ? (
                         <p style={{ color: '#d97706', fontWeight: '600' }}>
                           🔍 Finding Rider...
                         </p>
@@ -1061,8 +1019,8 @@ function RestaurantDashboard() {
                 <div className="details-section items-info-sec">
                   <h3>Itemized Checklist</h3>
                   <div className="items-receipt-list">
-                    {activeOrder.items.map(item => (
-                      <div key={item.id} className="receipt-item-row">
+                    {activeOrder.items.map((item, idx) => (
+                      <div key={item._id || idx} className="receipt-item-row">
                         {item.image && <img src={item.image} alt={item.name} className="receipt-item-img" />}
                         <div className="item-details-lbl">
                           <h4>{item.name}</h4>

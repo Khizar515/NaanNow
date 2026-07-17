@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../api';
 import './RiderDashboard.css';
 
 // Load Leaflet dynamically to avoid React 19 dependency peer resolution issues
@@ -118,7 +119,7 @@ function RiderDashboard() {
     setCurrentUser(prev => ({ ...prev, status: 'unverified' }));
   };
 
-  const handleWizardSubmit = (e) => {
+  const handleWizardSubmit = async (e) => {
     e.preventDefault();
     setWizardError('');
 
@@ -129,43 +130,41 @@ function RiderDashboard() {
       return;
     }
 
-    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
-    const updated = registeredUsers.map(u => {
-      if (u.email.toLowerCase() === currentUser.email.toLowerCase()) {
-        return {
-          ...u,
-          ...wizardData,
-          vehicleDetails: `${wizardData.bikeModel} (${wizardData.bikeColor})`,
-          licensePlate: wizardData.bikeRegistration,
-          status: 'pending',
-          rejectionReason: ''
-        };
-      }
-      return u;
-    });
-    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updated));
-
-    const currentDbUser = updated.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
-    localStorage.setItem('naannow_currentUser', JSON.stringify(currentDbUser));
-    setCurrentUser(currentDbUser);
+    try {
+      const formData = new FormData();
+      Object.keys(wizardData).forEach(key => {
+        if (wizardData[key]) {
+          formData.append(key, wizardData[key]);
+        }
+      });
+      // specific rider fields
+      formData.append('vehicleDetails', `${wizardData.bikeModel} (${wizardData.bikeColor})`);
+      formData.append('licensePlate', wizardData.bikeRegistration);
+      
+      const updatedUser = await api.uploadDocs(formData);
+      setCurrentUser(updatedUser);
+      alert('Verification submitted successfully!');
+    } catch (err) {
+      console.error(err);
+      setWizardError('Failed to submit verification.');
+    }
   };
 
   // Load user details and verify role/status on mount
   useEffect(() => {
-    const userStr = localStorage.getItem('naannow_currentUser');
-    if (!userStr) {
-      navigate('/login');
-      return;
-    }
-    const user = JSON.parse(userStr);
-    if (user.role !== 'rider') {
-      navigate('/login');
-      return;
-    }
-
-    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
-    const dbUser = registeredUsers.find(u => u.email.toLowerCase() === user.email.toLowerCase());
-    setCurrentUser(dbUser || user);
+    const fetchAuth = async () => {
+      try {
+        const user = await api.getMe();
+        if (user.role !== 'rider') {
+          navigate('/login');
+          return;
+        }
+        setCurrentUser(user);
+      } catch (err) {
+        navigate('/login');
+      }
+    };
+    fetchAuth();
   }, [navigate]);
 
   // Rider state
@@ -206,89 +205,42 @@ function RiderDashboard() {
   }, []);
 
   // Fetch all orders from localStorage, add mock orders if none exist
+  // Fetch all orders from API
   useEffect(() => {
-    const fetchOrders = () => {
-      let saved = localStorage.getItem('naannow_orders');
-      let parsed = [];
-      
-      if (saved) {
-        parsed = JSON.parse(saved);
-      }
-      
-      // If there are no orders at all, populate some realistic mock orders
-      if (parsed.length === 0) {
-        const mockOrders = [
-          {
-            id: 'NN-534118',
-            restaurantId: 1,
-            restaurantName: 'Tandoori Flames (F-10)',
-            restaurantAddress: 'F-10 Markaz, Islamabad',
-            name: 'Muhammad Saad',
-            phone: '0300-1234567',
-            address: 'House 42B, Street 11, F-8, Islamabad',
-            items: [
-              { id: 101, name: 'Clay Oven Roghni Naan', quantity: 3, price: 120 },
-              { id: 102, name: 'Special Chicken Biryani', quantity: 1, price: 890 }
-            ],
-            subtotal: 1250,
-            deliverySpeed: 'priority',
-            deliveryFee: 150,
-            tax: 80,
-            grandTotal: 1480,
-            status: 'Waiting for Rider',
-            date: new Date().toISOString()
-          },
-          {
-            id: 'NN-992812',
-            restaurantId: 2,
-            restaurantName: 'Khyber Shinwari (F-7)',
-            restaurantAddress: 'F-7 Markaz, Islamabad',
-            name: 'Ayesha Khan',
-            phone: '0321-9876543',
-            address: 'Apartment 4, Block C, F-10, Islamabad',
-            items: [
-              { id: 201, name: 'Garlic Butter Naan', quantity: 2, price: 150 },
-              { id: 202, name: 'Chicken Karahi (Half)', quantity: 1, price: 1450 }
-            ],
-            subtotal: 1750,
-            deliverySpeed: 'standard',
-            deliveryFee: 120,
-            tax: 120,
-            grandTotal: 1990,
-            status: 'Baking',
-            date: new Date(Date.now() - 600000).toISOString()
-          }
-        ];
-        localStorage.setItem('naannow_orders', JSON.stringify(mockOrders));
-        parsed = mockOrders;
-      }
-      
-      setOrders(parsed);
-      
-      // Defer setting the initialized flag to prevent scrolling on mount
-      if (!isInitializedRef.current) {
-        setTimeout(() => {
-          isInitializedRef.current = true;
-        }, 500);
+    if (currentUser?.status !== 'approved') return;
+    
+    const fetchOrders = async () => {
+      try {
+        const parsed = await api.getOrders();
+        setOrders(parsed);
+        
+        // Defer setting the initialized flag to prevent scrolling on mount
+        if (!isInitializedRef.current) {
+          setTimeout(() => {
+            isInitializedRef.current = true;
+          }, 500);
+        }
+      } catch (err) {
+        console.error("Failed to fetch orders:", err);
       }
     };
 
     fetchOrders();
 
     // Check periodically for order changes
-    const interval = setInterval(fetchOrders, 2000);
+    const interval = setInterval(fetchOrders, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentUser]);
 
   // Filter orders based on tabs
   const availableOrders = orders.filter(
-    o => o.status !== 'Completed' && o.status !== 'Cancelled' && !o.riderId
+    o => ['pending', 'preparing', 'ready_for_pickup'].includes(o.status) && !o.riderId
   );
   const activeOrders = orders.filter(
-    o => o.status !== 'Completed' && o.status !== 'Cancelled' && o.riderId === 'RK-9821'
+    o => ['ready_for_pickup', 'out_for_delivery'].includes(o.status) && o.riderId?._id === currentUser?._id
   );
   const completedOrders = orders.filter(
-    o => o.status === 'Completed' && o.riderId === 'RK-9821'
+    o => ['delivered', 'completed'].includes(o.status) && o.riderId?._id === currentUser?._id
   );
 
   // Compute completed earnings
@@ -307,8 +259,8 @@ function RiderDashboard() {
   }, [orders]);
 
   // Determine current active selection
-  const currentActiveOrder = activeOrders.find(o => o.id === selectedOrderId) || activeOrders[0];
-  const activeOrderId = currentActiveOrder?.id;
+  const currentActiveOrder = activeOrders.find(o => o._id === selectedOrderId) || activeOrders[0];
+  const activeOrderId = currentActiveOrder?._id;
 
   // Map initialization
   useEffect(() => {
@@ -370,11 +322,11 @@ function RiderDashboard() {
 
     // Initial Rider Marker
     let startLoc = restaurantCoords;
-    if (currentActiveOrder.status === 'Delivering' && currentActiveOrder.dispatchedAt) {
-      const elapsed = (new Date().getTime() - new Date(currentActiveOrder.dispatchedAt).getTime()) / 1000;
+    if (currentActiveOrder.status === 'out_for_delivery' && currentActiveOrder.updatedAt) {
+      const elapsed = (new Date().getTime() - new Date(currentActiveOrder.updatedAt).getTime()) / 1000;
       const progress = Math.min(Math.max(elapsed / 25, 0), 1);
       startLoc = getPointAlongPath(routePath, progress);
-    } else if (currentActiveOrder.status === 'Completed') {
+    } else if (currentActiveOrder.status === 'completed' || currentActiveOrder.status === 'delivered') {
       startLoc = customerCoords;
     }
 
@@ -395,15 +347,15 @@ function RiderDashboard() {
 
   // Handle live rider position updates if order is in delivering state
   useEffect(() => {
-    if (!mapRef.current || !riderMarkerRef.current || !currentActiveOrder || currentActiveOrder.status !== 'Delivering') return;
+    if (!mapRef.current || !riderMarkerRef.current || !currentActiveOrder || currentActiveOrder.status !== 'out_for_delivery') return;
 
     // If simulating, the simulation interval handles position.
     // Otherwise, calculate real position from dispatchedAt.
     if (isSimulating) return;
 
     const updatePosition = () => {
-      if (!currentActiveOrder.dispatchedAt) return;
-      const elapsed = (new Date().getTime() - new Date(currentActiveOrder.dispatchedAt).getTime()) / 1000;
+      if (!currentActiveOrder.updatedAt) return;
+      const elapsed = (new Date().getTime() - new Date(currentActiveOrder.updatedAt).getTime()) / 1000;
       const progress = Math.min(Math.max(elapsed / 25, 0), 1);
       const currentLoc = getPointAlongPath(routePath, progress);
       
@@ -428,7 +380,7 @@ function RiderDashboard() {
   }, [currentActiveOrder?.messages?.length]);
 
   // Send message from Rider Dashboard
-  const handleRiderSendMessage = (e) => {
+  const handleRiderSendMessage = async (e) => {
     e.preventDefault();
     if (!chatInputText.trim() || !currentActiveOrder) return;
 
@@ -439,44 +391,36 @@ function RiderDashboard() {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    const saved = localStorage.getItem('naannow_orders');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const updated = parsed.map(o => {
-        if (o.id === currentActiveOrder.id) {
-          const msgs = o.messages || [];
-          return { ...o, messages: [...msgs, riderMsg] };
-        }
-        return o;
-      });
-      localStorage.setItem('naannow_orders', JSON.stringify(updated));
-      setOrders(updated);
-    }
+    setOrders(prev => prev.map(o => {
+      if (o._id === currentActiveOrder._id) {
+        return { ...o, messages: [...(o.messages || []), riderMsg] };
+      }
+      return o;
+    }));
     setChatInputText('');
+
+    try {
+      await api.addOrderMessage(currentActiveOrder._id, riderMsg.text);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Simulation Route Travel Runner
-  const handleStartSimulation = () => {
+  const handleStartSimulation = async () => {
     if (isSimulating || !currentActiveOrder) return;
 
     setIsSimulating(true);
     setSimProgress(0);
 
-    // Update localStorage to record dispatch timestamp so customer sees sync
-    const nowIso = new Date().toISOString();
-    const updated = orders.map(o => {
-      if (o.id === currentActiveOrder.id) {
-        return {
-          ...o,
-          status: 'Delivering',
-          dispatchedAt: nowIso,
-          isManual: true
-        };
-      }
-      return o;
-    });
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
+    try {
+      const updatedOrder = await api.updateOrderStatus(currentActiveOrder._id, 'out_for_delivery');
+      setOrders(prev => prev.map(o => o._id === currentActiveOrder._id ? updatedOrder : o));
+    } catch (err) {
+      console.error(err);
+      setIsSimulating(false);
+      return;
+    }
 
     let progress = 0;
     const interval = setInterval(() => {
@@ -503,81 +447,51 @@ function RiderDashboard() {
   };
 
   // Assign Order to Rider
-  const handleAcceptOrder = (orderId) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        return {
-          ...o,
-          riderId: 'RK-9821',
-          riderName: 'Raja Kamran',
-          riderPhone: '+92 300 9821245',
-          riderVehicle: 'Honda CD70 (ICT-9821)',
-          status: o.status === 'Preparing' || o.status === 'Baking' ? o.status : 'Waiting for Rider'
-        };
-      }
-      return o;
-    });
-
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
-    setSelectedOrderId(orderId);
-    setActiveTab('active');
+  const handleAcceptOrder = async (orderId) => {
+    try {
+      const updatedOrder = await api.assignOrder(orderId);
+      setOrders(prev => prev.map(o => o._id === orderId ? updatedOrder : o));
+      setSelectedOrderId(orderId);
+      setActiveTab('active');
+    } catch (err) {
+      console.error(err);
+      alert('Could not assign order');
+    }
   };
 
   // Arrive at Restaurant (Chef completes packaging)
-  const handleArriveAtRestaurant = () => {
+  const handleArriveAtRestaurant = async () => {
     if (!currentActiveOrder) return;
-    const updated = orders.map(o => {
-      if (o.id === currentActiveOrder.id) {
-        return {
-          ...o,
-          status: 'Waiting for Rider',
-          isManual: true
-        };
-      }
-      return o;
-    });
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
+    try {
+      const updatedOrder = await api.updateOrderStatus(currentActiveOrder._id, 'ready_for_pickup');
+      setOrders(prev => prev.map(o => o._id === currentActiveOrder._id ? updatedOrder : o));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Pick up food packages
-  const handlePickUpOrder = () => {
+  const handlePickUpOrder = async () => {
     if (!currentActiveOrder) return;
-    const nowIso = new Date().toISOString();
-    const updated = orders.map(o => {
-      if (o.id === currentActiveOrder.id) {
-        return {
-          ...o,
-          status: 'Delivering',
-          dispatchedAt: nowIso,
-          isManual: true
-        };
-      }
-      return o;
-    });
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
+    try {
+      const updatedOrder = await api.updateOrderStatus(currentActiveOrder._id, 'out_for_delivery');
+      setOrders(prev => prev.map(o => o._id === currentActiveOrder._id ? updatedOrder : o));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Complete delivery
-  const handleCompleteOrder = () => {
+  const handleCompleteOrder = async () => {
     if (!currentActiveOrder) return;
-    const updated = orders.map(o => {
-      if (o.id === currentActiveOrder.id) {
-        return {
-          ...o,
-          status: 'Completed',
-          completedAt: new Date().toISOString(),
-          isManual: true
-        };
-      }
-      return o;
-    });
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
-    alert("🎉 Fantastic! Trip completed successfully. Rs. " + (currentActiveOrder.deliveryFee + 40) + " has been added to your daily earnings.");
-    setActiveTab('history');
+    try {
+      const updatedOrder = await api.updateOrderStatus(currentActiveOrder._id, 'delivered');
+      setOrders(prev => prev.map(o => o._id === currentActiveOrder._id ? updatedOrder : o));
+      alert("🎉 Fantastic! Trip completed successfully. Earnings have been added to your wallet.");
+      setActiveTab('history');
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (currentUser && currentUser.status !== 'approved') {
@@ -977,36 +891,36 @@ function RiderDashboard() {
                   </div>
                 ) : (
                   availableOrders.map(order => (
-                    <div key={order.id} className="order-card-rider">
+                    <div key={order._id} className="order-card-rider">
                       <div className="order-card-header">
-                        <span className="order-id-lbl">{order.id}</span>
+                        <span className="order-id-lbl">{order.orderNumber}</span>
                         <span className={`speed-tag ${order.deliverySpeed}`}>
                           {order.deliverySpeed === 'priority' ? '⚡ Priority' : '🛵 Standard'}
                         </span>
                       </div>
                       
-                      <div className="restaurant-title">{order.restaurantName}</div>
+                      <div className="restaurant-title">{order.restaurantId?.name || 'Restaurant'}</div>
                       
                       <div className="address-item">
                         <span className="address-icon">🥣</span>
-                        <span>{order.restaurantAddress || 'F-10 Markaz, Islamabad'}</span>
+                        <span>{order.restaurantId?.address || 'F-10 Markaz, Islamabad'}</span>
                       </div>
                       
                       <div className="address-item">
                         <span className="address-icon">🏠</span>
-                        <span>{order.address}</span>
+                        <span>{order.deliveryAddress || order.address}</span>
                       </div>
 
                       <div className="order-details-summary">
                         <div className="order-bill">Rs. {order.grandTotal}</div>
                         <div className="delivery-payout">
-                          Payout: <strong>Rs. {order.deliveryFee + 40}</strong>
+                          Payout: <strong>Rs. {(order.deliveryFee || 150) + 40}</strong>
                         </div>
                       </div>
 
                       <button 
                         className="btn-accept-order" 
-                        onClick={() => handleAcceptOrder(order.id)}
+                        onClick={() => handleAcceptOrder(order._id)}
                       >
                         Accept & Start Job
                       </button>
@@ -1027,7 +941,7 @@ function RiderDashboard() {
                   <div className="active-delivery-panel">
                     <div className="active-delivery-header">
                       <h3>Active Order Details</h3>
-                      <p>ID: <strong>{currentActiveOrder.id}</strong> • Status: <strong style={{ color: 'var(--color-tandoori)' }}>{currentActiveOrder.status}</strong></p>
+                      <p>ID: <strong>{currentActiveOrder.orderNumber}</strong> • Status: <strong style={{ color: 'var(--color-tandoori)' }}>{currentActiveOrder.status}</strong></p>
                     </div>
 
                     <div className="active-delivery-body">
@@ -1035,14 +949,14 @@ function RiderDashboard() {
                       <div className="delivery-waypoints">
                         <div className="waypoint-node">
                           <span className="waypoint-label">Restaurant Pick Up</span>
-                          <div className="waypoint-name">{currentActiveOrder.restaurantName}</div>
-                          <div className="waypoint-address">{currentActiveOrder.restaurantAddress || 'F-10 Markaz, Islamabad'}</div>
+                          <div className="waypoint-name">{currentActiveOrder.restaurantId?.name || 'Restaurant'}</div>
+                          <div className="waypoint-address">{currentActiveOrder.restaurantId?.address || 'F-10 Markaz, Islamabad'}</div>
                         </div>
 
                         <div className="waypoint-node customer-destination">
                           <span className="waypoint-label">Customer Drop Off</span>
-                          <div className="waypoint-name">{currentActiveOrder.name} ({currentActiveOrder.phone})</div>
-                          <div className="waypoint-address">{currentActiveOrder.address}</div>
+                          <div className="waypoint-name">{currentActiveOrder.customerId?.name || currentActiveOrder.name} ({currentActiveOrder.customerId?.phone || currentActiveOrder.phone})</div>
+                          <div className="waypoint-address">{currentActiveOrder.deliveryAddress || currentActiveOrder.address}</div>
                         </div>
                       </div>
 
@@ -1061,7 +975,7 @@ function RiderDashboard() {
 
                       {/* Progression Control Panel */}
                       <div className="lifecycle-controller">
-                        {currentActiveOrder.status === 'Preparing' || currentActiveOrder.status === 'Baking' ? (
+                        {currentActiveOrder.status === 'preparing' || currentActiveOrder.status === 'pending' ? (
                           <>
                             <h4>🍳 Kitchen Preparing...</h4>
                             <p>Chefs are baking naans inside the clay tandoor. You can wait or let them know you've arrived.</p>
@@ -1069,7 +983,7 @@ function RiderDashboard() {
                               Arrive at Restaurant
                             </button>
                           </>
-                        ) : currentActiveOrder.status === 'Waiting for Rider' ? (
+                        ) : currentActiveOrder.status === 'ready_for_pickup' ? (
                           <>
                             <h4>📦 Order Ready at Counter!</h4>
                             <p>Verify all items are packaged correctly inside the thermal heat bag before picking up.</p>
@@ -1077,10 +991,10 @@ function RiderDashboard() {
                               Confirm Pick Up & Start Delivery
                             </button>
                           </>
-                        ) : currentActiveOrder.status === 'Delivering' ? (
+                        ) : currentActiveOrder.status === 'out_for_delivery' ? (
                           <>
                             <h4>🛵 In Transit to Customer</h4>
-                            <p>Head to {currentActiveOrder.address}. You can simulate the travel navigation on the map.</p>
+                            <p>Head to {currentActiveOrder.deliveryAddress || currentActiveOrder.address}. You can simulate the travel navigation on the map.</p>
                             
                             <button className="btn-lifecycle-action delivering-state" onClick={handleCompleteOrder}>
                               Mark Delivered & Complete

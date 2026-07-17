@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../api';
 import { CartContext } from '../../components/Context/CartContext';
 import './CheckoutPage.css';
 
@@ -156,7 +157,7 @@ function CheckoutPage() {
   };
 
   // Handle place order action
-  const handlePlaceOrder = (e) => {
+  const handlePlaceOrder = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
       // Scroll to errors if any
@@ -165,44 +166,45 @@ function CheckoutPage() {
     }
 
     setIsPlacingOrder(true);
-    // Simulate baking state sequence
-    setTimeout(() => {
+    
+    const firstItem = cartItems[0];
+    const resId = firstItem?.restaurantId;
+
+    const orderData = {
+      restaurantId: resId,
+      items: cartItems.map(item => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      })),
+      totalAmount: grandTotal,
+      deliveryAddress: formData.address,
+      paymentMethod,
+      deliverySpeed: formData.deliverySpeed,
+      instructions: formData.instructions,
+      phone: formData.phone,
+      name: formData.name
+    };
+
+    try {
+      const createdOrder = await api.createOrder(orderData);
+      setOrderId(createdOrder.orderNumber);
+      
+      // Simulate baking state sequence
+      setTimeout(() => {
+        setIsPlacingOrder(false);
+        setOrderPlaced(true);
+        clearCart();
+        
+        // After placing, we just show the success screen here which does countdowns,
+        // so no immediate navigate is needed unless desired.
+        // navigate('/orders');
+      }, 2500);
+    } catch (err) {
+      console.error("Failed to create order:", err);
       setIsPlacingOrder(false);
-      const newOrderId = 'NN-' + Math.floor(100000 + Math.random() * 900000);
-      const firstItem = cartItems[0];
-      const resId = firstItem?.restaurantId || 1;
-      const resName = firstItem?.restaurantName || "NaanNow Kitchen";
-
-      const newOrder = {
-        id: newOrderId,
-        restaurantId: resId,
-        restaurantName: resName,
-        items: [...cartItems],
-        subtotal,
-        deliveryFee,
-        platformFee,
-        discount,
-        grandTotal,
-        date: new Date().toISOString(),
-        status: 'Preparing', // Preparing | Baking | Delivering | Completed
-        address: formData.address,
-        name: formData.name,
-        phone: formData.phone,
-        instructions: formData.instructions,
-        paymentMethod: paymentMethod,
-        deliverySpeed: formData.deliverySpeed
-      };
-
-      try {
-        const existingOrders = JSON.parse(localStorage.getItem('naannow_orders') || '[]');
-        localStorage.setItem('naannow_orders', JSON.stringify([newOrder, ...existingOrders]));
-      } catch (err) {
-        console.error("Failed to save order to localStorage:", err);
-      }
-
-      clearCart();
-      navigate('/orders');
-    }, 2500);
+      alert("Failed to place order. Please try again.");
+    }
   };
 
   // Track delivery sequence progress

@@ -267,91 +267,40 @@ function AdminDashboard() {
       return;
     }
 
-    // Load registered users
-    const savedUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
-    setUsers(savedUsers);
+    // Load all data from API
+    const loadAdminData = async () => {
+      try {
+        const [
+          usersData,
+          ordersData,
+          restaurantsData,
+          ticketsData,
+          promotionsData,
+          withdrawalsData,
+          settingsData
+        ] = await Promise.all([
+          api.getAllUsers(),
+          api.getOrders(),
+          api.getRestaurants(),
+          api.getTickets().catch(() => []),
+          api.getPromotions().catch(() => []),
+          api.getWithdrawals().catch(() => []),
+          api.getSettings().catch(() => platformSettings)
+        ]);
+        
+        setUsers(usersData);
+        setOrders(ordersData);
+        setRestaurants(restaurantsData);
+        setTickets(ticketsData);
+        setPromotions(promotionsData);
+        setWithdrawals(withdrawalsData);
+        setPlatformSettings(settingsData);
+      } catch (err) {
+        console.error("Failed to load admin data:", err);
+      }
+    };
 
-    // Load orders
-    const savedOrders = JSON.parse(localStorage.getItem('naannow_orders') || '[]');
-    setOrders(savedOrders);
-
-    // Load restaurants
-    const savedRestaurants = JSON.parse(localStorage.getItem('naannow_restaurants') || '[]');
-    setRestaurants(savedRestaurants);
-
-    // Seeding Tickets
-    const savedTickets = localStorage.getItem('naannow_tickets');
-    if (savedTickets) {
-      setTickets(JSON.parse(savedTickets));
-    } else {
-      const mockTickets = [
-        {
-          id: "TK-102",
-          customerName: "Muhammad Saad",
-          customerEmail: "saad@naannow.com",
-          subject: "Cold food delivered & missing item",
-          status: "Open",
-          priority: "High",
-          date: new Date(Date.now() - 3600000 * 2).toISOString(),
-          chat: [
-            { sender: "customer", text: "Hi, my naan order NN-827364 just arrived, but the garlic butter naan is missing and the curry is ice cold.", time: "10:15 AM" },
-            { sender: "support", text: "Hello Saad, extremely sorry to hear this. Let me check the order logs with Tandoori Flames.", time: "10:18 AM" },
-            { sender: "customer", text: "Thank you. I also paid online via card. Can I get a refund for the missing naan?", time: "10:20 AM" }
-          ]
-        },
-        {
-          id: "TK-98",
-          customerName: "Sania Malik",
-          customerEmail: "sania@customer.com",
-          subject: "Rider took wrong route",
-          status: "Resolved",
-          priority: "Medium",
-          date: new Date(Date.now() - 86400000).toISOString(),
-          chat: [
-            { sender: "customer", text: "My rider went in the opposite direction on the map.", time: "Yesterday" },
-            { sender: "support", text: "We checked with Rider Hamza. He took a detour due to road blockages in F-10. Your food has been successfully delivered.", time: "Yesterday" }
-          ]
-        }
-      ];
-      localStorage.setItem('naannow_tickets', JSON.stringify(mockTickets));
-      setTickets(mockTickets);
-    }
-
-    // Seeding Promotions
-    const savedPromotions = localStorage.getItem('naannow_promotions');
-    if (savedPromotions) {
-      setPromotions(JSON.parse(savedPromotions));
-    } else {
-      const mockPromotions = [
-        { code: "WELCOME50", discount: 50, type: "Percentage", minBasket: 500, maxDiscount: 250, status: "Active" },
-        { code: "NAANNOW100", discount: 100, type: "Flat", minBasket: 800, maxDiscount: 100, status: "Active" },
-        { code: "KHEERFREE", discount: 150, type: "Flat", minBasket: 1000, maxDiscount: 150, status: "Expired" }
-      ];
-      localStorage.setItem('naannow_promotions', JSON.stringify(mockPromotions));
-      setPromotions(mockPromotions);
-    }
-
-    // Seeding Withdrawals
-    const savedWithdrawals = localStorage.getItem('naannow_withdrawals');
-    if (savedWithdrawals) {
-      setWithdrawals(JSON.parse(savedWithdrawals));
-    } else {
-      const mockWithdrawals = [
-        { id: "TXN-9023", party: "Rider Hamza Ahmed", amount: 4800, method: "Easypaisa", status: "Completed", date: new Date(Date.now() - 3600000 * 20).toISOString() },
-        { id: "TXN-8921", party: "Tandoori Flames (F-10)", amount: 32500, method: "Bank Transfer", status: "Completed", date: new Date(Date.now() - 86400000 * 2).toISOString() },
-        { id: "TXN-9099", party: "Rider Ali Khan", amount: 1500, method: "JazzCash", status: "Pending", date: new Date(Date.now() - 3600000 * 2).toISOString() }
-      ];
-      localStorage.setItem('naannow_withdrawals', JSON.stringify(mockWithdrawals));
-      setWithdrawals(mockWithdrawals);
-    }
-
-    // Seeding Platform Settings
-    const savedSettings = localStorage.getItem('naannow_platformSettings');
-    if (savedSettings) {
-      setPlatformSettings(JSON.parse(savedSettings));
-    } else {
-      localStorage.setItem('naannow_platformSettings', JSON.stringify(platformSettings));
-    }
+    loadAdminData();
 
     // Initialize Map Rider Coordinates
     const initialRiderCoords = {

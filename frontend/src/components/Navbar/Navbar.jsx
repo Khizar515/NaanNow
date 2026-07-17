@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CartContext } from "../Context/CartContext";
+import { useAuth } from "../../context/AuthContext";
 import './Navbar.css';
 
 import logo from '../../assets/logo-removebg.png';
@@ -12,11 +13,10 @@ function Navbar({ setCartOpen }) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showTopRow, setShowTopRow] = useState(true);
   const { cartItems, addToCart, favorites } = useContext(CartContext);
+  const { user: currentUser, logout } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
-
-  const [currentUser, setCurrentUser] = useState(null);
 
   const [address, setAddress] = useState(() => {
     return localStorage.getItem('naannow_userAddress') || 'Street 11 Islamabad';
@@ -39,25 +39,8 @@ function Navbar({ setCartOpen }) {
     }, 1200);
   };
 
-  useEffect(() => {
-    const user = localStorage.getItem('naannow_currentUser');
-    if (user) {
-      setCurrentUser(JSON.parse(user));
-    } else {
-      // Auto-initialize default customer Muhammad Saad on initial launch
-      const defaultUser = {
-        name: 'Muhammad Saad',
-        email: 'saad@naannow.com',
-        role: 'customer'
-      };
-      localStorage.setItem('naannow_currentUser', JSON.stringify(defaultUser));
-      setCurrentUser(defaultUser);
-    }
-  }, [location]);
-
   const handleLogout = () => {
-    localStorage.removeItem('naannow_currentUser');
-    setCurrentUser(null);
+    logout();
     setIsProfileOpen(false);
     navigate('/');
   };

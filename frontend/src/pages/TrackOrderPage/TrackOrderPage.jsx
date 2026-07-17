@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { api } from '../../api';
 import './TrackOrderPage.css';
 
 // Load Leaflet dynamically to avoid React 19 dependency peer resolution issues
@@ -84,38 +85,21 @@ const playNotificationSound = () => {
 };
 
 const getOrderProgress = (order) => {
-  if (order.isManual) {
-    switch (order.status) {
-      case 'Preparing':
-        return { status: 'Preparing', step: 1, remaining: 45 };
-      case 'Baking':
-        return { status: 'Baking', step: 2, remaining: 30 };
-      case 'Waiting for Rider':
-        return { status: 'Waiting for Rider', step: 2.5, remaining: 15 };
-      case 'Delivering':
-      case 'Sent':
-        return { status: 'Delivering', step: 3, remaining: 10 };
-      case 'Completed':
-        return { status: 'Completed', step: 4, remaining: 0 };
-      default:
-        return { status: order.status, step: 1, remaining: 10 };
-    }
-  }
-
-  if (order.status === 'Completed') {
+  if (order.status === 'completed' || order.status === 'delivered') {
     return { status: 'Completed', step: 4, remaining: 0 };
   }
 
-  const elapsed = (new Date().getTime() - new Date(order.date).getTime()) / 1000;
-
-  if (elapsed < 15) {
-    return { status: 'Preparing', step: 1, remaining: Math.ceil(55 - elapsed) };
-  } else if (elapsed < 30) {
-    return { status: 'Baking', step: 2, remaining: Math.ceil(55 - elapsed) };
-  } else if (elapsed < 55) {
-    return { status: 'Delivering', step: 3, remaining: Math.ceil(55 - elapsed) };
-  } else {
-    return { status: 'Completed', step: 4, remaining: 0 };
+  switch (order.status) {
+    case 'pending':
+      return { status: 'Preparing', step: 1, remaining: 45 };
+    case 'preparing':
+      return { status: 'Baking', step: 2, remaining: 30 };
+    case 'ready_for_pickup':
+      return { status: 'Waiting for Rider', step: 2.5, remaining: 15 };
+    case 'out_for_delivery':
+      return { status: 'Delivering', step: 3, remaining: 10 };
+    default:
+      return { status: 'Completed', step: 4, remaining: 0 };
   }
 };
 
@@ -186,36 +170,26 @@ function TrackOrderPage() {
     });
   }, []);
 
-  // Sync order status and chat messages from localStorage periodically
+  // Sync order status and chat messages from API periodically
   useEffect(() => {
     if (!orderId) return;
-    const syncOrder = () => {
-      const saved = localStorage.getItem('naannow_orders');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setOrders(parsed);
-        const found = parsed.find(o => o.id === orderId);
+    const syncOrder = async () => {
+      try {
+        const found = await api.getOrderById(orderId);
         if (found) {
           setOrder(found);
-          if (found.messages) {
+          if (found.messages && found.messages.length > 0) {
             setMessages(found.messages);
           } else {
-            // Initialize default welcome message if not present
+            // Initialize default welcome message if not present locally
             const defaultMsgs = [
               {
                 id: 1,
                 sender: 'rider',
-                text: 'Salam! I am Raja Kamran, your rider. I am heading to the restaurant to collect your hot order. 🛵',
+                text: 'Salam! I am your rider. I am heading to the restaurant to collect your hot order. 🛵',
                 time: new Date(Date.now() - 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               }
             ];
-            const updated = parsed.map(o => {
-              if (o.id === orderId) {
-                return { ...o, messages: defaultMsgs };
-              }
-              return o;
-            });
-            localStorage.setItem('naannow_orders', JSON.stringify(updated));
             setMessages(defaultMsgs);
           }
           // Defer setting the initialized flag to prevent scrolling on mount
@@ -225,11 +199,13 @@ function TrackOrderPage() {
             }, 500);
           }
         }
+      } catch (err) {
+        console.error("Failed to fetch order:", err);
       }
     };
 
     syncOrder();
-    const interval = setInterval(syncOrder, 1000);
+    const interval = setInterval(syncOrder, 5000);
     return () => clearInterval(interval);
   }, [orderId]);
 
@@ -450,7 +426,7 @@ function TrackOrderPage() {
   }, [liveOrderState, order]);
 
   // Send message
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputText.trim()) return;
 
@@ -461,92 +437,62 @@ function TrackOrderPage() {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    const saved = localStorage.getItem('naannow_orders');
-    let updatedMsgs = [];
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const updated = parsed.map(o => {
-        if (o.id === order.id) {
-          const msgs = o.messages || [];
-          updatedMsgs = [...msgs, userMsg];
-          return { ...o, messages: updatedMsgs };
-        }
-        return o;
-      });
-      localStorage.setItem('naannow_orders', JSON.stringify(updated));
-    }
-
-    setMessages(updatedMsgs);
+    setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsTyping(true);
+
+    try {
+      // In a real app we'd post to backend, but here we just simulate
+      await api.addOrderMessage(order._id, userMsg.text);
+    } catch (err) {
+      console.log("Could not post message to API:", err);
+    }
 
     const lowerText = userMsg.text.toLowerCase();
 
     // Rider automated response simulation after a short delay
-    setTimeout(() => {
-      // Re-fetch orders from localStorage to see if a human rider replied in the meantime
-      const latestSaved = localStorage.getItem('naannow_orders');
-      if (latestSaved) {
-        const latestParsed = JSON.parse(latestSaved);
-        const latestOrder = latestParsed.find(o => o.id === order.id);
-        
-        // If the last message is already from the rider, don't trigger the auto-reply
-        const lastMsg = latestOrder?.messages?.[latestOrder.messages.length - 1];
-        if (lastMsg && lastMsg.sender === 'rider') {
-          setIsTyping(false);
-          return;
+    setTimeout(async () => {
+      let replyText = "Got it! I am currently focused on driving safely. Will talk soon! 🛵";
+
+      if (liveOrderState?.liveStatus === 'Completed') {
+        replyText = "Your hot naan order is already delivered! Hope you love it. Please review us on the store! 😊👍";
+      } else if (lowerText.includes('where') || lowerText.includes('location') || lowerText.includes('map') || lowerText.includes('eta') || lowerText.includes('time') || lowerText.includes('kahan')) {
+        if (liveOrderState?.liveStatus === 'Preparing' || liveOrderState?.liveStatus === 'Baking') {
+          replyText = "I am waiting at the restaurant. They are cooking it right now, will pick up soon! 🍕";
+        } else {
+          const rem = liveOrderState?.remainingTime || 12;
+          replyText = `I have crossed the main road, heading towards your house. Map shows my live position! Arriving in about ${rem} seconds. 🏍️`;
         }
-
-        let replyText = "Got it! I am currently focused on driving safely. Will talk soon! 🛵";
-
-        if (liveOrderState?.liveStatus === 'Completed') {
-          replyText = "Your hot naan order is already delivered! Hope you love it. Please review us on the store! 😊👍";
-        } else if (lowerText.includes('where') || lowerText.includes('location') || lowerText.includes('map') || lowerText.includes('eta') || lowerText.includes('time') || lowerText.includes('kahan')) {
-          if (liveOrderState?.liveStatus === 'Preparing' || liveOrderState?.liveStatus === 'Baking') {
-            replyText = "I am waiting at the restaurant. They are cooking it right now, will pick up soon! 🍕";
-          } else {
-            const rem = liveOrderState?.remainingTime || 12;
-            replyText = `I have crossed the main road, heading towards your house. Map shows my live position! Arriving in about ${rem} seconds. 🏍️`;
-          }
-        } else if (lowerText.includes('hot') || lowerText.includes('fresh') || lowerText.includes('garam') || lowerText.includes('oven')) {
-          replyText = "Don't worry! I have the food inside my special thermal heat-bag. It will remain extremely hot and soft! 🎒🔥";
-        } else if (lowerText.includes('call') || lowerText.includes('phone') || lowerText.includes('number') || lowerText.includes('contact')) {
-          replyText = `Understood! I will call you on your number (${order?.phone || '0300-1234567'}) as soon as I arrive at your gate! 📞`;
-        } else if (lowerText.includes('sauce') || lowerText.includes('raita') || lowerText.includes('coke') || lowerText.includes('chilli') || lowerText.includes('extra') || lowerText.includes('bread')) {
-          replyText = "Yes, I verified the checklist with the chef. Everything you ordered is packed inside the bag! 📦✅";
-        } else if (lowerText.includes('salam') || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey')) {
-          replyText = "Walaikum Assalam! Doing great, hope you are hungry. Speeding to bring your delicious flatbreads! 😃";
-        } else if (lowerText.includes('thank') || lowerText.includes('thanks') || lowerText.includes('shukriya') || lowerText.includes('great') || lowerText.includes('ok')) {
-          replyText = "No worries at all! Serving you fresh food is my pleasure. 🌟";
-        }
-
-        const riderMsg = {
-          id: Date.now() + 1,
-          sender: 'rider',
-          text: replyText,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-
-        const postAutoReply = latestParsed.map(o => {
-          if (o.id === order.id) {
-            const msgs = o.messages || [];
-            return { ...o, messages: [...msgs, riderMsg] };
-          }
-          return o;
-        });
-        localStorage.setItem('naannow_orders', JSON.stringify(postAutoReply));
-        setMessages(prev => [...prev, riderMsg]);
-        setIsTyping(false);
-        playNotificationSound();
+      } else if (lowerText.includes('hot') || lowerText.includes('fresh') || lowerText.includes('garam') || lowerText.includes('oven')) {
+        replyText = "Don't worry! I have the food inside my special thermal heat-bag. It will remain extremely hot and soft! 🎒🔥";
+      } else if (lowerText.includes('call') || lowerText.includes('phone') || lowerText.includes('number') || lowerText.includes('contact')) {
+        replyText = `Understood! I will call you on your number (${order?.phone || '0300-1234567'}) as soon as I arrive at your gate! 📞`;
+      } else if (lowerText.includes('sauce') || lowerText.includes('raita') || lowerText.includes('coke') || lowerText.includes('chilli') || lowerText.includes('extra') || lowerText.includes('bread')) {
+        replyText = "Yes, I verified the checklist with the chef. Everything you ordered is packed inside the bag! 📦✅";
+      } else if (lowerText.includes('salam') || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey')) {
+        replyText = "Walaikum Assalam! Doing great, hope you are hungry. Speeding to bring your delicious flatbreads! 😃";
+      } else if (lowerText.includes('thank') || lowerText.includes('thanks') || lowerText.includes('shukriya') || lowerText.includes('great') || lowerText.includes('ok')) {
+        replyText = "No worries at all! Serving you fresh food is my pleasure. 🌟";
       }
+
+      const riderMsg = {
+        id: Date.now() + 1,
+        sender: 'rider',
+        text: replyText,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, riderMsg]);
+      setIsTyping(false);
+      playNotificationSound();
     }, 2000 + Math.random() * 800);
   };
 
   const handleFakeCall = () => {
-    alert(`📞 Calling Rider Raja Kamran (+92 300 9821245) via cellular bridge...\n\n(Rider's screen: "Incoming call from ${order?.name || 'Customer'}").`);
+    alert(`📞 Calling Rider Raja Kamran (+92 300 9821245) via cellular bridge...\n\n(Rider's screen: "Incoming call from ${order?.name || order?.customerId?.name || 'Customer'}").`);
   };
 
-  const handleSubmitFeedback = (e) => {
+  const handleSubmitFeedback = async (e) => {
     e.preventDefault();
     if (!order) return;
 
@@ -556,17 +502,13 @@ function TrackOrderPage() {
       itemRatings
     };
 
-    const saved = localStorage.getItem('naannow_orders');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const updated = parsed.map(o => {
-        if (o.id === order.id) {
-          return { ...o, rating: ratingData };
-        }
-        return o;
-      });
-      localStorage.setItem('naannow_orders', JSON.stringify(updated));
-      setOrder(prev => ({ ...prev, rating: ratingData }));
+    try {
+      const updatedOrder = await api.rateOrder(order._id, ratingData);
+      setOrder(updatedOrder);
+      alert("Feedback submitted successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Could not submit feedback.");
     }
   };
 
@@ -575,7 +517,7 @@ function TrackOrderPage() {
       <div className="track-order-fallback">
         <div className="fallback-card">
           <h2>Order Not Found</h2>
-          <p>We couldn't locate this order ID in your session cache.</p>
+          <p>We couldn't locate this order ID.</p>
           <button className="back-orders-btn" onClick={() => navigate('/orders')}>
             ← Back to Orders
           </button>
@@ -604,8 +546,8 @@ function TrackOrderPage() {
           </button>
           
           <div className="order-summary-title">
-            <h2>Order Tracking: <span className="ref-id">{order.id}</span></h2>
-            <p>From: <strong>{order.restaurantName}</strong> • Speed: <strong>{order.deliverySpeed === 'priority' ? '⚡ Priority' : '🛵 Standard'}</strong></p>
+            <h2>Order Tracking: <span className="ref-id">{order.orderNumber}</span></h2>
+            <p>From: <strong>{order.restaurantId?.name || "NaanNow Kitchen"}</strong> • Speed: <strong>{order.deliverySpeed === 'priority' ? '⚡ Priority' : '🛵 Standard'}</strong></p>
           </div>
         </div>
 

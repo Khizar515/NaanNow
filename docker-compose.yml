@@ -1,0 +1,41 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    # ADDED VOLUMES: Map local backend folder to container /app folder
+    volumes:
+      - ./backend:/app
+      - /app/node_modules # Prevents local node_modules from overwriting container's
+    # ADDED COMMAND: Override standard start to use nodemon
+    command: npm run dev
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: ./frontend
+      # Because we want hot-reload, we MUST use the Vite dev server, not Nginx
+      dockerfile: Dockerfile.dev 
+    ports:
+      - "3000:5173" # Vite's default port is 5173
+    # ADDED VOLUMES: Map local frontend folder to container /app folder
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Helps Vite detect file changes on Windows via Docker
+    depends_on:
+      - backend
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

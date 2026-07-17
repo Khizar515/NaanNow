@@ -1,32 +1,46 @@
 const mongoose = require('mongoose');
 
+const orderItemSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+  quantity: { type: Number, required: true, default: 1 }
+});
+
+const chatMessageSchema = new mongoose.Schema({
+  sender: { type: String, enum: ['rider', 'customer'], required: true },
+  text: { type: String, required: true },
+  time: { type: Date, default: Date.now }
+});
+
+const ratingSchema = new mongoose.Schema({
+  riderRating: { type: Number, min: 1, max: 5 },
+  riderReview: { type: String },
+  itemRatings: { type: Map, of: Number } // item id to rating mapping
+});
+
 const orderSchema = new mongoose.Schema({
-    customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
-    riderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // Assigned later
-    
-    // Snapshot of the items at the exact moment of purchase
-    items: [{
-        menuItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' },
-        name: { type: String, required: true },
-        quantity: { type: Number, required: true },
-        unitDisplayPrice: { type: Number, required: true } // Price INCLUDING the platform markup
-    }],
-
-    deliveryAddress: { type: String, required: true },
-    deliveryCoordinates: { type: [Number], required: true }, // [longitude, latitude]
-
-    financials: {
-        itemTotal: { type: Number, required: true },
-        deliveryFee: { type: Number, required: true }, // Goes to the rider
-        grandTotal: { type: Number, required: true }   // Deducted from customer card
-    },
-
-    status: { 
-        type: String, 
-        enum: ['Pending', 'Preparing', 'Ready for Pickup', 'Accepted by Rider', 'Out for Delivery', 'Delivered', 'Cancelled'], 
-        default: 'Pending' 
-    }
+  orderNumber: { type: String, required: true, unique: true },
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+  riderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  items: [orderItemSchema],
+  totalAmount: { type: Number, required: true },
+  status: { 
+    type: String, 
+    enum: ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'], 
+    default: 'pending' 
+  },
+  deliveryAddress: { type: String },
+  paymentMethod: { type: String, default: 'Cash on Delivery' },
+  deliverySpeed: { type: String }, // 'standard' | 'priority'
+  instructions: { type: String },
+  phone: { type: String },
+  name: { type: String },
+  dispatchedAt: { type: Date },
+  completedAt: { type: Date },
+  messages: [chatMessageSchema],
+  rating: ratingSchema,
+  adminNotes: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

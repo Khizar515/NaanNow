@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './FilterSidebar.css';
+import './FilterSideBar.css';
 
 const FilterSidebar = () => {
   const [showAllCuisines, setShowAllCuisines] = useState(false);

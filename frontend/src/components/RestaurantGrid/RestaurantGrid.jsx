@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './RestaurantGrid.css';
 import { CartContext } from '../Context/CartContext';
-import { TOP_RESTAURANTS } from '../../data/restaurants';
+import { api } from '../../api';
 
 const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) => {
   const { favorites, toggleFavorite } = useContext(CartContext);
@@ -10,34 +10,25 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) 
   const [restaurants, setRestaurants] = useState([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('naannow_restaurants');
-    if (saved) {
-      setRestaurants(JSON.parse(saved));
-    } else {
-      setRestaurants(TOP_RESTAURANTS);
-    }
+    const fetchRestaurants = async () => {
+      try {
+        const data = await api.getRestaurants();
+        setRestaurants(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchRestaurants();
   }, []);
 
-  const getIsRestaurantActive = (restaurantName) => {
-    const registeredUsers = JSON.parse(localStorage.getItem('naannow_registeredUsers') || '[]');
-    const manager = registeredUsers.find(u => {
-      if (u.role !== 'manager') return false;
-      if (!u.restaurantName) return false;
-      const uRes = u.restaurantName.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();
-      const rRes = restaurantName.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();
-      return uRes.includes(rRes) || rRes.includes(uRes);
-    });
-
-    if (manager) {
-      return manager.status === 'approved';
-    }
-    return true;
+  const getIsRestaurantActive = (restaurant) => {
+    return restaurant.status === 'approved';
   };
 
-  const activeRestaurants = restaurants.filter(r => getIsRestaurantActive(r.name));
+  const activeRestaurants = restaurants.filter(getIsRestaurantActive);
 
   const filteredRestaurants = showFavoritesOnly
-    ? activeRestaurants.filter(restaurant => favorites.includes(restaurant.id))
+    ? activeRestaurants.filter(restaurant => favorites.includes(restaurant._id))
     : (selectedCuisine === 'All'
         ? activeRestaurants
         : activeRestaurants.filter(restaurant =>
@@ -73,16 +64,17 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) 
       ) : (
         <div className="restaurant-grid">
           {filteredRestaurants.map((restaurant) => {
-            const isFavorited = favorites.includes(restaurant.id);
+            const isFavorited = favorites.includes(restaurant._id);
+            const imageSrc = restaurant.image ? (restaurant.image.startsWith('http') ? restaurant.image : `http://localhost:5000/${restaurant.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
             return (
               <div 
-                key={restaurant.id} 
+                key={restaurant._id} 
                 className="restaurant-card"
-                onClick={() => navigate(`/restaurant/${restaurant.id}`)}
+                onClick={() => navigate(`/restaurant/${restaurant._id}`)}
                 style={{ cursor: 'pointer' }}
               >
                 <div className="card-image-wrapper">
-                  <img src={restaurant.image} alt={restaurant.name} className="restaurant-img" />
+                  <img src={imageSrc} alt={restaurant.name} className="restaurant-img" />
                   
                   {/* Badges */}
                   {restaurant.deal && <span className="card-badge-deal">{restaurant.deal}</span>}
@@ -94,7 +86,7 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false }) 
                     aria-label={isFavorited ? "Remove from wishlist" : "Add to wishlist"}
                     onClick={(e) => {
                       e.stopPropagation(); // Prevents the card's click event if you wrap it in a Link later
-                      toggleFavorite(restaurant.id);
+                      toggleFavorite(restaurant._id);
                     }}
                   >
                     <svg 

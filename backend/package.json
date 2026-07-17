@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "dev": "nodemon -L server.js"
+    "start": "nodemon server.js",
+    "dev": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
@@ -14,19 +14,12 @@
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "connect-flash": "^0.1.1",
-    "connect-mongo": "^6.0.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "ejs": "^6.0.1",
-    "ejs-mate": "^4.0.0",
     "express": "^5.2.1",
-    "express-session": "^1.19.0",
     "jsonwebtoken": "^9.0.3",
-    "method-override": "^3.0.0",
-    "mongoose": "^9.6.2",
-    "multer": "^2.1.1",
-    "path": "^0.12.7",
-    "socket.io": "^4.8.3"
+    "mongoose": "^9.7.4",
+    "multer": "^2.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
