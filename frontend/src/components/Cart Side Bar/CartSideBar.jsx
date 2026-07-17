@@ -2,9 +2,11 @@ import "./CartSideBar.css";
 import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartContext } from "../Context/CartContext";
+import { useAuth } from "../../context/AuthContext";
 
 function CartSidebar({ isOpen, onClose }) {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const {
         cartItems,
         increaseQuantity,
@@ -126,7 +128,11 @@ function CartSidebar({ isOpen, onClose }) {
                         className="checkout-btn"
                         disabled={cartItems.length === 0}
                         onClick={() => {
-                            navigate('/checkout');
+                            if (!user) {
+                                navigate('/login');
+                            } else {
+                                navigate('/checkout');
+                            }
                             onClose();
                         }}
                     >

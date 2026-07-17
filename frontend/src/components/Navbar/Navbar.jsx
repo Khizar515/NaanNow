@@ -8,7 +8,7 @@ import logo from '../../assets/logo-removebg.png';
 import cart from '../../assets/cart.svg';
 import naan from '../../assets/naan-removebg.png';
 
-function Navbar({ setCartOpen }) {
+function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showTopRow, setShowTopRow] = useState(true);
@@ -102,6 +102,13 @@ function Navbar({ setCartOpen }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    if (currentUser && currentUser.address) {
+      setAddress(currentUser.address);
+      localStorage.setItem('naannow_userAddress', currentUser.address);
+    }
+  }, [currentUser]);
+
 
   return (
 
@@ -175,7 +182,13 @@ function Navbar({ setCartOpen }) {
           {location.pathname !== '/restaurant-dashboard' && location.pathname !== '/rider-dashboard' && (
             <button
               className={`icon-btn heart-icon-btn ${location.pathname === '/favorites' ? 'active' : ''}`}
-              onClick={() => navigate(location.pathname === '/favorites' ? '/' : '/favorites')}
+              onClick={() => {
+                if (!currentUser) {
+                  navigate('/login');
+                } else {
+                  navigate(location.pathname === '/favorites' ? '/' : '/favorites');
+                }
+              }}
               title="Toggle Favorites"
               aria-label="View Favorites"
             >
@@ -197,7 +210,13 @@ function Navbar({ setCartOpen }) {
 
           {/* Cart Icon (Hidden on rider & restaurant dashboards) */}
           {location.pathname !== '/restaurant-dashboard' && location.pathname !== '/rider-dashboard' && (
-            <div className="cart-container" onClick={() => setCartOpen(true)}>
+            <div className="cart-container" onClick={() => {
+              if (!currentUser) {
+                navigate('/login');
+              } else {
+                setCartOpen(true);
+              }
+            }}>
               <img src={cart} alt="Cart" className="cart-icon" />
               <span className="cart-badge">
                 {
@@ -239,7 +258,13 @@ function Navbar({ setCartOpen }) {
             </button>
             <button
               className={`tab ${(location.pathname.startsWith('/orders') || location.pathname.startsWith('/track-order')) ? 'active' : ''}`}
-              onClick={() => navigate('/orders')}
+              onClick={() => {
+                if (!currentUser) {
+                  navigate('/login');
+                } else {
+                  navigate('/orders');
+                }
+              }}
             >
               <span className="tab-icon">📋</span> <span className="tab-text">Orders</span>
             </button>
@@ -251,6 +276,8 @@ function Navbar({ setCartOpen }) {
             <input
               type="text"
               placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
             />

@@ -27,7 +27,7 @@ function RestaurantPage() {
   useEffect(() => {
     const fetchRestaurant = async () => {
       try {
-        const data = await api.getRestaurant(id);
+        const data = await api.getRestaurantById(id);
         setRestaurant(data);
       } catch (err) {
         console.error(err);
@@ -78,7 +78,7 @@ function RestaurantPage() {
     const item = cartItems.find(cartItem => cartItem._id === itemId);
     return item ? item.quantity : 0;
   };
-  
+
   const imageSrc = restaurant.image ? (restaurant.image.startsWith('http') ? restaurant.image : `http://localhost:5000/${restaurant.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
 
   return (
@@ -209,7 +209,7 @@ function RestaurantPage() {
               {filteredMenu.map(item => {
                 const quantityInCart = getCartItemQuantity(item._id);
                 const itemImgSrc = item.image ? (item.image.startsWith('http') ? item.image : `http://localhost:5000/${item.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
-                
+
                 return (
                   <div key={item._id} className="menu-item-card">
                     <div className="menu-item-image-wrapper">

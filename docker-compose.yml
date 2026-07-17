@@ -10,7 +10,7 @@ services:
       - ./backend:/app
       - /app/node_modules # Prevents local node_modules from overwriting container's
     # ADDED COMMAND: Override standard start to use nodemon
-    command: npm run dev
+    command: sh -c "node seed.js && npm run dev"
     depends_on:
       - mongo
 

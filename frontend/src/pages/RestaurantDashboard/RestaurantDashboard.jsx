@@ -195,6 +195,15 @@ function RestaurantDashboard() {
     return () => clearInterval(interval);
   }, [currentUser]);
 
+  // SKELETON LOADERS
+  if (!currentUser) {
+    return (
+      <div className="dashboard-loading">
+        Loading portal configurations...
+      </div>
+    );
+  }
+
   if (currentUser && currentUser.status === 'approved' && !selectedRestaurant) {
     return <div className="dashboard-loading">Loading portal configurations...</div>;
   }

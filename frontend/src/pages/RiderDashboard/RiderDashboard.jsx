@@ -180,10 +180,10 @@ function RiderDashboard() {
 
   // Earnings summary
   const [stats, setStats] = useState({
-    todayEarnings: 450,
-    tripsCount: 3,
-    tipsAmount: 120,
-    rating: 4.9
+    todayEarnings: 0,
+    tripsCount: 0,
+    tipsAmount: 0,
+    rating: 5.0
   });
 
   // Map refs
@@ -245,17 +245,15 @@ function RiderDashboard() {
 
   // Compute completed earnings
   useEffect(() => {
-    if (completedOrders.length > 0) {
-      const trips = completedOrders.length;
-      const baseEarnings = completedOrders.reduce((sum, o) => sum + (o.deliveryFee || 150), 0);
-      const mockTips = trips * 40; // Simulated Rs. 40 tips per trip
-      setStats({
-        todayEarnings: 450 + baseEarnings + mockTips,
-        tripsCount: 3 + trips,
-        tipsAmount: 120 + mockTips,
-        rating: 4.9
-      });
-    }
+    const trips = completedOrders.length;
+    const baseEarnings = completedOrders.reduce((sum, o) => sum + (o.deliveryFee || 150), 0);
+    const mockTips = trips * 40; // Simulated Rs. 40 tips per trip
+    setStats({
+      todayEarnings: baseEarnings + mockTips,
+      tripsCount: trips,
+      tipsAmount: mockTips,
+      rating: 5.0
+    });
   }, [orders]);
 
   // Determine current active selection

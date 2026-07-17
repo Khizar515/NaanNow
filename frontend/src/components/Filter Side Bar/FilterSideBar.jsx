@@ -1,8 +1,33 @@
 import React, { useState } from 'react';
 import './FilterSideBar.css';
 
-const FilterSidebar = () => {
+const FilterSidebar = ({ filterState = {}, setFilterState }) => {
   const [showAllCuisines, setShowAllCuisines] = useState(false);
+
+  // Defaults fallback to avoid crashing if prop not provided
+  const f = filterState.sortBy ? filterState : {
+    sortBy: 'Relevance',
+    ratings4Plus: false,
+    superRestaurant: false,
+    offers: { freeDelivery: false, acceptsVouchers: false, deals: false },
+    cuisines: [],
+    priceTier: null
+  };
+
+  const handleSortChange = (val) => setFilterState?.({ ...f, sortBy: val });
+  const toggleQuickFilter = (key) => setFilterState?.({ ...f, [key]: !f[key] });
+  const toggleOffer = (key) => setFilterState?.({ ...f, offers: { ...f.offers, [key]: !f.offers[key] } });
+  const toggleCuisine = (cuisine) => {
+    const exists = f.cuisines.includes(cuisine);
+    setFilterState?.({ ...f, cuisines: exists ? f.cuisines.filter(c => c !== cuisine) : [...f.cuisines, cuisine] });
+  };
+  const handleClearAll = () => {
+    setFilterState?.({
+      sortBy: 'Relevance', ratings4Plus: false, superRestaurant: false,
+      offers: { freeDelivery: false, acceptsVouchers: false, deals: false },
+      cuisines: [], priceTier: null
+    });
+  };
 
   // Sample data for cuisines based on your image
   const cuisines = [
@@ -16,7 +41,7 @@ const FilterSidebar = () => {
     <aside className="filter-sidebar">
       <div className="filter-header">
         <h2>Filter</h2>
-        <button className="clear-btn">Clear all</button>
+        <button className="clear-btn" onClick={handleClearAll}>Clear all</button>
       </div>
 
       <div className="filter-scroll-area">
@@ -24,22 +49,22 @@ const FilterSidebar = () => {
         <div className="filter-section">
           <h3>Sort by</h3>
           <label className="radio-label">
-            <input type="radio" name="sort" defaultChecked />
+            <input type="radio" name="sort" checked={f.sortBy === 'Relevance'} onChange={() => handleSortChange('Relevance')} />
             <span className="radio-custom"></span>
             Relevance
           </label>
           <label className="radio-label">
-            <input type="radio" name="sort" />
+            <input type="radio" name="sort" checked={f.sortBy === 'Fastest delivery'} onChange={() => handleSortChange('Fastest delivery')} />
             <span className="radio-custom"></span>
             Fastest delivery
           </label>
           <label className="radio-label">
-            <input type="radio" name="sort" />
+            <input type="radio" name="sort" checked={f.sortBy === 'Distance'} onChange={() => handleSortChange('Distance')} />
             <span className="radio-custom"></span>
             Distance
           </label>
           <label className="radio-label">
-            <input type="radio" name="sort" />
+            <input type="radio" name="sort" checked={f.sortBy === 'Top rated'} onChange={() => handleSortChange('Top rated')} />
             <span className="radio-custom"></span>
             Top rated
           </label>
@@ -49,8 +74,8 @@ const FilterSidebar = () => {
         <div className="filter-section">
           <h3>Quick filters</h3>
           <div className="pill-group">
-            <button className="filter-pill">Ratings 4+</button>
-            <button className="filter-pill">
+            <button className={`filter-pill ${f.ratings4Plus ? 'active' : ''}`} onClick={() => toggleQuickFilter('ratings4Plus')}>Ratings 4+</button>
+            <button className={`filter-pill ${f.superRestaurant ? 'active' : ''}`} onClick={() => toggleQuickFilter('superRestaurant')}>
               <span className="icon">🎖️</span> Super Restaurant
             </button>
           </div>
@@ -60,17 +85,17 @@ const FilterSidebar = () => {
         <div className="filter-section">
           <h3>Offers</h3>
           <label className="checkbox-label">
-            <input type="checkbox" />
+            <input type="checkbox" checked={f.offers.freeDelivery} onChange={() => toggleOffer('freeDelivery')} />
             <span className="checkbox-custom"></span>
             Free delivery
           </label>
           <label className="checkbox-label">
-            <input type="checkbox" />
+            <input type="checkbox" checked={f.offers.acceptsVouchers} onChange={() => toggleOffer('acceptsVouchers')} />
             <span className="checkbox-custom"></span>
             Accepts vouchers
           </label>
           <label className="checkbox-label">
-            <input type="checkbox" defaultChecked />
+            <input type="checkbox" checked={f.offers.deals} onChange={() => toggleOffer('deals')} />
             <span className="checkbox-custom"></span>
             Deals
           </label>
@@ -90,7 +115,7 @@ const FilterSidebar = () => {
           <div className="cuisine-list">
             {displayedCuisines.map((cuisine) => (
               <label key={cuisine} className="checkbox-label">
-                <input type="checkbox" />
+                <input type="checkbox" checked={f.cuisines.includes(cuisine)} onChange={() => toggleCuisine(cuisine)} />
                 <span className="checkbox-custom"></span>
                 {cuisine}
               </label>
@@ -112,9 +137,9 @@ const FilterSidebar = () => {
         <div className="filter-section">
           <h3>Price</h3>
           <div className="price-toggle-group">
-            <button className="price-btn active">$</button>
-            <button className="price-btn">$$</button>
-            <button className="price-btn">$$$</button>
+            <button className={`price-btn ${f.priceTier === 1 ? 'active' : ''}`} onClick={() => setFilterState?.({ ...f, priceTier: f.priceTier === 1 ? null : 1 })}>$</button>
+            <button className={`price-btn ${f.priceTier === 2 ? 'active' : ''}`} onClick={() => setFilterState?.({ ...f, priceTier: f.priceTier === 2 ? null : 2 })}>$$</button>
+            <button className={`price-btn ${f.priceTier === 3 ? 'active' : ''}`} onClick={() => setFilterState?.({ ...f, priceTier: f.priceTier === 3 ? null : 3 })}>$$$</button>
           </div>
         </div>
         

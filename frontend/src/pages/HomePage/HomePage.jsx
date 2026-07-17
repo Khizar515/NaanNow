@@ -5,9 +5,22 @@ import FilterSidebar from '../../components/Filter Side Bar/FilterSideBar';
 import CuisineCircles from '../../components/CuisineCircles/CuisineCircles';
 import RestaurantGrid from '../../components/RestaurantGrid/RestaurantGrid';
 
-function HomePage() {
+function HomePage({ searchQuery }) {
   const { user } = useAuth();
   const [selectedCuisine, setSelectedCuisine] = useState('All');
+  
+  const [filterState, setFilterState] = useState({
+    sortBy: 'Relevance',
+    ratings4Plus: false,
+    superRestaurant: false,
+    offers: {
+      freeDelivery: false,
+      acceptsVouchers: false,
+      deals: false
+    },
+    cuisines: [],
+    priceTier: null
+  });
 
   const handleSelectCuisine = (cuisine) => {
     setSelectedCuisine(cuisine);
@@ -24,7 +37,7 @@ function HomePage() {
       <div className="main-layout">
         {/* The Filter Box */}
         <div className="filter-wrapper">
-          <FilterSidebar />
+          <FilterSidebar filterState={filterState} setFilterState={setFilterState} />
         </div>
 
         {/* The Right Side (Restaurants) */}
@@ -36,6 +49,8 @@ function HomePage() {
           <RestaurantGrid
             selectedCuisine={selectedCuisine}
             showFavoritesOnly={false}
+            searchQuery={searchQuery}
+            filterState={filterState}
           />
         </div>
       </div>

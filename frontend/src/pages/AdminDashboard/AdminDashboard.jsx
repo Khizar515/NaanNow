@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../api';
 import './AdminDashboard.css';
 import naanSvg from '../../assets/naan-removebg-svg.svg';
 
@@ -163,6 +164,7 @@ function AdminDashboard() {
   // ------------------------------------------------------------------------
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeMenuTab, setActiveMenuTab] = useState('dashboard');
+  const [currentUser, setCurrentUser] = useState(null);
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('naannow_admin_theme') === 'dark';
   });
@@ -255,19 +257,22 @@ function AdminDashboard() {
   // 1. Initial Seeding and Database Loading
   // ------------------------------------------------------------------------
   useEffect(() => {
-    // Auth Check
-    const currentUserStr = localStorage.getItem('naannow_currentUser');
-    if (!currentUserStr) {
-      navigate('/login');
-      return;
-    }
-    const currentUser = JSON.parse(currentUserStr);
-    if (currentUser.role !== 'admin') {
-      navigate('/login');
-      return;
-    }
+    // Auth Check & Load Data
+    const initAdmin = async () => {
+      try {
+        const user = await api.getMe();
+        if (user.role !== 'admin') {
+          navigate('/login');
+          return;
+        }
+        setCurrentUser(user);
+        await loadAdminData();
+      } catch (err) {
+        console.error("Auth failed:", err);
+        navigate('/login');
+      }
+    };
 
-    // Load all data from API
     const loadAdminData = async () => {
       try {
         const [
@@ -300,7 +305,7 @@ function AdminDashboard() {
       }
     };
 
-    loadAdminData();
+    initAdmin();
 
     // Initialize Map Rider Coordinates
     const initialRiderCoords = {
@@ -992,6 +997,14 @@ function AdminDashboard() {
   const safeGetImg = (item) => {
     return item.image || "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=200";
   };
+
+  if (!currentUser) {
+    return (
+      <div className="dashboard-loading" style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        Loading admin configurations...
+      </div>
+    );
+  }
 
   return (
     <div className={`admin-dashboard-page ${darkMode ? 'dark-theme' : ''}`}>

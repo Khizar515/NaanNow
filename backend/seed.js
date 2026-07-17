@@ -113,124 +113,137 @@ const TOP_RESTAURANTS = [
   }
 ];
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/naannow')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongo:27017/naannow')
   .then(async () => {
-    console.log('Connected to MongoDB for Seeding...');
-    
-    // Clear existing
-    await User.deleteMany();
-    await Restaurant.deleteMany();
-    await Order.deleteMany();
-    await Ticket.deleteMany();
-    await Promotion.deleteMany();
-    await Notification.deleteMany();
-    await Withdrawal.deleteMany();
-    await PlatformSettings.deleteMany();
-    await Card.deleteMany();
-    await Review.deleteMany();
+    console.log('Connected to MongoDB. Checking for data to seed...');
 
     // Ensure upload dirs exist
     const dirs = ['profiles', 'documents', 'menu', 'misc'];
     dirs.forEach(d => {
-        const p = path.join(__dirname, 'uploads', d);
-        if(!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+      const p = path.join(__dirname, 'uploads', d);
+      if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
     });
 
-    // Seed users
+    // 1. Seed Users (Only if they don't exist)
     for (let u of DEMO_USERS) {
-      const salt = await bcrypt.genSalt(10);
-      u.password = await bcrypt.hash(u.password, salt);
+      const existingUser = await User.findOne({ email: u.email });
+      if (!existingUser) {
+        const salt = await bcrypt.genSalt(10);
+        u.password = await bcrypt.hash(u.password, salt);
+        await User.create(u);
+      }
     }
-    const createdUsers = await User.insertMany(DEMO_USERS);
-    console.log('Users seeded');
+    console.log('User seeding check complete.');
 
-    // Find key users
-    const manager = createdUsers.find(u => u.role === 'manager' && u.name === 'Zainab Malik');
-    const customer = createdUsers.find(u => u.role === 'customer');
-    const rider = createdUsers.find(u => u.role === 'rider' && u.name === 'Hamza Ahmed');
+    // Find key users for relationships
+    const manager = await User.findOne({ role: 'manager', name: 'Zainab Malik' });
+    const customer = await User.findOne({ role: 'customer' });
+    const rider = await User.findOne({ role: 'rider', name: 'Hamza Ahmed' });
 
-    // Seed restaurants
-    const rests = TOP_RESTAURANTS.map((r, index) => ({
-        ...r,
-        managerId: index === 1 && manager ? manager._id : null,
-        status: 'approved'
-    }));
+    // 2. Seed Restaurants (Only if they don't exist)
+    for (let [index, r] of TOP_RESTAURANTS.entries()) {
+      const existingRestaurant = await Restaurant.findOne({ name: r.name });
+      if (!existingRestaurant) {
+        await Restaurant.create({
+          ...r,
+          managerId: index === 1 && manager ? manager._id : null,
+          status: 'approved'
+        });
+      }
+    }
+    console.log('Restaurant seeding check complete.');
 
-    const createdRestaurants = await Restaurant.insertMany(rests);
-    console.log('Restaurants seeded');
+    // 3. Seed Platform Settings (Only if empty)
+    const settingsCount = await PlatformSettings.countDocuments();
+    if (settingsCount === 0) {
+      await PlatformSettings.create({
+        commission: 15,
+        deliveryCharges: 150,
+        taxes: 5,
+        maintenanceMode: false
+      });
+      console.log('Platform Settings seeded.');
+    }
 
-    // Seed Platform Settings
-    await PlatformSettings.create({
-      commission: 15,
-      deliveryCharges: 150,
-      taxes: 5,
-      maintenanceMode: false
-    });
-
-    // Seed Promotions
-    await Promotion.insertMany([
+    // 4. Seed Promotions (Only if they don't exist)
+    const promos = [
       { code: 'NAANNOW20', discount: 20, type: 'percentage', minBasket: 500, maxDiscount: 500 },
       { code: 'FREEDEL', discount: 150, type: 'flat', minBasket: 1000 }
-    ]);
+    ];
+    for (let p of promos) {
+      const existingPromo = await Promotion.findOne({ code: p.code });
+      if (!existingPromo) await Promotion.create(p);
+    }
+    console.log('Promotions seeding check complete.');
 
-    // Seed Tickets
+    // Fetch restaurants for orders
+    const tandooriFlames = await Restaurant.findOne({ name: "Tandoori Flames" });
+    const gourmetPavilion = await Restaurant.findOne({ name: "The Gourmet Pavilion" });
+
+    // 5. Seed Tickets, Cards, and Orders ONLY if customer exists and has no existing orders/tickets
     if (customer) {
-      await Ticket.create({
-        ticketNumber: 'TK-101',
-        customerId: customer._id,
-        subject: 'Order delayed',
-        status: 'in_progress',
-        chat: [
-          { sender: 'customer', text: 'My order is 30 mins late.' },
-          { sender: 'support', text: 'We apologize. The rider is stuck in traffic.' }
-        ]
-      });
+      const ticketCount = await Ticket.countDocuments({ customerId: customer._id });
+      if (ticketCount === 0) {
+        await Ticket.create({
+          ticketNumber: 'TK-101',
+          customerId: customer._id,
+          subject: 'Order delayed',
+          status: 'in_progress',
+          chat: [
+            { sender: 'customer', text: 'My order is 30 mins late.' },
+            { sender: 'support', text: 'We apologize. The rider is stuck in traffic.' }
+          ]
+        });
+        console.log('Demo ticket created.');
+      }
+
+      const cardCount = await Card.countDocuments({ userId: customer._id });
+      if (cardCount === 0) {
+        await Card.create({
+          userId: customer._id,
+          cardNumber: '4242424242424242',
+          expiryDate: '12/25',
+          cvv: '123',
+          balance: 5000,
+          status: 'active'
+        });
+        console.log('Demo card created.');
+      }
+
+      const orderCount = await Order.countDocuments({ customerId: customer._id });
+      if (orderCount === 0 && tandooriFlames && gourmetPavilion) {
+        await Order.create({
+          orderNumber: 'ORD-1001',
+          customerId: customer._id,
+          restaurantId: tandooriFlames._id,
+          items: [{ name: 'Special Chicken Biryani', price: 420, quantity: 2 }],
+          totalAmount: 990,
+          status: 'pending',
+          deliveryAddress: 'F-7 Markaz, Islamabad',
+          name: customer.name,
+          phone: '03001234567'
+        });
+
+        await Order.create({
+          orderNumber: 'ORD-1002',
+          customerId: customer._id,
+          restaurantId: gourmetPavilion._id,
+          riderId: rider ? rider._id : null,
+          items: [{ name: 'Truffle Mushroom Burger', price: 650, quantity: 1 }],
+          totalAmount: 800,
+          status: 'out_for_delivery',
+          deliveryAddress: 'F-8 Markaz, Islamabad',
+          name: customer.name,
+          phone: '03001234567'
+        });
+        console.log('Demo orders created.');
+      }
     }
 
-    // Seed Cards
-    if (customer) {
-      await Card.create({
-        userId: customer._id,
-        cardNumber: '4242424242424242',
-        expiryDate: '12/25',
-        cvv: '123',
-        balance: 5000,
-        status: 'active'
-      });
-    }
-
-    // Seed Orders
-    if (customer && createdRestaurants.length > 0) {
-      const order1 = await Order.create({
-        orderNumber: 'ORD-1001',
-        customerId: customer._id,
-        restaurantId: createdRestaurants[1]._id, // Tandoori Flames
-        items: [{ name: 'Special Chicken Biryani', price: 420, quantity: 2 }],
-        totalAmount: 990,
-        status: 'pending',
-        deliveryAddress: 'F-7 Markaz, Islamabad',
-        name: customer.name,
-        phone: '03001234567'
-      });
-      
-      const order2 = await Order.create({
-        orderNumber: 'ORD-1002',
-        customerId: customer._id,
-        restaurantId: createdRestaurants[0]._id, 
-        riderId: rider ? rider._id : null,
-        items: [{ name: 'Truffle Mushroom Burger', price: 650, quantity: 1 }],
-        totalAmount: 800,
-        status: 'out_for_delivery',
-        deliveryAddress: 'F-8 Markaz, Islamabad',
-        name: customer.name,
-        phone: '03001234567'
-      });
-    }
-
-    console.log('Seeding complete!');
-    process.exit();
+    console.log('Seeding process finished safely!');
+    process.exit(0);
   })
   .catch((err) => {
-    console.error(err);
+    console.error('Seeding error:', err);
     process.exit(1);
   });
