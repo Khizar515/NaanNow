@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CartContext } from "../Context/CartContext";
 import { useAuth } from "../../context/AuthContext";
+import { api } from '../../api';
 import './Navbar.css';
 
 import logo from '../../assets/logo-removebg.png';
@@ -23,20 +24,51 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [addressInput, setAddressInput] = useState('');
+  const [recentAddresses, setRecentAddresses] = useState([
+    "Street 11 Islamabad",
+    "Sector F-10, Islamabad",
+    "Sector G-11, Islamabad",
+    "DHA Phase 2, Islamabad"
+  ]);
 
-  const handleSaveAddress = () => {
+  const handleSaveAddress = async () => {
     if (addressInput.trim()) {
-      setAddress(addressInput.trim());
-      localStorage.setItem('naannow_userAddress', addressInput.trim());
+      const newAddress = addressInput.trim();
+      setAddress(newAddress);
+      localStorage.setItem('naannow_userAddress', newAddress);
+      if (currentUser) {
+        await api.updateProfile({ address: newAddress }).catch(console.error);
+      }
       setIsAddressModalOpen(false);
     }
   };
 
   const handleDetectLocation = () => {
     setAddressInput('Detecting location...');
-    setTimeout(() => {
-      setAddressInput('Sector F-7/2, Islamabad');
-    }, 1200);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            const data = await res.json();
+            if (data && data.display_name) {
+              setAddressInput(data.display_name);
+            } else {
+              setAddressInput('Sector F-7/2, Islamabad');
+            }
+          } catch (err) {
+            setAddressInput('Sector F-7/2, Islamabad');
+          }
+        },
+        (error) => {
+          console.error("Error detecting location", error);
+          setAddressInput('Sector F-7/2, Islamabad');
+        }
+      );
+    } else {
+      setTimeout(() => setAddressInput('Sector F-7/2, Islamabad'), 1200);
+    }
   };
 
   const handleLogout = () => {
@@ -106,6 +138,18 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
     if (currentUser && currentUser.address) {
       setAddress(currentUser.address);
       localStorage.setItem('naannow_userAddress', currentUser.address);
+    }
+
+    if (currentUser && currentUser.role === 'customer') {
+      api.getOrders()
+        .then(orders => {
+          if (orders && orders.length > 0) {
+            const addrs = orders.map(o => o.deliveryAddress).filter(Boolean);
+            const uniqueAddrs = [...new Set(addrs)].slice(0, 4);
+            if (uniqueAddrs.length > 0) setRecentAddresses(uniqueAddrs);
+          }
+        })
+        .catch(console.error);
     }
   }, [currentUser]);
 
@@ -317,12 +361,7 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
               <div className="recent-addresses-section">
                 <h4>Recent Addresses</h4>
                 <div className="recent-list">
-                  {[
-                    "Street 11 Islamabad",
-                    "Sector F-10, Islamabad",
-                    "Sector G-11, Islamabad",
-                    "DHA Phase 2, Islamabad"
-                  ].map((addr, idx) => (
+                  {recentAddresses.map((addr, idx) => (
                     <button
                       key={idx}
                       className={`recent-addr-item ${addressInput === addr ? 'selected' : ''}`}

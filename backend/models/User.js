@@ -52,8 +52,8 @@ const userSchema = new mongoose.Schema({
   // Common for Rider/Manager
   status: { 
     type: String, 
-    enum: ['pending', 'approved', 'blocked', 'rejected'], 
-    default: 'approved' 
+    enum: ['unverified', 'pending', 'approved', 'blocked', 'rejected'], 
+    default: 'unverified' 
   },
   rejectionReason: { type: String },
   rating: { type: Number, default: 0 },

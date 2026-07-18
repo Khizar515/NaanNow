@@ -26,7 +26,7 @@ router.post('/register', async (req, res) => {
       password: hashedPassword,
       role: role || 'customer',
       phone: phone,
-      status: (role === 'rider' || role === 'manager') ? 'pending' : 'approved',
+      status: (role === 'rider' || role === 'manager') ? 'unverified' : 'approved',
       address: ''
     });
 

@@ -66,11 +66,11 @@ router.get('/', auth, async (req, res) => {
         .sort({ createdAt: -1 });
     }
     else if (req.user.role === 'rider') {
-      // Rider sees orders that are ready for pickup (no rider assigned yet) 
+      // Rider sees orders that are pending, preparing, or ready for pickup (no rider assigned yet) 
       // AND orders already assigned to them
       orders = await Order.find({
         $or: [
-          { status: 'ready_for_pickup', riderId: { $exists: false } },
+          { status: { $in: ['pending', 'preparing', 'ready_for_pickup'] }, riderId: { $exists: false } },
           { riderId: req.user._id }
         ]
       })
@@ -202,6 +202,28 @@ router.put('/:id/rate', auth, restrictTo('customer'), async (req, res) => {
         await rider.save();
       }
     }
+
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// @route   POST /api/orders/:id/message
+// @desc    Add a message to order
+router.post('/:id/message', auth, async (req, res) => {
+  try {
+    const { text, sender } = req.body;
+    let order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    order.messages.push({
+      sender,
+      text,
+      time: new Date()
+    });
 
     await order.save();
     res.json(order);
