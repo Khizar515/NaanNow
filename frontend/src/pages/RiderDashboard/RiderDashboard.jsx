@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api';
 import './RiderDashboard.css';
 
@@ -62,7 +61,6 @@ const getPointAlongPath = (path, p) => {
 
 function RiderDashboard() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
   const [currentUser, setCurrentUser] = useState(null);
 
   // Wizard state for verification
@@ -185,7 +183,7 @@ function RiderDashboard() {
     todayEarnings: 0,
     tripsCount: 0,
     tipsAmount: 0,
-    rating: 0
+    rating: 5.0
   });
 
   // Map refs
@@ -245,6 +243,7 @@ function RiderDashboard() {
     o => ['delivered', 'completed'].includes(o.status) && o.riderId?._id === currentUser?._id
   );
 
+  // Compute completed earnings
   useEffect(() => {
     const trips = completedOrders.length;
     const baseEarnings = completedOrders.reduce((sum, o) => sum + (o.deliveryFee || 150), 0);
@@ -253,9 +252,9 @@ function RiderDashboard() {
       todayEarnings: baseEarnings + mockTips,
       tripsCount: trips,
       tipsAmount: mockTips,
-      rating: currentUser?.rating || 0
+      rating: 5.0
     });
-  }, [completedOrders, currentUser]);
+  }, [orders]);
 
   // Determine current active selection
   const currentActiveOrder = activeOrders.find(o => o._id === selectedOrderId) || activeOrders[0];
@@ -496,7 +495,6 @@ function RiderDashboard() {
   if (currentUser && currentUser.status !== 'approved') {
     const isRejected = currentUser.status === 'rejected';
     const isPending = currentUser.status === 'pending';
-    const isUnverified = currentUser.status === 'unverified';
 
     return (
       <div className="dashboard-status-screen">
@@ -518,7 +516,7 @@ function RiderDashboard() {
               </div>
             </div>
             <button className="btn-logout" onClick={() => {
-              logout();
+              localStorage.removeItem('naannow_currentUser');
               navigate('/login');
             }}>
               Log Out
@@ -764,7 +762,7 @@ function RiderDashboard() {
               </div>
             </form>
             <button className="btn-logout" onClick={() => {
-              logout();
+              localStorage.removeItem('naannow_currentUser');
               navigate('/login');
             }} style={{ marginTop: '24px', backgroundColor: '#e5e7eb', color: '#4b5563' }}>
               Log Out
@@ -783,14 +781,14 @@ function RiderDashboard() {
         <div className="rider-header">
           <div className="rider-profile-info">
             <div className="rider-avatar-large">
-              {currentUser && currentUser.name ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'R'}
+              {currentUser ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'RK'}
             </div>
             <div className="rider-name-details">
-              <h2>{currentUser ? currentUser.name : ''} (Rider Portal)</h2>
+              <h2>{currentUser ? currentUser.name : 'Raja Kamran'} (Rider Portal)</h2>
               <p>
-                {currentUser ? currentUser.vehicleDetails : ''} •{' '}
+                {currentUser ? currentUser.vehicleDetails : 'Honda CD70'} •{' '}
                 <strong style={{ color: '#fff' }}>
-                  {currentUser ? currentUser.licensePlate : ''}
+                  {currentUser ? currentUser.licensePlate : 'ICT-9821'}
                 </strong>
               </p>
             </div>

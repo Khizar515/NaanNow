@@ -16,13 +16,13 @@ const fs = require('fs');
 const path = require('path');
 
 const DEMO_USERS = [
-  { name: "Ali Khan", email: "ali@rider.com", password: "password123", role: "rider", vehicleDetails: "Honda CD70", licensePlate: "ICT-1024", status: "unverified", rating: 4.8 },
+  { name: "Ali Khan", email: "ali@rider.com", password: "password123", role: "rider", vehicleDetails: "Honda CD70", licensePlate: "ICT-1024", status: "pending", rating: 4.8 },
   { name: "Hamza Ahmed", email: "hamza@rider.com", password: "password123", role: "rider", vehicleDetails: "Suzuki GS150", licensePlate: "LHR-9921", status: "approved", rating: 4.9 },
   { name: "Bilal Butt", email: "bilal@rider.com", password: "password123", role: "rider", vehicleDetails: "Yamaha YBR", licensePlate: "RWP-5512", status: "blocked", rating: 3.5 },
-  { name: "Sana Rizvi", email: "sana@manager.com", password: "password123", role: "manager", restaurantName: "Tandoori Flames (F-10)", status: "unverified", rating: 4.7 },
+  { name: "Sana Rizvi", email: "sana@manager.com", password: "password123", role: "manager", restaurantName: "Tandoori Flames (F-10)", status: "pending", rating: 4.7 },
   { name: "Zainab Malik", email: "zainab@manager.com", password: "password123", role: "manager", restaurantName: "Khyber Shinwari (F-7)", status: "approved", rating: 4.9 },
   { name: "Usman Shah", email: "usman@manager.com", password: "password123", role: "manager", restaurantName: "KFC (F-10)", status: "blocked", rating: 4.2 },
-  { name: "Muhammad Saad", email: "saad@naannow.com", password: "password123", role: "customer", status: "approved", walletBalance: 1500, address: "Street 11, F-7, Islamabad" },
+  { name: "Muhammad Saad", email: "saad@naannow.com", password: "password123", role: "customer", status: "approved", walletBalance: 1500 },
   { name: "Admin", email: "admin@naannow.com", password: "admin", role: "admin", status: "approved" }
 ];
 
@@ -237,40 +237,6 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongo:27017/naannow')
           phone: '03001234567'
         });
         console.log('Demo orders created.');
-        
-        // Seed Review, Notification, Withdrawal for Admin dashboard testing
-        const reviewCount = await Review.countDocuments();
-        if (reviewCount === 0) {
-          await Review.create({
-            restaurantId: tandooriFlames._id,
-            customerId: customer._id,
-            rating: 5,
-            comment: "Excellent food and fast delivery!"
-          });
-          console.log('Demo review created.');
-        }
-
-        const notifCount = await Notification.countDocuments();
-        if (notifCount === 0) {
-          await Notification.create({
-            title: "System Update",
-            body: "Maintenance tonight at 2 AM",
-            target: "All"
-          });
-          console.log('Demo notification created.');
-        }
-
-        if (manager) {
-          const withdrawalCount = await Withdrawal.countDocuments();
-          if (withdrawalCount === 0) {
-            await Withdrawal.create({
-              userId: manager._id,
-              amount: 5000,
-              status: "pending"
-            });
-            console.log('Demo withdrawal created.');
-          }
-        }
       }
     }
 

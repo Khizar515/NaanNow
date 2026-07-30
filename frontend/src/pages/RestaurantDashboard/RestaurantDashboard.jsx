@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api';
 import './RestaurantDashboard.css';
 
@@ -16,9 +15,7 @@ const IMAGE_TEMPLATES = [
 
 function RestaurantDashboard() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
   const [currentUser, setCurrentUser] = useState(null);
-  const [restaurantLoadError, setRestaurantLoadError] = useState(false);
 
   // Wizard state for restaurant verification
   const [wizardStep, setWizardStep] = useState(1);
@@ -168,10 +165,8 @@ function RestaurantDashboard() {
       try {
         const rest = await api.getMyRestaurant();
         setSelectedRestaurant(rest);
-        setRestaurantLoadError(false);
       } catch (err) {
         console.error("Failed to load restaurant profile:", err);
-        setRestaurantLoadError(true);
       }
       
       try {
@@ -210,25 +205,6 @@ function RestaurantDashboard() {
   }
 
   if (currentUser && currentUser.status === 'approved' && !selectedRestaurant) {
-    if (restaurantLoadError) {
-      return (
-        <div className="dashboard-status-screen">
-          <div className="status-card" style={{ maxWidth: '600px' }}>
-            <div className="status-icon">⚠️</div>
-            <h2>No Restaurant Found</h2>
-            <p className="status-message" style={{ fontSize: '15px', color: '#666', lineHeight: '1.6', marginBottom: '24px' }}>
-              Your account is approved, but we couldn't load your restaurant profile. Please contact admin.
-            </p>
-            <button className="btn-logout" onClick={() => {
-              logout();
-              navigate('/login');
-            }}>
-              Log Out
-            </button>
-          </div>
-        </div>
-      );
-    }
     return <div className="dashboard-loading">Loading portal configurations...</div>;
   }
 
@@ -236,9 +212,9 @@ function RestaurantDashboard() {
   const restaurantOrders = orders;
 
   // Compute Metrics
-  const completedOrders = restaurantOrders.filter(o => o.status === 'delivered');
-  const activeOrdersCount = restaurantOrders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length;
-  const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const completedOrders = restaurantOrders.filter(o => o.status === 'Completed');
+  const activeOrdersCount = restaurantOrders.filter(o => ['Preparing', 'Baking', 'Waiting for Rider', 'Delivering', 'Sent'].includes(o.status)).length;
+  const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
   const aov = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
 
   // Compute Menu Popularity distribution for dashboard chart based on ordered items
@@ -387,7 +363,6 @@ function RestaurantDashboard() {
   if (currentUser && currentUser.status !== 'approved') {
     const isRejected = currentUser.status === 'rejected';
     const isPending = currentUser.status === 'pending';
-    const isUnverified = currentUser.status === 'unverified';
 
     return (
       <div className="dashboard-status-screen">
@@ -409,7 +384,7 @@ function RestaurantDashboard() {
               </div>
             </div>
             <button className="btn-logout" onClick={() => {
-              logout();
+              localStorage.removeItem('naannow_currentUser');
               navigate('/login');
             }}>
               Log Out
@@ -759,7 +734,7 @@ function RestaurantDashboard() {
               </div>
             </form>
             <button className="btn-logout" onClick={() => {
-              logout();
+              localStorage.removeItem('naannow_currentUser');
               navigate('/login');
             }} style={{ marginTop: '24px', backgroundColor: '#e5e7eb', color: '#4b5563' }}>
               Log Out

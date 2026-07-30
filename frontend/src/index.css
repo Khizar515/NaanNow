@@ -147,23 +147,5 @@ body {
 
 .btn-logout:hover {
   background-color: #d1640c;
-}
-
-.btn-detail-view {
-  background-color: var(--color-coriander);
-  color: #fff !important;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-weight: 500;
-}
-.btn-detail-view:hover {
-  background-color: #4a822b;
-}
-
-.btn-primary {
-  color: #fff !important;
-  background-color: var(--color-tandoori) !important;
+  transform: translateY(-1px);
 }

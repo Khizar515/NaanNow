@@ -1,0 +1,140 @@
+# Fix Multiple NaanNow Application Bugs
+
+Six categories of bugs have been identified and analyzed. Here's the plan to fix each one.
+
+---
+
+## 1. Admin Dashboard Flicker/Redirect Bug
+
+**Root Cause:** [AdminDashboard.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/AdminDashboard/AdminDashboard.jsx#L259-L268) checks `localStorage.getItem('naannow_currentUser')` for auth, but this key is **never set** anywhere. The `AuthContext` stores only the JWT token under `naannow_token` and manages the user object in React state via `api.getMe()`. So the admin dashboard always finds null and immediately redirects to `/login`.
+
+**Fix:** Replace the localStorage-based auth check in AdminDashboard with `api.getMe()` (same pattern used by RiderDashboard and RestaurantDashboard).
+
+#### [MODIFY] [AdminDashboard.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/AdminDashboard/AdminDashboard.jsx)
+- Import `api` from `../../api`
+- Replace the `useEffect` auth block (lines 257–268) to use `api.getMe()` to fetch the user and check `role === 'admin'`
+- Add a loading guard: return a "Loading..." screen while `currentUser` hasn't been fetched yet
+
+---
+
+## 2. Manager White Screen Bug
+
+**Root Cause:** [RestaurantDashboard.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/RestaurantDashboard/RestaurantDashboard.jsx#L349) accesses `selectedRestaurant.menu` unconditionally on line 349. When `currentUser` is still `null` (async fetch in progress), the early-return guard on line 198 only covers the case when `currentUser` is already loaded and approved. The code falls through to line 349 where `selectedRestaurant` is also null → crash → white screen.
+
+**Fix:** Add a loading guard at the top of the component render:
+```js
+if (!currentUser) {
+  return <div className="dashboard-loading">Loading...</div>;
+}
+```
+This goes before line 198, so nothing renders until the user is fetched.
+
+#### [MODIFY] [RestaurantDashboard.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/RestaurantDashboard/RestaurantDashboard.jsx)
+- Add `if (!currentUser) return <div className="dashboard-loading">Loading...</div>;` before line 198
+
+---
+
+## 3. Protected Routes (Cart, Wishlist, Checkout, Orders, Favorites)
+
+**Root Cause:** No auth guard exists on the frontend routes. All customer-facing pages (favorites, checkout, orders, profile, cart sidebar) are accessible without login. The wishlist (`toggleFavorite`) and cart (`addToCart`) operations work purely in client-side state with no login check.
+
+**Fix:** Create a `ProtectedRoute` wrapper component and wrap all authenticated routes in `App.jsx`.
+
+#### [NEW] [ProtectedRoute.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/ProtectedRoute.jsx)
+- A simple component that checks `useAuth().user`; if null, redirect to `/login`
+- Renders `<Outlet />` or children if authenticated
+
+#### [MODIFY] [App.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/App.jsx)
+- Wrap `/favorites`, `/checkout`, `/orders`, `/track-order/:orderId`, `/profile` routes inside `<ProtectedRoute />`
+
+#### [MODIFY] [CartSideBar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Cart%20Side%20Bar/CartSideBar.jsx)
+- When "Proceed to Checkout" is clicked, check if user is logged in; if not, navigate to `/login`
+- When the cart opens (via cart icon click), check auth and redirect if not logged in
+
+#### [MODIFY] [Navbar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Navbar/Navbar.jsx)
+- Cart icon click: check auth → if not logged in, navigate to `/login` instead of opening cart
+- Wishlist icon click: check auth → if not logged in, navigate to `/login`
+- Orders tab click: check auth → if not logged in, navigate to `/login`
+
+#### [MODIFY] [RestaurantGrid.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/RestaurantGrid/RestaurantGrid.jsx)
+- Wishlist button click: check auth → if not logged in, navigate to `/login`
+
+---
+
+## 4. Search Bar Not Working
+
+**Root Cause:** The search input in [Navbar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Navbar/Navbar.jsx#L251-L256) has no `onChange` handler and no state connected to it. It never propagates the search term to the HomePage or RestaurantGrid.
+
+**Fix:** Implement search functionality by lifting state up through the App:
+
+#### [MODIFY] [App.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/App.jsx)
+- Add `searchQuery` state, pass it down to `Navbar` and `HomePage`
+
+#### [MODIFY] [Navbar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Navbar/Navbar.jsx)
+- Accept `searchQuery` and `setSearchQuery` props
+- Wire the search input's `onChange` to `setSearchQuery` and `value` to `searchQuery`
+
+#### [MODIFY] [HomePage.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/HomePage/HomePage.jsx)
+- Accept `searchQuery` prop and pass it to `RestaurantGrid`
+
+#### [MODIFY] [RestaurantGrid.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/RestaurantGrid/RestaurantGrid.jsx)
+- Accept `searchQuery` prop
+- Filter restaurants by name/cuisine matching the search query
+
+---
+
+## 5. Filter Sidebar Not Working
+
+**Root Cause:** [FilterSideBar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Filter%20Side%20Bar/FilterSideBar.jsx) has no state management connected to the parent. All inputs are uncontrolled with no `onChange` handlers that propagate to the restaurant listing.
+
+**Fix:** Make the filter sidebar functional by lifting filter state to `HomePage` and passing it to both `FilterSidebar` and `RestaurantGrid`.
+
+#### [MODIFY] [HomePage.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/HomePage/HomePage.jsx)
+- Add filter state: `sortBy`, `quickFilters`, `offers`, `selectedCuisines`, `priceRange`
+- Pass filter state and setters to `FilterSidebar`
+- Pass filter state to `RestaurantGrid`
+
+#### [MODIFY] [FilterSideBar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Filter%20Side%20Bar/FilterSideBar.jsx)
+- Accept filter state and handler props
+- Wire all radio buttons, checkboxes, and price buttons to the parent state
+
+#### [MODIFY] [RestaurantGrid.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/RestaurantGrid/RestaurantGrid.jsx)
+- Accept filter props and apply them to the restaurant list (sort by rating, filter by cuisine checkboxes, filter by price tier)
+
+---
+
+## 6. Hardcoded Address on All Screens
+
+**Root Cause:** [Navbar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Navbar/Navbar.jsx#L21-L23) initializes address from `localStorage` with a hardcoded fallback `'Street 11 Islamabad'`. The user's `address` field from the database is never used to set the displayed address.
+
+**Fix:** When a user is logged in, initialize the address from `user.address` from the database (falling back to localStorage, then default).
+
+#### [MODIFY] [Navbar.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/components/Navbar/Navbar.jsx)
+- Add a `useEffect` that watches `currentUser` — when user is logged in and has an `address`, set it as the displayed address
+- When saving address via modal, also update the user's address in the DB via `api.updateProfile`
+
+---
+
+## 7. Rider Dashboard Fake Stats
+
+**Root Cause:** [RiderDashboard.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/RiderDashboard/RiderDashboard.jsx#L182-L187) initializes stats with hardcoded values `{ todayEarnings: 450, tripsCount: 3, tipsAmount: 120, rating: 4.9 }`. The [useEffect on line 247](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/RiderDashboard/RiderDashboard.jsx#L247-L259) also adds `450` and `3` as base offsets on top of real data.
+
+**Fix:** Initialize stats to zero and compute them purely from actual completed orders.
+
+#### [MODIFY] [RiderDashboard.jsx](file:///c:/Users/gikiw/OneDrive/Desktop/NaanNow/frontend/src/pages/RiderDashboard/RiderDashboard.jsx)
+- Change initial stats to `{ todayEarnings: 0, tripsCount: 0, tipsAmount: 0, rating: 0 }`
+- In the `useEffect`, compute stats from `completedOrders` without adding hardcoded offsets
+- Use `currentUser.rating` from the database for the rating field
+
+---
+
+## Verification Plan
+
+### Manual Verification
+1. **Admin login**: Log in as admin → verify dashboard loads without flickering
+2. **Manager login**: Log in as manager → verify dashboard loads (no white screen)
+3. **Guest restrictions**: Without logging in, try clicking cart icon, wishlist, orders tab, favorites, checkout → all should redirect to login
+4. **Search**: Type a restaurant name in the search bar → verify restaurant list filters
+5. **Filter sidebar**: Select sort options, cuisine checkboxes, price filters → verify restaurant list updates
+6. **Address**: Log in as a customer → verify address shows from user profile, not hardcoded
+7. **Rider stats**: Log in as rider → verify earnings/trips/rating show 0 (or real data), not fake numbers
