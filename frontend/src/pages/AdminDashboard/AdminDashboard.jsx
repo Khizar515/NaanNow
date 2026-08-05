@@ -292,7 +292,7 @@ function AdminDashboard() {
           api.getWithdrawals().catch(() => []),
           api.getSettings().catch(() => platformSettings)
         ]);
-        
+
         setUsers(usersData);
         setOrders(ordersData);
         setRestaurants(restaurantsData);
@@ -461,264 +461,254 @@ function AdminDashboard() {
   // Platform Actions Handlers
   // ------------------------------------------------------------------------
 
-  // User Verification Actions
-  const handleApproveUser = (email, role) => {
-    const updatedUsers = users.map(u => {
-      if (u.email.toLowerCase() === email.toLowerCase()) {
-        const updated = { ...u, status: 'approved', rejectionReason: '' };
-        // Sync approved manager's restaurant
-        if (role === 'manager') {
-          syncRestaurantData(updated);
-        }
-        return updated;
-      }
-      return u;
-    });
-
-    setUsers(updatedUsers);
-    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updatedUsers));
-    triggerToast(`${role.toUpperCase()} approved successfully!`);
-
-    // Sync modals
-    if (selectedRider && selectedRider.email === email) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
-    if (selectedRestaurant && selectedRestaurant.email === email) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
+  // Helper to reload all admin data from API after mutations
+  const reloadAdminData = async () => {
+    try {
+      const [
+        usersData,
+        ordersData,
+        restaurantsData,
+        ticketsData,
+        promotionsData,
+        withdrawalsData,
+        settingsData
+      ] = await Promise.all([
+        api.getAllUsers(),
+        api.getOrders(),
+        api.getRestaurants(),
+        api.getTickets().catch(() => []),
+        api.getPromotions().catch(() => []),
+        api.getWithdrawals().catch(() => []),
+        api.getSettings().catch(() => platformSettings)
+      ]);
+      
+      setUsers(usersData);
+      setOrders(ordersData);
+      setRestaurants(restaurantsData);
+      setTickets(ticketsData);
+      setPromotions(promotionsData);
+      setWithdrawals(withdrawalsData);
+      setPlatformSettings(settingsData);
+    } catch (err) {
+      console.error("Failed to reload admin data:", err);
+    }
   };
 
-  const handleOpenReject = (email, name, role) => {
-    setRejectionModal({ type: role, email, name });
+  // User Verification Actions
+  const handleApproveUser = async (userId, role) => {
+    try {
+      await api.updateUserStatus(userId, 'approved');
+      await reloadAdminData();
+      triggerToast(`${role.toUpperCase()} approved successfully!`);
+
+      // Sync modals
+      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
+      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to approve user', 'error');
+    }
+  };
+
+  const handleOpenReject = (userId, name, role) => {
+    setRejectionModal({ type: role, userId, name });
     setRejectionInput('');
   };
 
-  const handleConfirmRejection = () => {
+  const handleConfirmRejection = async () => {
     if (!rejectionInput.trim()) {
       alert("Please specify a reason.");
       return;
     }
-    const { email, type } = rejectionModal;
-    const updatedUsers = users.map(u => {
-      if (u.email.toLowerCase() === email.toLowerCase()) {
-        return { ...u, status: 'rejected', rejectionReason: rejectionInput.trim() };
-      }
-      return u;
-    });
-    setUsers(updatedUsers);
-    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updatedUsers));
-    triggerToast(`${type.toUpperCase()} rejected. Notes saved.`);
-    setRejectionModal(null);
+    const { userId, type } = rejectionModal;
+    try {
+      await api.rejectUser(userId, rejectionInput.trim());
+      await reloadAdminData();
+      triggerToast(`${type.toUpperCase()} rejected. Notes saved.`);
+      setRejectionModal(null);
 
-    // Sync modal
-    if (selectedRider && selectedRider.email === email) setSelectedRider(prev => ({ ...prev, status: 'rejected', rejectionReason: rejectionInput }));
-    if (selectedRestaurant && selectedRestaurant.email === email) setSelectedRestaurant(prev => ({ ...prev, status: 'rejected', rejectionReason: rejectionInput }));
-  };
-
-  const handleSuspendUser = (email, role) => {
-    const updatedUsers = users.map(u => {
-      if (u.email.toLowerCase() === email.toLowerCase()) {
-        return { ...u, status: 'blocked' };
-      }
-      return u;
-    });
-    setUsers(updatedUsers);
-    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updatedUsers));
-    triggerToast(`${role.toUpperCase()} account suspended.`);
-
-    // Sync modal
-    if (selectedRider && selectedRider.email === email) setSelectedRider(prev => ({ ...prev, status: 'blocked' }));
-    if (selectedRestaurant && selectedRestaurant.email === email) setSelectedRestaurant(prev => ({ ...prev, status: 'blocked' }));
-    if (selectedCustomer && selectedCustomer.email === email) setSelectedCustomer(prev => ({ ...prev, status: 'blocked' }));
-  };
-
-  const handleUnblockUser = (email, role) => {
-    const updatedUsers = users.map(u => {
-      if (u.email.toLowerCase() === email.toLowerCase()) {
-        return { ...u, status: 'approved' };
-      }
-      return u;
-    });
-    setUsers(updatedUsers);
-    localStorage.setItem('naannow_registeredUsers', JSON.stringify(updatedUsers));
-    triggerToast(`${role.toUpperCase()} account reactivated.`);
-
-    // Sync modal
-    if (selectedRider && selectedRider.email === email) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
-    if (selectedRestaurant && selectedRestaurant.email === email) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
-    if (selectedCustomer && selectedCustomer.email === email) setSelectedCustomer(prev => ({ ...prev, status: 'approved' }));
-  };
-
-  // Helper to sync Manager Approved Restaurant
-  const syncRestaurantData = (manager) => {
-    const savedRes = localStorage.getItem('naannow_restaurants');
-    let resList = [];
-    if (savedRes) {
-      resList = JSON.parse(savedRes);
-    }
-    const exists = resList.some(r => r.name.toLowerCase() === manager.restaurantName.toLowerCase());
-    if (!exists) {
-      const newRestaurant = {
-        id: Date.now(),
-        name: manager.restaurantName,
-        cuisine: "Continental • Desi • Fast Food",
-        rating: 4.5,
-        deliveryTime: "30-40 min",
-        deliveryFee: "Rs. 150",
-        image: manager.cover || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000",
-        logo: manager.logo || "https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?q=80",
-        isSuper: true,
-        deal: "Platform Approved",
-        commissionRate: platformSettings.commission,
-        city: manager.city || "Islamabad",
-        owner: manager.name,
-        phone: manager.phone || "N/A",
-        email: manager.email,
-        status: "approved",
-        orders: 0
-      };
-      resList.push(newRestaurant);
-      localStorage.setItem('naannow_restaurants', JSON.stringify(resList));
-      setRestaurants(resList);
+      // Sync modal
+      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'rejected', rejectionReason: rejectionInput }));
+      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'rejected', rejectionReason: rejectionInput }));
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to reject user', 'error');
     }
   };
+
+  const handleSuspendUser = async (userId, role) => {
+    try {
+      await api.updateUserStatus(userId, 'blocked');
+      await reloadAdminData();
+      triggerToast(`${role.toUpperCase()} account suspended.`);
+
+      // Sync modal
+      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'blocked' }));
+      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'blocked' }));
+      if (selectedCustomer && selectedCustomer._id === userId) setSelectedCustomer(prev => ({ ...prev, status: 'blocked' }));
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to suspend user', 'error');
+    }
+  };
+
+  const handleUnblockUser = async (userId, role) => {
+    try {
+      await api.updateUserStatus(userId, 'approved');
+      await reloadAdminData();
+      triggerToast(`${role.toUpperCase()} account reactivated.`);
+
+      // Sync modal
+      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
+      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
+      if (selectedCustomer && selectedCustomer._id === userId) setSelectedCustomer(prev => ({ ...prev, status: 'approved' }));
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to unblock user', 'error');
+    }
+  };
+
+
 
   // Order Actions (Cancel / Refund / Status Changes)
-  const handleCancelOrder = (orderId) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        return { ...o, status: 'Cancelled' };
+  const handleCancelOrder = async (orderId) => {
+    try {
+      await api.updateOrderStatus(orderId, 'cancelled', 'Cancelled by admin');
+      await reloadAdminData();
+      triggerToast(`Order cancelled`, 'warning');
+      if (selectedOrder && selectedOrder._id === orderId) {
+        setSelectedOrder(prev => ({ ...prev, status: 'cancelled' }));
       }
-      return o;
-    });
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
-    triggerToast(`Order ${orderId} has been Cancelled`, 'warning');
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(prev => ({ ...prev, status: 'Cancelled' }));
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to cancel order', 'error');
     }
   };
 
-  const handleRefundOrder = (orderId) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        return { ...o, status: 'Refunded' };
+  const handleRefundOrder = async (orderId) => {
+    try {
+      await api.updateOrderStatus(orderId, 'cancelled', 'Refunded by admin');
+      await reloadAdminData();
+      triggerToast(`Refund processed for order`, 'success');
+      if (selectedOrder && selectedOrder._id === orderId) {
+        setSelectedOrder(prev => ({ ...prev, status: 'cancelled' }));
       }
-      return o;
-    });
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
-    triggerToast(`Refund processed for order ${orderId}`, 'success');
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(prev => ({ ...prev, status: 'Refunded' }));
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to refund order', 'error');
     }
   };
 
-  const handleSaveAdminNotes = (orderId, notesText) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        return { ...o, adminNotes: notesText };
+  const handleSaveAdminNotes = async (orderId, notesText) => {
+    try {
+      await api.updateOrderStatus(orderId, undefined, notesText);
+      await reloadAdminData();
+      triggerToast(`Notes updated for order`);
+      if (selectedOrder && selectedOrder._id === orderId) {
+        setSelectedOrder(prev => ({ ...prev, adminNotes: notesText }));
       }
-      return o;
-    });
-    setOrders(updated);
-    localStorage.setItem('naannow_orders', JSON.stringify(updated));
-    triggerToast(`Notes updated for order ${orderId}`);
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(prev => ({ ...prev, adminNotes: notesText }));
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to save notes', 'error');
     }
   };
 
   // Support Reply Send
-  const handleSendSupportReply = (ticketId) => {
+  const handleSendSupportReply = async (ticketId) => {
     if (!supportReplyText.trim()) return;
 
-    const updated = tickets.map(t => {
-      if (t.id === ticketId) {
-        const newMsg = { sender: "support", text: supportReplyText.trim(), time: "Just now" };
-        return { ...t, chat: [...t.chat, newMsg], status: "Resolved" };
-      }
-      return t;
-    });
-    setTickets(updated);
-    localStorage.setItem('naannow_tickets', JSON.stringify(updated));
-    setSupportReplyText('');
-    triggerToast("Reply sent to customer ticket!");
-
-    // Sync modal active state
-    const currentTicket = updated.find(t => t.id === ticketId);
-    setActiveTicket(currentTicket);
+    try {
+      const updatedTicket = await api.replyToTicket(ticketId, supportReplyText.trim());
+      await reloadAdminData();
+      setSupportReplyText('');
+      triggerToast("Reply sent to customer ticket!");
+      setActiveTicket(updatedTicket);
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to send reply', 'error');
+    }
   };
 
   const handleAssignTicket = (ticketId, staffName) => {
+    // Note: No API endpoint for assignment yet, keeping as local state update
     const updated = tickets.map(t => {
-      if (t.id === ticketId) {
+      if (t._id === ticketId) {
         return { ...t, assignedTo: staffName };
       }
       return t;
     });
     setTickets(updated);
-    localStorage.setItem('naannow_tickets', JSON.stringify(updated));
     triggerToast(`Ticket assigned to support specialist: ${staffName}`);
     setActiveTicket(prev => ({ ...prev, assignedTo: staffName }));
   };
 
   // Promotions Creators
-  const handleCreatePromo = (e) => {
+  const handleCreatePromo = async (e) => {
     e.preventDefault();
     if (!promoForm.code.trim()) return;
-    const exists = promotions.some(p => p.code.toUpperCase() === promoForm.code.toUpperCase());
+    const exists = promotions.some(p => (p.code || '').toUpperCase() === promoForm.code.toUpperCase());
     if (exists) {
       triggerToast("Promo code already exists!", "error");
       return;
     }
-    const newPromo = {
-      code: promoForm.code.toUpperCase(),
-      discount: Number(promoForm.discount),
-      type: promoForm.type,
-      minBasket: Number(promoForm.minBasket),
-      maxDiscount: Number(promoForm.maxDiscount),
-      status: "Active"
-    };
-    const updated = [newPromo, ...promotions];
-    setPromotions(updated);
-    localStorage.setItem('naannow_promotions', JSON.stringify(updated));
-    triggerToast(`Coupon ${newPromo.code} created successfully!`);
-    setPromoForm({ code: '', discount: 20, type: 'Percentage', maxDiscount: 500, minBasket: 400 });
+    try {
+      await api.createPromotion({
+        code: promoForm.code.toUpperCase(),
+        discount: Number(promoForm.discount),
+        type: promoForm.type.toLowerCase(),
+        minBasket: Number(promoForm.minBasket),
+        maxDiscount: Number(promoForm.maxDiscount)
+      });
+      await reloadAdminData();
+      triggerToast(`Coupon ${promoForm.code.toUpperCase()} created successfully!`);
+      setPromoForm({ code: '', discount: 20, type: 'Percentage', maxDiscount: 500, minBasket: 400 });
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to create promotion', 'error');
+    }
   };
 
-  const handleTogglePromoStatus = (code) => {
-    const updated = promotions.map(p => {
-      if (p.code === code) {
-        return { ...p, status: p.status === 'Active' ? 'Expired' : 'Active' };
-      }
-      return p;
-    });
-    setPromotions(updated);
-    localStorage.setItem('naannow_promotions', JSON.stringify(updated));
-    triggerToast(`Promo status updated for ${code}`);
+  const handleTogglePromoStatus = async (promoId) => {
+    try {
+      await api.togglePromotion(promoId);
+      await reloadAdminData();
+      triggerToast(`Promo status updated`);
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to toggle promotion', 'error');
+    }
   };
 
   // Push Notifications Composer
-  const handleSendNotification = (e) => {
+  const handleSendNotification = async (e) => {
     e.preventDefault();
     if (!notifForm.title.trim() || !notifForm.body.trim()) return;
-    const newNotification = {
-      id: Date.now(),
-      title: notifForm.title.trim(),
-      body: notifForm.body.trim(),
-      image: notifForm.image.trim() || null,
-      target: notifForm.target,
-      sentAt: new Date().toISOString()
-    };
-    const updated = [newNotification, ...sentNotifications];
-    setSentNotifications(updated);
-    localStorage.setItem('naannow_sentNotifications', JSON.stringify(updated));
-    triggerToast(`Rich notification broadcast sent to target: ${notifForm.target}!`);
-    setNotifForm({ title: '', body: '', image: '', target: 'All' });
+    try {
+      await api.sendNotification({
+        title: notifForm.title.trim(),
+        body: notifForm.body.trim(),
+        image: notifForm.image.trim() || null,
+        target: notifForm.target
+      });
+      await reloadAdminData();
+      triggerToast(`Rich notification broadcast sent to target: ${notifForm.target}!`);
+      setNotifForm({ title: '', body: '', image: '', target: 'All' });
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to send notification', 'error');
+    }
   };
 
   // Settings modification
-  const handleSaveSettings = (e) => {
+  const handleSaveSettings = async (e) => {
     e.preventDefault();
-    localStorage.setItem('naannow_platformSettings', JSON.stringify(platformSettings));
-    triggerToast("Settings saved and operational globally!");
+    try {
+      await api.updateSettings(platformSettings);
+      triggerToast("Settings saved and operational globally!");
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to save settings', 'error');
+    }
   };
 
   // DB Backup Exporter
@@ -760,16 +750,15 @@ function AdminDashboard() {
   };
 
   // Financial payout action
-  const handleProcessPayout = (txnId) => {
-    const updated = withdrawals.map(w => {
-      if (w.id === txnId) {
-        return { ...w, status: 'Completed' };
-      }
-      return w;
-    });
-    setWithdrawals(updated);
-    localStorage.setItem('naannow_withdrawals', JSON.stringify(updated));
-    triggerToast(`Payout processed successfully!`);
+  const handleProcessPayout = async (withdrawalId) => {
+    try {
+      await api.updateWithdrawalStatus(withdrawalId, 'completed');
+      await reloadAdminData();
+      triggerToast(`Payout processed successfully!`);
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to process payout', 'error');
+    }
   };
 
   // CSV Report Generator
@@ -796,7 +785,7 @@ function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('naannow_currentUser');
+    localStorage.removeItem('naannow_token');
     navigate('/login');
   };
 
@@ -805,15 +794,15 @@ function AdminDashboard() {
   // ------------------------------------------------------------------------
 
   // 1. Dashboard Sales calculations
-  const totalSales = orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
-  const activeOrdersCount = orders.filter(o => ['Preparing', 'Baking', 'Waiting for Rider', 'Delivering', 'Sent'].includes(o.status)).length;
+  const totalSales = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const activeOrdersCount = orders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length;
 
-  const pendingApprovalsCount = users.filter(u => u.status === 'pending' && (u.role === 'rider' || u.role === 'manager')).length;
+  const pendingApprovalsCount = users.filter(u => (u.status === 'pending' || u.status === 'unverified') && (u.role === 'rider' || u.role === 'manager')).length;
   const ridersCount = users.filter(u => u.role === 'rider').length;
   const managersCount = users.filter(u => u.role === 'manager').length;
   const customersCount = users.filter(u => u.role === 'customer').length;
 
-  const cancelledOrdersCount = orders.filter(o => o.status === 'Cancelled').length;
+  const cancelledOrdersCount = orders.filter(o => o.status === 'cancelled').length;
 
   // Dynamic calculation for Daily Revenue Trend (last 7 calendar days)
   const getDailyRevenueData = () => {
@@ -835,11 +824,11 @@ function AdminDashboard() {
 
     // Accumulate total completed/active orders revenue by date matching
     orders.forEach(o => {
-      if (o.status !== 'Cancelled') {
-        const oDate = new Date(o.date).toDateString();
+      if (o.status !== 'cancelled') {
+        const oDate = new Date(o.createdAt).toDateString();
         const found = last7Days.find(item => item.dateStr === oDate);
         if (found) {
-          found.revenue += (o.grandTotal || 0);
+          found.revenue += (o.totalAmount || 0);
           found.ordersList.push(o);
         }
       }
@@ -890,9 +879,10 @@ function AdminDashboard() {
     if (globalSearch.trim()) {
       const q = globalSearch.toLowerCase();
       list = list.filter(o =>
-        o.id.toLowerCase().includes(q) ||
+        (o._id && o._id.toLowerCase().includes(q)) ||
+        (o.orderNumber && o.orderNumber.toLowerCase().includes(q)) ||
         (o.name && o.name.toLowerCase().includes(q)) ||
-        (o.restaurantName && o.restaurantName.toLowerCase().includes(q))
+        (o.restaurantId?.name && o.restaurantId.name.toLowerCase().includes(q))
       );
     }
 
@@ -900,20 +890,20 @@ function AdminDashboard() {
     const now = new Date();
     if (orderFilter === 'Today') {
       list = list.filter(o => {
-        const oDate = new Date(o.date);
+        const oDate = new Date(o.createdAt);
         return oDate.toDateString() === now.toDateString();
       });
     } else if (orderFilter === 'Yesterday') {
       const yesterday = new Date();
       yesterday.setDate(now.getDate() - 1);
       list = list.filter(o => {
-        const oDate = new Date(o.date);
+        const oDate = new Date(o.createdAt);
         return oDate.toDateString() === yesterday.toDateString();
       });
     } else if (orderFilter === 'This Week') {
       const startOfWeek = new Date();
       startOfWeek.setDate(now.getDate() - 7);
-      list = list.filter(o => new Date(o.date) >= startOfWeek);
+      list = list.filter(o => new Date(o.createdAt) >= startOfWeek);
     }
 
     // Status filter

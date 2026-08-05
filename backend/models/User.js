@@ -4,12 +4,12 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ['customer', 'manager', 'rider', 'admin'], 
-    default: 'customer' 
+  role: {
+    type: String,
+    enum: ['customer', 'manager', 'rider', 'admin'],
+    default: 'customer'
   },
-  
+
   // Profile
   phone: { type: String },
   profilePic: { type: String },
@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
   bankName: { type: String },
   accountNumber: { type: String },
   walletNumber: { type: String },
-  
+
   // Manager specific
   restaurantName: { type: String },
   restaurantAddress: { type: String },
@@ -48,12 +48,12 @@ const userSchema = new mongoose.Schema({
   licenseDoc: { type: String },
   ntnDoc: { type: String },
   holderName: { type: String },
-  
+
   // Common for Rider/Manager
-  status: { 
-    type: String, 
-    enum: ['pending', 'approved', 'blocked', 'rejected'], 
-    default: 'approved' 
+  status: {
+    type: String,
+    enum: ['unverified', 'pending', 'approved', 'blocked', 'rejected'],
+    default: 'approved'
   },
   rejectionReason: { type: String },
   rating: { type: Number, default: 0 },

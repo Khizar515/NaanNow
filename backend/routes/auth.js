@@ -10,7 +10,7 @@ const upload = require('../middleware/upload');
 // @desc    Register a user
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, phone} = req.body;
+    const { name, email, password, role, phone } = req.body;
 
     let user = await User.findOne({ email });
     if (user) {
@@ -26,7 +26,7 @@ router.post('/register', async (req, res) => {
       password: hashedPassword,
       role: role || 'customer',
       phone: phone,
-      status: (role === 'rider' || role === 'manager') ? 'pending' : 'approved',
+      status: (role === 'rider' || role === 'manager') ? 'unverified' : 'approved',
       address: ''
     });
 
@@ -130,7 +130,7 @@ router.put('/password', auth, async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
     await user.save();
-    
+
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
     console.error(err.message);

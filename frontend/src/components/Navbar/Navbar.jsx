@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CartContext } from "../Context/CartContext";
 import { useAuth } from "../../context/AuthContext";
+import { api } from '../../api';
 import './Navbar.css';
 
 import logo from '../../assets/logo-removebg.png';
@@ -18,25 +19,100 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [address, setAddress] = useState(() => {
-    return localStorage.getItem('naannow_userAddress') || 'Street 11 Islamabad';
-  });
+  // Address state — initialized from DB user
+  const getInitialAddress = () => {
+    if (currentUser && currentUser.address) {
+      return currentUser.address;
+    }
+    return currentUser ? 'Add your address' : 'Deliver to...';
+  };
+
+  const [address, setAddress] = useState(getInitialAddress);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [addressInput, setAddressInput] = useState('');
+  const [recentAddresses, setRecentAddresses] = useState([]);
+  const [detectingLocation, setDetectingLocation] = useState(false);
 
-  const handleSaveAddress = () => {
+  const handleSaveAddress = async () => {
     if (addressInput.trim()) {
-      setAddress(addressInput.trim());
-      localStorage.setItem('naannow_userAddress', addressInput.trim());
+      const newAddress = addressInput.trim();
+      setAddress(newAddress);
+      localStorage.setItem('naannow_userAddress', newAddress);
       setIsAddressModalOpen(false);
+
+      // Persist to database
+      if (currentUser) {
+        try {
+          await api.updateProfile({ address: newAddress });
+        } catch (err) {
+          console.error('Failed to save address to DB:', err);
+        }
+      }
     }
   };
 
   const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setAddressInput('Geolocation not supported by your browser');
+      return;
+    }
+
+    setDetectingLocation(true);
     setAddressInput('Detecting location...');
-    setTimeout(() => {
-      setAddressInput('Sector F-7/2, Islamabad');
-    }, 1200);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const data = await response.json();
+          const parts = [];
+          if (data.address) {
+            if (data.address.road) parts.push(data.address.road);
+            if (data.address.suburb) parts.push(data.address.suburb);
+            if (data.address.city || data.address.town) parts.push(data.address.city || data.address.town);
+          }
+          setAddressInput(parts.length > 0 ? parts.join(', ') : data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        } catch (err) {
+          console.error('Reverse geocoding failed:', err);
+          setAddressInput(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+        setDetectingLocation(false);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        setAddressInput('Could not detect location. Please enter manually.');
+        setDetectingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Open address modal with auth guard and fetch recent addresses from orders
+  const handleOpenAddressModal = async () => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    setAddressInput(address === 'Add your address' ? '' : address);
+    setIsAddressModalOpen(true);
+
+    try {
+      const orders = await api.getOrders();
+      const uniqueAddresses = [...new Set(
+        orders
+          .map(o => o.deliveryAddress)
+          .filter(addr => addr && addr.trim())
+      )].slice(0, 5);
+      setRecentAddresses(uniqueAddresses);
+    } catch (err) {
+      console.error('Failed to fetch recent addresses:', err);
+      setRecentAddresses([]);
+    }
   };
 
   const handleLogout = () => {
@@ -102,10 +178,15 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Sync address from currentUser when it loads or changes
   useEffect(() => {
     if (currentUser && currentUser.address) {
       setAddress(currentUser.address);
       localStorage.setItem('naannow_userAddress', currentUser.address);
+    } else if (currentUser && !currentUser.address) {
+      setAddress('Add your address');
+    } else if (!currentUser) {
+      setAddress('Deliver to...');
     }
   }, [currentUser]);
 
@@ -130,7 +211,7 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
 
         {/* Location (Desktop Only) */}
         <div className="nav-location-wrapper desktop-only">
-          <button className="location-btn" onClick={() => { setAddressInput(address); setIsAddressModalOpen(true); }}>
+          <button className="location-btn" onClick={handleOpenAddressModal}>
             <svg width="20" height="20" fill="none" stroke="var(--color-tandoori)" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
               <circle cx="12" cy="10" r="3"></circle>
@@ -233,7 +314,7 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
 
       {/* --- MIDDLE ROW (Mobile Only) --- */}
       <div className="navbar-middle mobile-only">
-        <button className="location-btn" onClick={() => { setAddressInput(address); setIsAddressModalOpen(true); }}>
+        <button className="location-btn" onClick={handleOpenAddressModal}>
           <svg width="20" height="20" fill="none" stroke="var(--color-tandoori)" strokeWidth="2" viewBox="0 0 24 24">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
             <circle cx="12" cy="10" r="3"></circle>
@@ -294,7 +375,7 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
               <h3>Select Delivery Address</h3>
               <button className="close-modal-btn" onClick={() => setIsAddressModalOpen(false)}>&times;</button>
             </div>
-            
+
             <div className="address-modal-body">
               <div className="input-group-address">
                 <label htmlFor="modal-address-input">Delivery Location</label>
@@ -309,32 +390,29 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
                   />
                 </div>
               </div>
-              
-              <button className="detect-location-btn" onClick={handleDetectLocation}>
-                <span className="gps-icon">🎯</span> Detect My Location
+
+              <button className="detect-location-btn" onClick={handleDetectLocation} disabled={detectingLocation}>
+                <span className="gps-icon">🎯</span> {detectingLocation ? 'Detecting...' : 'Detect My Location'}
               </button>
-              
-              <div className="recent-addresses-section">
-                <h4>Recent Addresses</h4>
-                <div className="recent-list">
-                  {[
-                    "Street 11 Islamabad",
-                    "Sector F-10, Islamabad",
-                    "Sector G-11, Islamabad",
-                    "DHA Phase 2, Islamabad"
-                  ].map((addr, idx) => (
-                    <button
-                      key={idx}
-                      className={`recent-addr-item ${addressInput === addr ? 'selected' : ''}`}
-                      onClick={() => setAddressInput(addr)}
-                    >
-                      <span>📍</span> {addr}
-                    </button>
-                  ))}
+
+              {recentAddresses.length > 0 && (
+                <div className="recent-addresses-section">
+                  <h4>Recent Addresses</h4>
+                  <div className="recent-list">
+                    {recentAddresses.map((addr, idx) => (
+                      <button
+                        key={idx}
+                        className={`recent-addr-item ${addressInput === addr ? 'selected' : ''}`}
+                        onClick={() => setAddressInput(addr)}
+                      >
+                        <span>📍</span> {addr}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-            
+
             <div className="address-modal-footer">
               <button className="modal-cancel-btn" onClick={() => setIsAddressModalOpen(false)}>Cancel</button>
               <button className="modal-save-btn" onClick={handleSaveAddress} disabled={!addressInput.trim() || addressInput === 'Detecting location...'}>

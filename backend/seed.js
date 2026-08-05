@@ -19,10 +19,10 @@ const DEMO_USERS = [
   { name: "Ali Khan", email: "ali@rider.com", password: "password123", role: "rider", vehicleDetails: "Honda CD70", licensePlate: "ICT-1024", status: "pending", rating: 4.8 },
   { name: "Hamza Ahmed", email: "hamza@rider.com", password: "password123", role: "rider", vehicleDetails: "Suzuki GS150", licensePlate: "LHR-9921", status: "approved", rating: 4.9 },
   { name: "Bilal Butt", email: "bilal@rider.com", password: "password123", role: "rider", vehicleDetails: "Yamaha YBR", licensePlate: "RWP-5512", status: "blocked", rating: 3.5 },
-  { name: "Sana Rizvi", email: "sana@manager.com", password: "password123", role: "manager", restaurantName: "Tandoori Flames (F-10)", status: "pending", rating: 4.7 },
+  { name: "Sana Rizvi", email: "sana@manager.com", password: "password123", role: "manager", restaurantName: "Tandoori Flames (F-10)", status: "unverified", rating: 4.7 },
   { name: "Zainab Malik", email: "zainab@manager.com", password: "password123", role: "manager", restaurantName: "Khyber Shinwari (F-7)", status: "approved", rating: 4.9 },
   { name: "Usman Shah", email: "usman@manager.com", password: "password123", role: "manager", restaurantName: "KFC (F-10)", status: "blocked", rating: 4.2 },
-  { name: "Muhammad Saad", email: "saad@naannow.com", password: "password123", role: "customer", status: "approved", walletBalance: 1500 },
+  { name: "Muhammad Saad", email: "saad@naannow.com", password: "password123", role: "customer", status: "approved", walletBalance: 1500, address: "F-7 Markaz, Islamabad" },
   { name: "Admin", email: "admin@naannow.com", password: "admin", role: "admin", status: "approved" }
 ];
 

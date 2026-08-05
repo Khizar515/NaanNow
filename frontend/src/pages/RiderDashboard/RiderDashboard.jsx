@@ -140,7 +140,7 @@ function RiderDashboard() {
       // specific rider fields
       formData.append('vehicleDetails', `${wizardData.bikeModel} (${wizardData.bikeColor})`);
       formData.append('licensePlate', wizardData.bikeRegistration);
-      
+
       const updatedUser = await api.uploadDocs(formData);
       setCurrentUser(updatedUser);
       alert('Verification submitted successfully!');
@@ -183,7 +183,7 @@ function RiderDashboard() {
     todayEarnings: 0,
     tripsCount: 0,
     tipsAmount: 0,
-    rating: 5.0
+    rating: currentUser?.rating || 0
   });
 
   // Map refs
@@ -208,12 +208,12 @@ function RiderDashboard() {
   // Fetch all orders from API
   useEffect(() => {
     if (currentUser?.status !== 'approved') return;
-    
+
     const fetchOrders = async () => {
       try {
         const parsed = await api.getOrders();
         setOrders(parsed);
-        
+
         // Defer setting the initialized flag to prevent scrolling on mount
         if (!isInitializedRef.current) {
           setTimeout(() => {
@@ -252,7 +252,7 @@ function RiderDashboard() {
       todayEarnings: baseEarnings + mockTips,
       tripsCount: trips,
       tipsAmount: mockTips,
-      rating: 5.0
+      rating: currentUser?.rating || 0
     });
   }, [orders]);
 
@@ -356,9 +356,9 @@ function RiderDashboard() {
       const elapsed = (new Date().getTime() - new Date(currentActiveOrder.updatedAt).getTime()) / 1000;
       const progress = Math.min(Math.max(elapsed / 25, 0), 1);
       const currentLoc = getPointAlongPath(routePath, progress);
-      
+
       riderMarkerRef.current.setLatLng(currentLoc);
-      
+
       // Auto-center map on rider
       if (progress < 1) {
         mapRef.current.panTo(currentLoc, { animate: true, duration: 0.5 });
@@ -437,7 +437,7 @@ function RiderDashboard() {
         clearInterval(interval);
         setIsSimulating(false);
         setSimProgress(100);
-        
+
         // Auto update status to Ready for complete
         alert("📍 Navigation Alert: You have arrived at the customer's house address! Please deliver the food and complete the trip.");
       }
@@ -495,6 +495,7 @@ function RiderDashboard() {
   if (currentUser && currentUser.status !== 'approved') {
     const isRejected = currentUser.status === 'rejected';
     const isPending = currentUser.status === 'pending';
+    const isUnverified = currentUser.status === 'unverified';
 
     return (
       <div className="dashboard-status-screen">
@@ -516,13 +517,13 @@ function RiderDashboard() {
               </div>
             </div>
             <button className="btn-logout" onClick={() => {
-              localStorage.removeItem('naannow_currentUser');
+              localStorage.removeItem('naannow_token');
               navigate('/login');
             }}>
               Log Out
             </button>
           </div>
-        ) : (
+        ) : (isUnverified || isRejected) ? (
           <div className="status-card" style={{ maxWidth: '680px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
               <div>
@@ -560,41 +561,41 @@ function RiderDashboard() {
                 <>
                   <div className="form-group-field">
                     <label>Date of Birth</label>
-                    <input 
-                      type="date" 
-                      value={wizardData.dob} 
-                      onChange={(e) => setWizardData({...wizardData, dob: e.target.value})} 
-                      required 
+                    <input
+                      type="date"
+                      value={wizardData.dob}
+                      onChange={(e) => setWizardData({ ...wizardData, dob: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group-field">
                     <label>Current Address</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter your home address" 
-                      value={wizardData.address} 
-                      onChange={(e) => setWizardData({...wizardData, address: e.target.value})} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="Enter your home address"
+                      value={wizardData.address}
+                      onChange={(e) => setWizardData({ ...wizardData, address: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group-field">
                     <label>CNIC Number</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 37405-1234567-3" 
-                      value={wizardData.cnicNumber} 
-                      onChange={(e) => setWizardData({...wizardData, cnicNumber: e.target.value})} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="e.g. 37405-1234567-3"
+                      value={wizardData.cnicNumber}
+                      onChange={(e) => setWizardData({ ...wizardData, cnicNumber: e.target.value })}
+                      required
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>CNIC Front Image</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'cnicFront')} 
-                        required={!wizardData.cnicFront} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'cnicFront')}
+                        required={!wizardData.cnicFront}
                       />
                       {wizardData.cnicFront && (
                         <div style={{ marginTop: '8px' }}>
@@ -604,11 +605,11 @@ function RiderDashboard() {
                     </div>
                     <div className="form-group-field">
                       <label>CNIC Back Image</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'cnicBack')} 
-                        required={!wizardData.cnicBack} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'cnicBack')}
+                        required={!wizardData.cnicBack}
                       />
                       {wizardData.cnicBack && (
                         <div style={{ marginTop: '8px' }}>
@@ -624,21 +625,21 @@ function RiderDashboard() {
                 <>
                   <div className="form-group-field">
                     <label>Driving License Number</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. KP-882199A" 
-                      value={wizardData.licenseNumber} 
-                      onChange={(e) => setWizardData({...wizardData, licenseNumber: e.target.value})} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="e.g. KP-882199A"
+                      value={wizardData.licenseNumber}
+                      onChange={(e) => setWizardData({ ...wizardData, licenseNumber: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group-field">
                     <label>Driving License Image</label>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={(e) => handleFileChange(e, 'licenseImage')} 
-                      required={!wizardData.licenseImage} 
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'licenseImage')}
+                      required={!wizardData.licenseImage}
                     />
                     {wizardData.licenseImage && (
                       <div style={{ marginTop: '8px' }}>
@@ -648,33 +649,33 @@ function RiderDashboard() {
                   </div>
                   <div className="form-group-field">
                     <label>Bike Registration Number</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. ICT-4491" 
-                      value={wizardData.bikeRegistration} 
-                      onChange={(e) => setWizardData({...wizardData, bikeRegistration: e.target.value})} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="e.g. ICT-4491"
+                      value={wizardData.bikeRegistration}
+                      onChange={(e) => setWizardData({ ...wizardData, bikeRegistration: e.target.value })}
+                      required
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>Bike Model</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Honda CD70" 
-                        value={wizardData.bikeModel} 
-                        onChange={(e) => setWizardData({...wizardData, bikeModel: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="e.g. Honda CD70"
+                        value={wizardData.bikeModel}
+                        onChange={(e) => setWizardData({ ...wizardData, bikeModel: e.target.value })}
+                        required
                       />
                     </div>
                     <div className="form-group-field">
                       <label>Bike Color</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Red" 
-                        value={wizardData.bikeColor} 
-                        onChange={(e) => setWizardData({...wizardData, bikeColor: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="e.g. Red"
+                        value={wizardData.bikeColor}
+                        onChange={(e) => setWizardData({ ...wizardData, bikeColor: e.target.value })}
+                        required
                       />
                     </div>
                   </div>
@@ -685,11 +686,11 @@ function RiderDashboard() {
                 <>
                   <div className="form-group-field">
                     <label>Rider Profile Picture</label>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={(e) => handleFileChange(e, 'avatar')} 
-                      required={!wizardData.avatar} 
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'avatar')}
+                      required={!wizardData.avatar}
                     />
                     {wizardData.avatar && (
                       <div style={{ marginTop: '8px' }}>
@@ -699,29 +700,29 @@ function RiderDashboard() {
                   </div>
                   <div className="form-group-field">
                     <label>Bank Name (Optional)</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Meezan Bank" 
-                      value={wizardData.bankName} 
-                      onChange={(e) => setWizardData({...wizardData, bankName: e.target.value})} 
+                    <input
+                      type="text"
+                      placeholder="e.g. Meezan Bank"
+                      value={wizardData.bankName}
+                      onChange={(e) => setWizardData({ ...wizardData, bankName: e.target.value })}
                     />
                   </div>
                   <div className="form-group-field">
                     <label>Account Number / IBAN (Optional)</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. PK92MEZN001234567890" 
-                      value={wizardData.accountNumber} 
-                      onChange={(e) => setWizardData({...wizardData, accountNumber: e.target.value})} 
+                    <input
+                      type="text"
+                      placeholder="e.g. PK92MEZN001234567890"
+                      value={wizardData.accountNumber}
+                      onChange={(e) => setWizardData({ ...wizardData, accountNumber: e.target.value })}
                     />
                   </div>
                   <div className="form-group-field">
                     <label>Easypaisa/JazzCash Mobile Number (Optional)</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 0300-1234567" 
-                      value={wizardData.walletNumber} 
-                      onChange={(e) => setWizardData({...wizardData, walletNumber: e.target.value})} 
+                    <input
+                      type="text"
+                      placeholder="e.g. 0300-1234567"
+                      value={wizardData.walletNumber}
+                      onChange={(e) => setWizardData({ ...wizardData, walletNumber: e.target.value })}
                     />
                   </div>
                 </>
@@ -762,11 +763,18 @@ function RiderDashboard() {
               </div>
             </form>
             <button className="btn-logout" onClick={() => {
-              localStorage.removeItem('naannow_currentUser');
+              localStorage.removeItem('naannow_token');
               navigate('/login');
             }} style={{ marginTop: '24px', backgroundColor: '#e5e7eb', color: '#4b5563' }}>
               Log Out
             </button>
+          </div>
+        ) : (
+          <div className="status-card" style={{ maxWidth: '600px' }}>
+            <div className="status-icon">⏳</div>
+            <h2>Status: {currentUser.status}</h2>
+            <p className="status-message">Your account status is currently <strong>{currentUser.status}</strong>. Please contact admin for assistance.</p>
+            <button className="btn-logout" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }}>Log Out</button>
           </div>
         )}
       </div>
@@ -776,33 +784,33 @@ function RiderDashboard() {
   return (
     <div className="rider-dashboard-page">
       <div className="rider-dashboard-container">
-        
+
         {/* Rider Header Bar */}
         <div className="rider-header">
           <div className="rider-profile-info">
             <div className="rider-avatar-large">
-              {currentUser ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'RK'}
+              {currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase()}
             </div>
             <div className="rider-name-details">
-              <h2>{currentUser ? currentUser.name : 'Raja Kamran'} (Rider Portal)</h2>
+              <h2>{currentUser.name} (Rider Portal)</h2>
               <p>
-                {currentUser ? currentUser.vehicleDetails : 'Honda CD70'} •{' '}
+                {currentUser.vehicleDetails || 'No vehicle info'} •{' '}
                 <strong style={{ color: '#fff' }}>
-                  {currentUser ? currentUser.licensePlate : 'ICT-9821'}
+                  {currentUser.licensePlate || 'N/A'}
                 </strong>
               </p>
             </div>
           </div>
-          
+
           <div className="status-toggle-wrapper">
             <span className={`status-lbl ${isOnline ? 'online' : 'offline'}`}>
               {isOnline ? '● Online & Accepting Jobs' : '○ Offline'}
             </span>
             <label className="switch">
-              <input 
-                type="checkbox" 
-                checked={isOnline} 
-                onChange={(e) => setIsOnline(e.target.checked)} 
+              <input
+                type="checkbox"
+                checked={isOnline}
+                onChange={(e) => setIsOnline(e.target.checked)}
               />
               <span className="slider"></span>
             </label>
@@ -843,21 +851,21 @@ function RiderDashboard() {
 
         {/* Tab Selection */}
         <div className="rider-tabs-nav">
-          <button 
+          <button
             className={`rider-tab-btn ${activeTab === 'available' ? 'active' : ''}`}
             onClick={() => setActiveTab('available')}
           >
             Available Jobs
             <span className="tab-badge">{availableOrders.length}</span>
           </button>
-          <button 
+          <button
             className={`rider-tab-btn ${activeTab === 'active' ? 'active' : ''}`}
             onClick={() => setActiveTab('active')}
           >
             Active Deliveries
             <span className="tab-badge">{activeOrders.length}</span>
           </button>
-          <button 
+          <button
             className={`rider-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
@@ -878,7 +886,7 @@ function RiderDashboard() {
           </div>
         ) : (
           <div className="rider-workspace-grid">
-            
+
             {/* LEFT SIDE: List of orders / active details */}
             {activeTab === 'available' && (
               <div className="orders-list-panel">
@@ -896,14 +904,14 @@ function RiderDashboard() {
                           {order.deliverySpeed === 'priority' ? '⚡ Priority' : '🛵 Standard'}
                         </span>
                       </div>
-                      
+
                       <div className="restaurant-title">{order.restaurantId?.name || 'Restaurant'}</div>
-                      
+
                       <div className="address-item">
                         <span className="address-icon">🥣</span>
                         <span>{order.restaurantId?.address || 'F-10 Markaz, Islamabad'}</span>
                       </div>
-                      
+
                       <div className="address-item">
                         <span className="address-icon">🏠</span>
                         <span>{order.deliveryAddress || order.address}</span>
@@ -916,8 +924,8 @@ function RiderDashboard() {
                         </div>
                       </div>
 
-                      <button 
-                        className="btn-accept-order" 
+                      <button
+                        className="btn-accept-order"
                         onClick={() => handleAcceptOrder(order._id)}
                       >
                         Accept & Start Job
@@ -993,7 +1001,7 @@ function RiderDashboard() {
                           <>
                             <h4>🛵 In Transit to Customer</h4>
                             <p>Head to {currentActiveOrder.deliveryAddress || currentActiveOrder.address}. You can simulate the travel navigation on the map.</p>
-                            
+
                             <button className="btn-lifecycle-action delivering-state" onClick={handleCompleteOrder}>
                               Mark Delivered & Complete
                             </button>
@@ -1024,7 +1032,7 @@ function RiderDashboard() {
                           <h4>Chat with {currentActiveOrder.name}</h4>
                           <span style={{ fontSize: '11px', color: '#10b981' }}>Connected</span>
                         </div>
-                        
+
                         <div className="rider-chat-messages" ref={chatContainerRef}>
                           {(currentActiveOrder.messages || []).map((msg, index) => (
                             <div key={index} className={`rider-chat-msg ${msg.sender}`}>
@@ -1063,7 +1071,7 @@ function RiderDashboard() {
                     <p className="total-payout-val">Rs. {stats.todayEarnings}</p>
                   </div>
                   <div className="trip-count-pills">
-                    <strong>{stats.tripsCount}</strong> Trips Total<br/>
+                    <strong>{stats.tripsCount}</strong> Trips Total<br />
                     <span style={{ fontSize: '11px', color: '#9ca3af' }}>Rating: {stats.rating} ⭐</span>
                   </div>
                 </div>

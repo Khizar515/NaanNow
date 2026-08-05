@@ -1,0 +1,144 @@
+.
+├── All routes.docx
+├── backend
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   ├── .env
+│   ├── middleware
+│   │   ├── auth.js
+│   │   └── upload.js
+│   ├── models
+│   │   ├── Card.js
+│   │   ├── Notification.js
+│   │   ├── Order.js
+│   │   ├── PlatformSettings.js
+│   │   ├── Promotion.js
+│   │   ├── Restaurant.js
+│   │   ├── Review.js
+│   │   ├── Ticket.js
+│   │   ├── User.js
+│   │   └── Withdrawal.js
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── routes
+│   │   ├── auth.js
+│   │   ├── cards.js
+│   │   ├── notifications.js
+│   │   ├── orders.js
+│   │   ├── promotions.js
+│   │   ├── restaurants.js
+│   │   ├── reviews.js
+│   │   ├── settings.js
+│   │   ├── tickets.js
+│   │   ├── users.js
+│   │   └── withdrawals.js
+│   ├── seed.js
+│   └── server.js
+├── docker-compose.yml
+├── Docker file (deployment)
+│   ├── backend
+│   │   ├── Dockerfile
+│   │   ├── .dockerignore
+│   │   └── .env
+│   ├── docker-compose.yml
+│   └── frontend
+│       ├── Dockerfile
+│       └── .dockerignore
+├── frontend
+│   ├── Dockerfile.dev
+│   ├── .dockerignore
+│   ├── eslint.config.js
+│   ├── .gitignore
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── public
+│   │   ├── favicon.svg
+│   │   └── icons.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── api.js
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── assets
+│   │   │   ├── cart.svg
+│   │   │   ├── hero.png
+│   │   │   ├── logo - Copy.jpg
+│   │   │   ├── logo.jpg
+│   │   │   ├── logo-removebg.png
+│   │   │   ├── logo-removebg-svg.svg
+│   │   │   ├── logo-rotate.svg
+│   │   │   ├── naan.jpeg
+│   │   │   ├── naan-removebg.png
+│   │   │   ├── naan-removebg-svg.svg
+│   │   │   ├── react.svg
+│   │   │   └── vite.svg
+│   │   ├── components
+│   │   │   ├── Cart Side Bar
+│   │   │   │   ├── CartSideBar.css
+│   │   │   │   └── CartSideBar.jsx
+│   │   │   ├── Context
+│   │   │   │   └── CartContext.jsx
+│   │   │   ├── CuisineCircles
+│   │   │   │   ├── CuisineCircles.css
+│   │   │   │   └── CuisineCircles.jsx
+│   │   │   ├── Filter Side Bar
+│   │   │   │   ├── FilterSideBar.css
+│   │   │   │   └── FilterSideBar.jsx
+│   │   │   ├── Hero-Banner
+│   │   │   │   ├── Hero-Banner.css
+│   │   │   │   └── Hero-Banner.jsx
+│   │   │   ├── Navbar
+│   │   │   │   ├── Navbar.css
+│   │   │   │   └── Navbar.jsx
+│   │   │   ├── ProtectedRoute.jsx
+│   │   │   └── RestaurantGrid
+│   │   │       ├── RestaurantGrid.css
+│   │   │       └── RestaurantGrid.jsx
+│   │   ├── context
+│   │   │   └── AuthContext.jsx
+│   │   ├── data
+│   │   │   └── restaurants.js
+│   │   ├── index.css
+│   │   ├── main.jsx
+│   │   └── pages
+│   │       ├── AdminDashboard
+│   │       │   ├── AdminDashboard.css
+│   │       │   └── AdminDashboard.jsx
+│   │       ├── AuthPage
+│   │       │   ├── AuthPage.css
+│   │       │   └── AuthPage.jsx
+│   │       ├── CheckoutPage
+│   │       │   ├── CheckoutPage.css
+│   │       │   └── CheckoutPage.jsx
+│   │       ├── FavoritesPage
+│   │       │   ├── FavoritesPage.css
+│   │       │   └── FavoritesPage.jsx
+│   │       ├── HomePage
+│   │       │   └── HomePage.jsx
+│   │       ├── OrdersPage
+│   │       │   ├── OrdersPage.css
+│   │       │   └── OrdersPage.jsx
+│   │       ├── ProfilePage
+│   │       │   ├── ProfilePage.css
+│   │       │   └── ProfilePage.jsx
+│   │       ├── RestaurantDashboard
+│   │       │   ├── RestaurantDashboard.css
+│   │       │   └── RestaurantDashboard.jsx
+│   │       ├── RestaurantPage
+│   │       │   ├── RestaurantPage.css
+│   │       │   └── RestaurantPage.jsx
+│   │       ├── RiderDashboard
+│   │       │   ├── RiderDashboard.css
+│   │       │   └── RiderDashboard.jsx
+│   │       └── TrackOrderPage
+│   │           ├── TrackOrderPage.css
+│   │           └── TrackOrderPage.jsx
+│   └── vite.config.js
+├── .gitignore
+├── implementation_plan_1.md
+├── implementation_plan_3.md
+├── implementation_plan (Fix1)
+└── project_structure.txt
+
+34 directories, 108 files

@@ -107,7 +107,7 @@ function RestaurantDashboard() {
           formData.append(key, wizardData[key]);
         }
       });
-      
+
       const updatedUser = await api.uploadDocs(formData);
       setCurrentUser(updatedUser);
       alert('Verification submitted successfully!');
@@ -136,6 +136,7 @@ function RestaurantDashboard() {
 
   // State definitions
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [restaurantLoadError, setRestaurantLoadError] = useState(false);
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
 
@@ -165,8 +166,10 @@ function RestaurantDashboard() {
       try {
         const rest = await api.getMyRestaurant();
         setSelectedRestaurant(rest);
+        setRestaurantLoadError(false);
       } catch (err) {
         console.error("Failed to load restaurant profile:", err);
+        setRestaurantLoadError(true);
       }
       
       try {
@@ -205,6 +208,16 @@ function RestaurantDashboard() {
   }
 
   if (currentUser && currentUser.status === 'approved' && !selectedRestaurant) {
+    if (restaurantLoadError) {
+      return (
+        <div className="dashboard-loading" style={{ flexDirection: 'column', gap: '16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px' }}>🏪</div>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--color-roasted)' }}>No Restaurant Found</h2>
+          <p style={{ maxWidth: '400px', lineHeight: '1.6', color: '#666' }}>Your account is approved but no restaurant is linked yet. Please contact the admin to set up your restaurant profile.</p>
+          <button className="btn-logout" style={{ maxWidth: '200px' }} onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }}>Log Out</button>
+        </div>
+      );
+    }
     return <div className="dashboard-loading">Loading portal configurations...</div>;
   }
 
@@ -212,9 +225,9 @@ function RestaurantDashboard() {
   const restaurantOrders = orders;
 
   // Compute Metrics
-  const completedOrders = restaurantOrders.filter(o => o.status === 'Completed');
-  const activeOrdersCount = restaurantOrders.filter(o => ['Preparing', 'Baking', 'Waiting for Rider', 'Delivering', 'Sent'].includes(o.status)).length;
-  const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+  const completedOrders = restaurantOrders.filter(o => o.status === 'delivered');
+  const activeOrdersCount = restaurantOrders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length;
+  const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   const aov = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
 
   // Compute Menu Popularity distribution for dashboard chart based on ordered items
@@ -363,6 +376,7 @@ function RestaurantDashboard() {
   if (currentUser && currentUser.status !== 'approved') {
     const isRejected = currentUser.status === 'rejected';
     const isPending = currentUser.status === 'pending';
+    const isUnverified = currentUser.status === 'unverified';
 
     return (
       <div className="dashboard-status-screen">
@@ -384,13 +398,13 @@ function RestaurantDashboard() {
               </div>
             </div>
             <button className="btn-logout" onClick={() => {
-              localStorage.removeItem('naannow_currentUser');
+              localStorage.removeItem('naannow_token');
               navigate('/login');
             }}>
               Log Out
             </button>
           </div>
-        ) : (
+        ) : (isUnverified || isRejected) ? (
           <div className="status-card" style={{ maxWidth: '720px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
               <div>
@@ -428,31 +442,31 @@ function RestaurantDashboard() {
                 <>
                   <div className="form-group-field">
                     <label>Owner Full Name</label>
-                    <input 
-                      type="text" 
-                      value={currentUser.name} 
-                      disabled 
+                    <input
+                      type="text"
+                      value={currentUser.name}
+                      disabled
                       style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
                     />
                   </div>
                   <div className="form-group-field">
                     <label>Owner CNIC Number</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 37405-9876543-1" 
-                      value={wizardData.cnicNumber} 
-                      onChange={(e) => setWizardData({...wizardData, cnicNumber: e.target.value})} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="e.g. 37405-9876543-1"
+                      value={wizardData.cnicNumber}
+                      onChange={(e) => setWizardData({ ...wizardData, cnicNumber: e.target.value })}
+                      required
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>CNIC Front Image</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'cnicFront')} 
-                        required={!wizardData.cnicFront} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'cnicFront')}
+                        required={!wizardData.cnicFront}
                       />
                       {wizardData.cnicFront && (
                         <div style={{ marginTop: '8px' }}>
@@ -462,11 +476,11 @@ function RestaurantDashboard() {
                     </div>
                     <div className="form-group-field">
                       <label>CNIC Back Image</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'cnicBack')} 
-                        required={!wizardData.cnicBack} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'cnicBack')}
+                        required={!wizardData.cnicBack}
                       />
                       {wizardData.cnicBack && (
                         <div style={{ marginTop: '8px' }}>
@@ -483,74 +497,74 @@ function RestaurantDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>Restaurant Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. KFC (F-10)" 
-                        value={wizardData.restaurantName} 
-                        onChange={(e) => setWizardData({...wizardData, restaurantName: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="e.g. KFC (F-10)"
+                        value={wizardData.restaurantName}
+                        onChange={(e) => setWizardData({ ...wizardData, restaurantName: e.target.value })}
+                        required
                       />
                     </div>
                     <div className="form-group-field">
                       <label>City</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Islamabad" 
-                        value={wizardData.city} 
-                        onChange={(e) => setWizardData({...wizardData, city: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="e.g. Islamabad"
+                        value={wizardData.city}
+                        onChange={(e) => setWizardData({ ...wizardData, city: e.target.value })}
+                        required
                       />
                     </div>
                   </div>
                   <div className="form-group-field">
                     <label>Restaurant Address</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Plot 14-B, Markaz F-10" 
-                      value={wizardData.restaurantAddress} 
-                      onChange={(e) => setWizardData({...wizardData, restaurantAddress: e.target.value})} 
-                      required 
+                    <input
+                      type="text"
+                      placeholder="e.g. Plot 14-B, Markaz F-10"
+                      value={wizardData.restaurantAddress}
+                      onChange={(e) => setWizardData({ ...wizardData, restaurantAddress: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group-field">
                     <label>Google Maps Location link (Optional)</label>
-                    <input 
-                      type="text" 
-                      placeholder="Maps URL" 
-                      value={wizardData.mapsLocation} 
-                      onChange={(e) => setWizardData({...wizardData, mapsLocation: e.target.value})} 
+                    <input
+                      type="text"
+                      placeholder="Maps URL"
+                      value={wizardData.mapsLocation}
+                      onChange={(e) => setWizardData({ ...wizardData, mapsLocation: e.target.value })}
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>Restaurant Phone</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. 051-111-532-532" 
-                        value={wizardData.restaurantPhone} 
-                        onChange={(e) => setWizardData({...wizardData, restaurantPhone: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="e.g. 051-111-532-532"
+                        value={wizardData.restaurantPhone}
+                        onChange={(e) => setWizardData({ ...wizardData, restaurantPhone: e.target.value })}
+                        required
                       />
                     </div>
                     <div className="form-group-field">
                       <label>Restaurant Email</label>
-                      <input 
-                        type="email" 
-                        placeholder="e.g. branch@restaurant.com" 
-                        value={wizardData.restaurantEmail} 
-                        onChange={(e) => setWizardData({...wizardData, restaurantEmail: e.target.value})} 
-                        required 
+                      <input
+                        type="email"
+                        placeholder="e.g. branch@restaurant.com"
+                        value={wizardData.restaurantEmail}
+                        onChange={(e) => setWizardData({ ...wizardData, restaurantEmail: e.target.value })}
+                        required
                       />
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>Restaurant Logo</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'logo')} 
-                        required={!wizardData.logo} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'logo')}
+                        required={!wizardData.logo}
                       />
                       {wizardData.logo && (
                         <div style={{ marginTop: '8px' }}>
@@ -560,11 +574,11 @@ function RestaurantDashboard() {
                     </div>
                     <div className="form-group-field">
                       <label>Cover Banner</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'cover')} 
-                        required={!wizardData.cover} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'cover')}
+                        required={!wizardData.cover}
                       />
                       {wizardData.cover && (
                         <div style={{ marginTop: '8px' }}>
@@ -581,11 +595,11 @@ function RestaurantDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>Front View Photo</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'photoFront')} 
-                        required={!wizardData.photoFront} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'photoFront')}
+                        required={!wizardData.photoFront}
                       />
                       {wizardData.photoFront && (
                         <div style={{ marginTop: '8px' }}>
@@ -595,11 +609,11 @@ function RestaurantDashboard() {
                     </div>
                     <div className="form-group-field">
                       <label>Kitchen Photo</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'photoKitchen')} 
-                        required={!wizardData.photoKitchen} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'photoKitchen')}
+                        required={!wizardData.photoKitchen}
                       />
                       {wizardData.photoKitchen && (
                         <div style={{ marginTop: '8px' }}>
@@ -609,10 +623,10 @@ function RestaurantDashboard() {
                     </div>
                     <div className="form-group-field">
                       <label>Dining Photo (Optional)</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'photoDining')} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'photoDining')}
                       />
                       {wizardData.photoDining && (
                         <div style={{ marginTop: '8px' }}>
@@ -624,11 +638,11 @@ function RestaurantDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     <div className="form-group-field">
                       <label>Registration Cert</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'certDoc')} 
-                        required={!wizardData.certDoc} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'certDoc')}
+                        required={!wizardData.certDoc}
                       />
                       {wizardData.certDoc && (
                         <div style={{ marginTop: '8px' }}>
@@ -638,11 +652,11 @@ function RestaurantDashboard() {
                     </div>
                     <div className="form-group-field">
                       <label>Food Auth License</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'licenseDoc')} 
-                        required={!wizardData.licenseDoc} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'licenseDoc')}
+                        required={!wizardData.licenseDoc}
                       />
                       {wizardData.licenseDoc && (
                         <div style={{ marginTop: '8px' }}>
@@ -652,10 +666,10 @@ function RestaurantDashboard() {
                     </div>
                     <div className="form-group-field">
                       <label>NTN Certificate (Optional)</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'ntnDoc')} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'ntnDoc')}
                       />
                       {wizardData.ntnDoc && (
                         <div style={{ marginTop: '8px' }}>
@@ -667,32 +681,32 @@ function RestaurantDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '10px' }}>
                     <div className="form-group-field">
                       <label>Bank Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="HBL" 
-                        value={wizardData.bankName} 
-                        onChange={(e) => setWizardData({...wizardData, bankName: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="HBL"
+                        value={wizardData.bankName}
+                        onChange={(e) => setWizardData({ ...wizardData, bankName: e.target.value })}
+                        required
                       />
                     </div>
                     <div className="form-group-field">
                       <label>Account Holder Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="Owner Name" 
-                        value={wizardData.holderName} 
-                        onChange={(e) => setWizardData({...wizardData, holderName: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="Owner Name"
+                        value={wizardData.holderName}
+                        onChange={(e) => setWizardData({ ...wizardData, holderName: e.target.value })}
+                        required
                       />
                     </div>
                     <div className="form-group-field">
                       <label>Account Number / IBAN</label>
-                      <input 
-                        type="text" 
-                        placeholder="IBAN" 
-                        value={wizardData.accountNumber} 
-                        onChange={(e) => setWizardData({...wizardData, accountNumber: e.target.value})} 
-                        required 
+                      <input
+                        type="text"
+                        placeholder="IBAN"
+                        value={wizardData.accountNumber}
+                        onChange={(e) => setWizardData({ ...wizardData, accountNumber: e.target.value })}
+                        required
                       />
                     </div>
                   </div>
@@ -734,11 +748,18 @@ function RestaurantDashboard() {
               </div>
             </form>
             <button className="btn-logout" onClick={() => {
-              localStorage.removeItem('naannow_currentUser');
+              localStorage.removeItem('naannow_token');
               navigate('/login');
             }} style={{ marginTop: '24px', backgroundColor: '#e5e7eb', color: '#4b5563' }}>
               Log Out
             </button>
+          </div>
+        ) : (
+          <div className="status-card" style={{ maxWidth: '600px' }}>
+            <div className="status-icon">⏳</div>
+            <h2>Status: {currentUser.status}</h2>
+            <p className="status-message">Your account status is currently <strong>{currentUser.status}</strong>. Please contact admin for assistance.</p>
+            <button className="btn-logout" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }}>Log Out</button>
           </div>
         )}
       </div>
@@ -748,9 +769,9 @@ function RestaurantDashboard() {
   return (
     <div className="restaurant-portal-container">
       {/* 1. Header Banner */}
-      <div 
-        className="portal-header" 
-        style={{ 
+      <div
+        className="portal-header"
+        style={{
           backgroundImage: `linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 100%), url(${selectedRestaurant.image})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
@@ -867,7 +888,7 @@ function RestaurantDashboard() {
                   className={`sub-tab-btn ${orderFilter === 'active' ? 'active' : ''}`}
                   onClick={() => { setOrderFilter('active'); setSelectedOrderId(null); }}
                 >
-                  Active ({restaurantOrders.filter(o => ['Preparing', 'Baking', 'Waiting for Rider', 'Delivering', 'Sent'].includes(o.status)).length})
+                  Active ({restaurantOrders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length})
                 </button>
                 <button
                   className={`sub-tab-btn ${orderFilter === 'past' ? 'active' : ''}`}
@@ -953,8 +974,8 @@ function RestaurantDashboard() {
                       ) : (
                         <>
                           <p>
-                            {activeOrder.status === 'preparing' 
-                              ? `✅ Rider Assigned (${activeOrder.riderId?.name || 'Raja Kamran'}). Start cooking immediately:` 
+                            {activeOrder.status === 'preparing'
+                              ? `✅ Rider Assigned (${activeOrder.riderId?.name || 'Raja Kamran'}). Start cooking immediately:`
                               : "Advance this order to the next phase in the rider collection sequence:"}
                           </p>
                           <button

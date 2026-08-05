@@ -41,14 +41,14 @@ router.post('/', auth, restrictTo('customer'), async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     let orders;
-    
+
     if (req.user.role === 'admin') {
       orders = await Order.find()
         .populate('customerId', 'name phone')
         .populate('restaurantId', 'name address')
         .populate('riderId', 'name phone vehicleDetails')
         .sort({ createdAt: -1 });
-    } 
+    }
     else if (req.user.role === 'customer') {
       orders = await Order.find({ customerId: req.user._id })
         .populate('restaurantId', 'name address')
@@ -66,11 +66,11 @@ router.get('/', auth, async (req, res) => {
         .sort({ createdAt: -1 });
     }
     else if (req.user.role === 'rider') {
-      // Rider sees orders that are ready for pickup (no rider assigned yet) 
+      // Rider sees unassigned orders across key statuses
       // AND orders already assigned to them
       orders = await Order.find({
         $or: [
-          { status: 'ready_for_pickup', riderId: { $exists: false } },
+          { status: { $in: ['pending', 'preparing', 'ready_for_pickup'] }, $or: [{ riderId: { $exists: false } }, { riderId: null }] },
           { riderId: req.user._id }
         ]
       })
@@ -94,9 +94,9 @@ router.get('/:id', auth, async (req, res) => {
       .populate('restaurantId', 'name address phone')
       .populate('customerId', 'name phone profilePic')
       .populate('riderId', 'name phone vehicleDetails licensePlate avatar rating');
-      
+
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    
+
     // Auth check based on role
     if (req.user.role === 'customer' && order.customerId._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
@@ -106,7 +106,7 @@ router.get('/:id', auth, async (req, res) => {
     res.json(order);
   } catch (err) {
     console.error(err.message);
-    if(err.kind === 'ObjectId') {
+    if (err.kind === 'ObjectId') {
       return res.status(404).json({ message: 'Order not found' });
     }
     res.status(500).send('Server error');
@@ -202,6 +202,29 @@ router.put('/:id/rate', auth, restrictTo('customer'), async (req, res) => {
         await rider.save();
       }
     }
+
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// @route   POST /api/orders/:id/message
+// @desc    Add a chat message to an order
+router.post('/:id/message', auth, async (req, res) => {
+  try {
+    const { text } = req.body;
+    let order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const senderRole = req.user.role === 'rider' ? 'rider' : 'customer';
+    order.messages.push({
+      sender: senderRole,
+      text,
+      time: new Date()
+    });
 
     await order.save();
     res.json(order);
