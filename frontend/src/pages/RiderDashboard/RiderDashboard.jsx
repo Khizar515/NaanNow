@@ -492,6 +492,15 @@ function RiderDashboard() {
     }
   };
 
+  // Show loading screen while user data is being fetched
+  if (!currentUser) {
+    return (
+      <div className="dashboard-loading">
+        Loading rider portal...
+      </div>
+    );
+  }
+
   if (currentUser && currentUser.status !== 'approved') {
     const isRejected = currentUser.status === 'rejected';
     const isPending = currentUser.status === 'pending';

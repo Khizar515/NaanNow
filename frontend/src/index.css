@@ -19,6 +19,50 @@ body {
   color: var(--color-roasted);
 }
 
+/* ===== GLOBAL BUTTON BASE STYLES ===== */
+/* Safety-net: ensure ALL buttons are visible by default */
+button {
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+/* Explicit styling for ALL form submit buttons across the app */
+button[type="submit"] {
+  background-color: var(--color-tandoori);
+  color: #ffffff;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(229, 121, 25, 0.25);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+button[type="submit"]:hover {
+  background-color: #d1640c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(229, 121, 25, 0.35);
+}
+
+button[type="submit"]:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(229, 121, 25, 0.2);
+}
+
+button[type="submit"]:disabled {
+  background-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 /* Ensure the banner wrapper matches your navbar's 5% padding */
 .banner-container {
   width: 100%;
@@ -143,18 +187,25 @@ body {
   width: 100%;
   padding: 14px;
   border-radius: 12px;
-  background-color: var(--color-tandoori);
-  color: white;
+  background-color: #E57919;
+  color: #ffffff;
   border: none;
+  font-family: 'Poppins', sans-serif;
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(229, 121, 25, 0.25);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .btn-logout:hover {
   background-color: #d1640c;
   transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(229, 121, 25, 0.35);
+}
+
+.btn-logout:active {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Detail View / Secondary Button */
@@ -162,8 +213,9 @@ body {
   padding: 12px 20px;
   border-radius: 12px;
   background-color: #f3f4f6;
-  color: var(--color-roasted);
+  color: #4F2E1D;
   border: 1.5px solid rgba(79, 46, 29, 0.12);
+  font-family: 'Poppins', sans-serif;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
@@ -172,7 +224,7 @@ body {
 
 .btn-detail-view:hover {
   background-color: #e5e7eb;
-  border-color: rgba(79, 46, 29, 0.2);
+  border-color: rgba(79, 46, 29, 0.25);
   transform: translateY(-1px);
 }
 

@@ -367,11 +367,13 @@ function RestaurantDashboard() {
     }
   };
 
-  // Categories list for menu display
-  const menuCategories = ['All', ...new Set(selectedRestaurant.menu.map(m => m.category))];
-  const filteredMenuItems = selectedRestaurant.menu.filter(item => {
-    return menuFilter === 'All' || item.category === menuFilter;
-  });
+  // Categories list for menu display (guard against null selectedRestaurant for non-approved users)
+  const menuCategories = selectedRestaurant?.menu
+    ? ['All', ...new Set(selectedRestaurant.menu.map(m => m.category))]
+    : ['All'];
+  const filteredMenuItems = selectedRestaurant?.menu
+    ? selectedRestaurant.menu.filter(item => menuFilter === 'All' || item.category === menuFilter)
+    : [];
 
   if (currentUser && currentUser.status !== 'approved') {
     const isRejected = currentUser.status === 'rejected';

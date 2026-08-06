@@ -253,22 +253,36 @@
   width: 100%;
   padding: 14px;
   border-radius: 12px;
-  background-color: var(--color-tandoori);
-  color: white;
+  background-color: #E57919 !important;
+  color: #ffffff !important;
   border: none;
   font-weight: 700;
   font-size: 16px;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
   margin-top: 10px;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 14px rgba(229, 121, 25, 0.3);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .btn-auth-submit:hover {
-  background-color: #d1640c;
+  background-color: #d1640c !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(229, 121, 25, 0.4);
 }
 
 .btn-auth-submit:active {
   transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(229, 121, 25, 0.2);
+}
+
+.btn-auth-submit:disabled {
+  background-color: #d1d5db !important;
+  color: #9ca3af !important;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 /* FEEDBACK ALERTS */
