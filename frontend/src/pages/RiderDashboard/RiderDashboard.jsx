@@ -83,35 +83,43 @@ function RiderDashboard() {
   });
   const [wizardError, setWizardError] = useState('');
 
+  const [wizardFiles, setWizardFiles] = useState({});
+
+  const formatCNIC = (val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 13);
+    if (digits.length <= 5) return digits;
+    if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+  };
+
+  const formatPhone = (val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 4) return digits;
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  };
+
+  const calculateAge = (dobString) => {
+    if (!dobString) return 0;
+    const today = new Date();
+    const birthDate = new Date(dobString);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const handleFileChange = (e, field) => {
     const file = e.target.files[0];
     if (file) {
+      setWizardFiles(prev => ({ ...prev, [field]: file }));
       const reader = new FileReader();
       reader.onloadend = () => {
         setWizardData(prev => ({ ...prev, [field]: reader.result }));
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleAutoFillWizard = () => {
-    setWizardData({
-      dob: '1995-08-15',
-      address: 'House 22, Sector G-11, Islamabad',
-      cnicNumber: '37405-1234567-3',
-      cnicFront: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?w=500',
-      cnicBack: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
-      licenseNumber: 'KP-882199A',
-      licenseImage: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500',
-      bikeRegistration: 'ICT-4491',
-      bikeModel: 'Honda CD70',
-      bikeColor: 'Red',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
-      bankName: 'Meezan Bank',
-      accountNumber: 'PK92MEZN001234567890',
-      walletNumber: '0300-1234567'
-    });
-    setWizardError('');
   };
 
   const handleResubmitAction = () => {
@@ -130,10 +138,18 @@ function RiderDashboard() {
       return;
     }
 
+    const age = calculateAge(dob);
+    if (age < 18) {
+      setWizardError('Rider must be at least 18 years old.');
+      return;
+    }
+
     try {
       const formData = new FormData();
       Object.keys(wizardData).forEach(key => {
-        if (wizardData[key]) {
+        if (wizardFiles[key]) {
+          formData.append(key, wizardFiles[key]);
+        } else if (wizardData[key]) {
           formData.append(key, wizardData[key]);
         }
       });
@@ -485,7 +501,7 @@ function RiderDashboard() {
     try {
       const updatedOrder = await api.updateOrderStatus(currentActiveOrder._id, 'delivered');
       setOrders(prev => prev.map(o => o._id === currentActiveOrder._id ? updatedOrder : o));
-      alert("🎉 Fantastic! Trip completed successfully. Earnings have been added to your wallet.");
+      alert("📦 Order marked as delivered! The customer will confirm receipt to complete the order and finalize payout.");
       setActiveTab('history');
     } catch (err) {
       console.error(err);
@@ -533,15 +549,12 @@ function RiderDashboard() {
             </button>
           </div>
         ) : (isUnverified || isRejected) ? (
-          <div className="status-card" style={{ maxWidth: '680px', textAlign: 'left' }}>
+          <div className="status-card" style={{ maxWidth: '680px', textAlign: 'left', boxSizing: 'border-box', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
               <div>
                 <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification Portal</span>
                 <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>Rider Registration Verification</h2>
               </div>
-              <button className="btn-detail-view" onClick={handleAutoFillWizard} style={{ padding: '8px 12px', fontSize: '12px', cursor: 'pointer' }}>
-                ⚡ Auto-fill Demo Data
-              </button>
             </div>
 
             {isRejected && (
@@ -572,10 +585,23 @@ function RiderDashboard() {
                     <label>Date of Birth</label>
                     <input
                       type="date"
+                      max={new Date().toISOString().split('T')[0]}
                       value={wizardData.dob}
-                      onChange={(e) => setWizardData({ ...wizardData, dob: e.target.value })}
+                      onChange={(e) => {
+                        setWizardData({ ...wizardData, dob: e.target.value });
+                        if (e.target.value && calculateAge(e.target.value) < 18) {
+                          setWizardError('Warning: You must be at least 18 years old to register as a rider.');
+                        } else {
+                          setWizardError('');
+                        }
+                      }}
                       required
                     />
+                    {wizardData.dob && calculateAge(wizardData.dob) < 18 && (
+                      <span style={{ fontSize: '12px', color: '#b91c1c', marginTop: '4px', display: 'block', fontWeight: '600' }}>
+                        ⚠️ You are under 18 years old ({calculateAge(wizardData.dob)} years). Minimum age required is 18.
+                      </span>
+                    )}
                   </div>
                   <div className="form-group-field">
                     <label>Current Address</label>
@@ -593,11 +619,11 @@ function RiderDashboard() {
                       type="text"
                       placeholder="e.g. 37405-1234567-3"
                       value={wizardData.cnicNumber}
-                      onChange={(e) => setWizardData({ ...wizardData, cnicNumber: e.target.value })}
+                      onChange={(e) => setWizardData({ ...wizardData, cnicNumber: formatCNIC(e.target.value) })}
                       required
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', boxSizing: 'border-box' }}>
                     <div className="form-group-field">
                       <label>CNIC Front Image</label>
                       <input
@@ -731,7 +757,7 @@ function RiderDashboard() {
                       type="text"
                       placeholder="e.g. 0300-1234567"
                       value={wizardData.walletNumber}
-                      onChange={(e) => setWizardData({ ...wizardData, walletNumber: e.target.value })}
+                      onChange={(e) => setWizardData({ ...wizardData, walletNumber: formatPhone(e.target.value) })}
                     />
                   </div>
                 </>
@@ -746,9 +772,15 @@ function RiderDashboard() {
                 {wizardStep < 3 ? (
                   <button type="button" className="btn-logout" onClick={() => {
                     const { dob, address, cnicNumber, cnicFront, cnicBack, licenseNumber, licenseImage, bikeRegistration, bikeModel, bikeColor } = wizardData;
-                    if (wizardStep === 1 && (!dob || !address || !cnicNumber || !cnicFront || !cnicBack)) {
-                      setWizardError('Please fill in all fields before proceeding.');
-                      return;
+                    if (wizardStep === 1) {
+                      if (!dob || !address || !cnicNumber || !cnicFront || !cnicBack) {
+                        setWizardError('Please fill in all fields before proceeding.');
+                        return;
+                      }
+                      if (calculateAge(dob) < 18) {
+                        setWizardError('Form submission paused: You must be at least 18 years old to proceed.');
+                        return;
+                      }
                     }
                     if (wizardStep === 2 && (!licenseNumber || !licenseImage || !bikeRegistration || !bikeModel || !bikeColor)) {
                       setWizardError('Please fill in all fields before proceeding.');
@@ -1012,7 +1044,7 @@ function RiderDashboard() {
                             <p>Head to {currentActiveOrder.deliveryAddress || currentActiveOrder.address}. You can simulate the travel navigation on the map.</p>
 
                             <button className="btn-lifecycle-action delivering-state" onClick={handleCompleteOrder}>
-                              Mark Delivered & Complete
+                              Mark as Delivered
                             </button>
 
                             {isSimulating ? (

@@ -834,19 +834,6 @@ function AdminDashboard() {
       }
     });
 
-    // Fallback simulated values if there is no order data yet
-    const hasTransactions = last7Days.some(d => d.revenue > 0);
-    if (!hasTransactions) {
-      const mockRevenues = [14000, 18000, 12000, 21000, 23000, 25000, 28000];
-      last7Days.forEach((item, index) => {
-        item.revenue = mockRevenues[index];
-        item.ordersList = [
-          { id: `NN-8273${index}1`, grandTotal: Math.round(item.revenue * 0.45), status: 'Delivered', restaurantName: 'Tandoori Flames', date: item.dateStr },
-          { id: `NN-8273${index}2`, grandTotal: Math.round(item.revenue * 0.55), status: 'Delivered', restaurantName: 'Caffeine & Co.', date: item.dateStr }
-        ];
-      });
-    }
-
     // Map calculated values directly to SVG coordinates
     // SVG x coordinates span from 40 to 478
     const xCoords = [40, 113, 186, 259, 332, 405, 478];
@@ -1143,7 +1130,7 @@ function AdminDashboard() {
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Global Search (Press Alt+D to navigate panels)..."
+                  placeholder="Global Search..."
                   value={globalSearch}
                   onChange={(e) => setGlobalSearch(e.target.value)}
                 />
@@ -1222,103 +1209,134 @@ function AdminDashboard() {
 
                   {/* Top Stats Cards */}
                   <div className="stats-grid">
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Today's Revenue</span>
-                        <div className="metric-icon-box"><Icon name="payments" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">Rs. {totalSales.toLocaleString()}</span>
-                        <span className="metric-trend trend-up">▲ 12.8%</span>
-                      </div>
-                      <span className="metric-card-footer">Compared to Rs. 21,700 yesterday</span>
-                    </div>
+                    {(() => {
+                      const todayStr = new Date().toDateString();
+                      const yest = new Date(); yest.setDate(yest.getDate() - 1); const yestStr = yest.toDateString();
+                      const todayRevenue = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).toDateString() === todayStr).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                      const yestRevenue = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).toDateString() === yestStr).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                      const revPct = yestRevenue > 0 ? (((todayRevenue - yestRevenue) / yestRevenue) * 100).toFixed(1) : (todayRevenue > 0 ? '100' : '0');
 
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Today's Orders</span>
-                        <div className="metric-icon-box"><Icon name="orders" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">{orders.length}</span>
-                        <span className="metric-trend trend-up">▲ 8.4%</span>
-                      </div>
-                      <span className="metric-card-footer">{activeOrdersCount} active delivery streams currently</span>
-                    </div>
+                      const todayOrdersCount = orders.filter(o => new Date(o.createdAt).toDateString() === todayStr).length;
+                      const yestOrdersCount = orders.filter(o => new Date(o.createdAt).toDateString() === yestStr).length;
+                      const ordersPct = yestOrdersCount > 0 ? (((todayOrdersCount - yestOrdersCount) / yestOrdersCount) * 100).toFixed(1) : (todayOrdersCount > 0 ? '100' : '0');
 
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Active Riders</span>
-                        <div className="metric-icon-box"><Icon name="riders" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">{ridersCount}</span>
-                        <span className="metric-trend trend-up">▲ 14 online</span>
-                      </div>
-                      <span className="metric-card-footer">Online and serving sectors right now</span>
-                    </div>
+                      const newManagersCount = users.filter(u => u.role === 'manager' && (new Date().getTime() - new Date(u.createdAt || Date.now()).getTime()) < 7 * 24 * 3600 * 1000).length;
 
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Total Restaurants</span>
-                        <div className="metric-icon-box"><Icon name="restaurants" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">{managersCount}</span>
-                        <span className="metric-trend trend-up">▲ +2 new</span>
-                      </div>
-                      <span className="metric-card-footer">Active managers registered</span>
-                    </div>
+                      const now = new Date();
+                      const thisMonthSales = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).getMonth() === now.getMonth() && new Date(o.createdAt).getFullYear() === now.getFullYear()).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                      const lastMonthSales = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).getMonth() === (now.getMonth() === 0 ? 11 : now.getMonth() - 1)).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                      const monthGrowthPct = lastMonthSales > 0 ? (((thisMonthSales - lastMonthSales) / lastMonthSales) * 100).toFixed(1) : (thisMonthSales > 0 ? '100' : '0');
 
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Active Customers</span>
-                        <div className="metric-icon-box"><Icon name="customers" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">{customersCount}</span>
-                        <span className="metric-trend trend-up">▲ 24% YoY</span>
-                      </div>
-                      <span className="metric-card-footer">Registered customer profiles</span>
-                    </div>
+                      return (
+                        <>
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Today's Revenue</span>
+                              <div className="metric-icon-box"><Icon name="payments" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">Rs. {todayRevenue.toLocaleString()}</span>
+                              <span className={`metric-trend ${Number(revPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
+                                {Number(revPct) >= 0 ? '▲' : '▼'} {Math.abs(revPct)}%
+                              </span>
+                            </div>
+                            <span className="metric-card-footer">Yesterday: Rs. {yestRevenue.toLocaleString()}</span>
+                          </div>
 
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Pending Approvals</span>
-                        <div className="metric-icon-box"><Icon name="verification" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">{pendingApprovalsCount}</span>
-                        <span className={`metric-trend ${pendingApprovalsCount > 0 ? 'trend-down' : 'trend-up'}`}>
-                          {pendingApprovalsCount > 0 ? 'Action Needed' : 'All Clear'}
-                        </span>
-                      </div>
-                      <span className="metric-card-footer">Riders & managers verification inbox</span>
-                    </div>
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Today's Orders</span>
+                              <div className="metric-icon-box"><Icon name="orders" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">{todayOrdersCount}</span>
+                              <span className={`metric-trend ${Number(ordersPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
+                                {Number(ordersPct) >= 0 ? '▲' : '▼'} {Math.abs(ordersPct)}%
+                              </span>
+                            </div>
+                            <span className="metric-card-footer">{activeOrdersCount} active deliveries stream</span>
+                          </div>
 
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Cancelled Orders</span>
-                        <div className="metric-icon-box"><Icon name="ban" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">{cancelledOrdersCount}</span>
-                        <span className="metric-trend trend-down">▼ 15% reduction</span>
-                      </div>
-                      <span className="metric-card-footer">Failed / rejected checkout transactions</span>
-                    </div>
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Active Riders</span>
+                              <div className="metric-icon-box"><Icon name="riders" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">{ridersCount}</span>
+                              <span className="metric-trend trend-up">● Online</span>
+                            </div>
+                            <span className="metric-card-footer">Approved delivery fleet</span>
+                          </div>
 
-                    <div className="metric-card">
-                      <div className="metric-card-header">
-                        <span className="metric-card-title">Monthly Growth</span>
-                        <div className="metric-icon-box"><Icon name="analytics" /></div>
-                      </div>
-                      <div className="metric-card-body">
-                        <span className="metric-num">24.8%</span>
-                        <span className="metric-trend trend-up">▲ +3.2%</span>
-                      </div>
-                      <span className="metric-card-footer">Target business benchmark is 20%</span>
-                    </div>
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Total Restaurants</span>
+                              <div className="metric-icon-box"><Icon name="restaurants" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">{managersCount}</span>
+                              <span className="metric-trend trend-up">▲ +{newManagersCount} new</span>
+                            </div>
+                            <span className="metric-card-footer">Registered partner venues</span>
+                          </div>
+
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Active Customers</span>
+                              <div className="metric-icon-box"><Icon name="customers" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">{customersCount}</span>
+                              <span className="metric-trend trend-up">● Active</span>
+                            </div>
+                            <span className="metric-card-footer">Registered customer profiles</span>
+                          </div>
+
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Pending Approvals</span>
+                              <div className="metric-icon-box"><Icon name="verification" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">{pendingApprovalsCount}</span>
+                              <span className={`metric-trend ${pendingApprovalsCount > 0 ? 'trend-down' : 'trend-up'}`}>
+                                {pendingApprovalsCount > 0 ? 'Action Needed' : 'All Clear'}
+                              </span>
+                            </div>
+                            <span className="metric-card-footer">Riders & managers verification</span>
+                          </div>
+
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Cancelled Orders</span>
+                              <div className="metric-icon-box"><Icon name="ban" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">{cancelledOrdersCount}</span>
+                              <span className="metric-trend trend-down">
+                                {orders.length > 0 ? ((cancelledOrdersCount / orders.length) * 100).toFixed(1) : 0}% rate
+                              </span>
+                            </div>
+                            <span className="metric-card-footer">Total cancelled orders</span>
+                          </div>
+
+                          <div className="metric-card">
+                            <div className="metric-card-header">
+                              <span className="metric-card-title">Monthly Growth</span>
+                              <div className="metric-icon-box"><Icon name="analytics" /></div>
+                            </div>
+                            <div className="metric-card-body">
+                              <span className="metric-num">{monthGrowthPct}%</span>
+                              <span className={`metric-trend ${Number(monthGrowthPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
+                                {Number(monthGrowthPct) >= 0 ? '▲' : '▼'} MoM
+                              </span>
+                            </div>
+                            <span className="metric-card-footer">Calculated sales vs previous month</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Interactive SVG Charts Section */}
@@ -1469,65 +1487,91 @@ function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* Order Status Pie Chart & Peak Hours Bar Chart */}
+                    {/* Dynamic Order Status Pie Chart */}
                     <div className="chart-card">
                       <div className="chart-header">
                         <div className="chart-title">
                           <h3>Operational Breakdowns</h3>
-                          <p>Order Status metrics and Top Cities distribution</p>
+                          <p>Real-time order status distribution metrics</p>
                         </div>
                       </div>
                       <div className="chart-container-box" style={{ flexDirection: 'column' }}>
-                        {/* Custom SVG Pie Chart */}
-                        <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
-                          <svg width="150" height="150" viewBox="0 0 36 36">
-                            {/* Background Circle */}
-                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--scrollbar-track)" strokeWidth="4" />
-                            {/* Segment 1: Delivered (65%) */}
-                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--success-color)" strokeWidth="4.2" strokeDasharray="65 35" strokeDashoffset="25" className="pie-segment" />
-                            {/* Segment 2: Preparing (15%) */}
-                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--warning-color)" strokeWidth="4.2" strokeDasharray="15 85" strokeDashoffset="-40" className="pie-segment" />
-                            {/* Segment 3: Out for Delivery (10%) */}
-                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--info-color)" strokeWidth="4.2" strokeDasharray="10 90" strokeDashoffset="-55" className="pie-segment" />
-                            {/* Segment 4: Cancelled (10%) */}
-                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--error-color)" strokeWidth="4.2" strokeDasharray="10 90" strokeDashoffset="-65" className="pie-segment" />
-                          </svg>
+                        {(() => {
+                          const tot = orders.length || 1;
+                          const delCount = orders.filter(o => ['delivered', 'completed'].includes(o.status)).length;
+                          const prepCount = orders.filter(o => ['pending', 'preparing', 'ready_for_pickup'].includes(o.status)).length;
+                          const outCount = orders.filter(o => o.status === 'out_for_delivery').length;
+                          const cancCount = orders.filter(o => o.status === 'cancelled').length;
 
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--success-color)' }}></span> Delivered: 65%</div>
-                            <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--warning-color)' }}></span> Preparing: 15%</div>
-                            <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--info-color)' }}></span> Out for Delivery: 10%</div>
-                            <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--error-color)' }}></span> Cancelled: 10%</div>
-                          </div>
-                        </div>
+                          const delP = Math.round((delCount / tot) * 100);
+                          const prepP = Math.round((prepCount / tot) * 100);
+                          const outP = Math.round((outCount / tot) * 100);
+                          const cancP = Math.round((cancCount / tot) * 100);
+
+                          return (
+                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
+                              <svg width="150" height="150" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--scrollbar-track)" strokeWidth="4" />
+                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--success-color)" strokeWidth="4.2" strokeDasharray={`${delP} ${100 - delP}`} strokeDashoffset="25" className="pie-segment" />
+                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--warning-color)" strokeWidth="4.2" strokeDasharray={`${prepP} ${100 - prepP}`} strokeDashoffset={25 - delP} className="pie-segment" />
+                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--info-color)" strokeWidth="4.2" strokeDasharray={`${outP} ${100 - outP}`} strokeDashoffset={25 - delP - prepP} className="pie-segment" />
+                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--error-color)" strokeWidth="4.2" strokeDasharray={`${cancP} ${100 - cancP}`} strokeDashoffset={25 - delP - prepP - outP} className="pie-segment" />
+                              </svg>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--success-color)' }}></span> Delivered: {delP}% ({delCount})</div>
+                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--warning-color)' }}></span> Preparing: {prepP}% ({prepCount})</div>
+                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--info-color)' }}></span> Out for Delivery: {outP}% ({outCount})</div>
+                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--error-color)' }}></span> Cancelled: {cancP}% ({cancCount})</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
 
-                  {/* Real-time Ticker Activity stream */}
+                  {/* Real-time DB Activity stream */}
                   <div className="activity-grid">
                     <div className="activity-card">
                       <div className="chart-header">
                         <h3><span className="live-pulse-indicator"></span>Live Activity Stream</h3>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-updating in real-time</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Database activity logs</span>
                       </div>
                       <div className="activity-list">
-                        {liveActivities.map((act) => (
-                          <div className="activity-item" key={act.id}>
-                            <div className={`activity-badge-icon ${act.status}`}>
-                              {act.type === 'order' && '📦'}
-                              {act.type === 'rider' && '🛵'}
-                              {act.type === 'restaurant' && '🏪'}
-                              {act.type === 'complaint' && '🎫'}
-                              {act.type === 'payout' && '💳'}
+                        {(() => {
+                          const realStream = [
+                            ...orders.map(o => ({
+                              id: `ord-${o._id}`,
+                              type: 'order',
+                              status: o.status === 'delivered' || o.status === 'completed' ? 'approved' : 'pending',
+                              text: `Order ${o.orderNumber || o._id.toString().slice(-4)} (${o.restaurantId?.name || 'Restaurant'}) - Rs. ${(o.totalAmount || 0).toLocaleString()}`,
+                              time: new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            })),
+                            ...users.filter(u => u.role !== 'customer').map(u => ({
+                              id: `usr-${u._id}`,
+                              type: u.role === 'rider' ? 'rider' : 'restaurant',
+                              status: u.status || 'approved',
+                              text: `${u.role === 'rider' ? 'Rider' : 'Manager'} ${u.name} status: ${u.status || 'approved'}`,
+                              time: new Date(u.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            }))
+                          ].slice(0, 10);
+
+                          return realStream.map((act) => (
+                            <div className="activity-item" key={act.id}>
+                              <div className={`activity-badge-icon ${act.status}`}>
+                                {act.type === 'order' && '📦'}
+                                {act.type === 'rider' && '🛵'}
+                                {act.type === 'restaurant' && '🏪'}
+                              </div>
+                              <div className="activity-info">
+                                <p className="activity-title-text">{act.text}</p>
+                                <span className="activity-desc-text">NaanNow Live Hub Tracker</span>
+                              </div>
+                              <span className="activity-time-lbl">{act.time}</span>
                             </div>
-                            <div className="activity-info">
-                              <p className="activity-title-text">{act.text}</p>
-                              <span className="activity-desc-text">NaanNow Live Hub Tracker</span>
-                            </div>
-                            <span className="activity-time-lbl">{act.time}</span>
-                          </div>
-                        ))}
+                          ));
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1793,7 +1837,9 @@ function AdminDashboard() {
                                     </div>
                                   </div>
                                 </td>
-                                <td>{rider.vehicleDetails || "Honda CD70"}</td>
+                                <td>
+                                  {rider.vehicleDetails || rider.bikeModel || "Honda CD70"}
+                                </td>
                                 <td style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>{rider.licensePlate || "Pending"}</td>
                                 <td>
                                   <span style={{ display: 'flex', alignItems: 'center' }}>
@@ -1806,8 +1852,8 @@ function AdminDashboard() {
                                     )}
                                   </span>
                                 </td>
-                                <td>{rider.completedDeliveries || Math.floor(Math.random() * 50 + 10)} Deliveries</td>
-                                <td>⭐ {rider.rating || '4.8'}</td>
+                                <td>{orders.filter(o => (o.riderId?._id === rider._id || o.riderId === rider._id) && ['delivered', 'completed'].includes(o.status)).length} Deliveries</td>
+                                <td>⭐ {rider.rating || 0}</td>
                                 <td>
                                   <span className={`status-pill ${(rider.status || 'approved').toLowerCase()}`}>
                                     {rider.status || 'approved'}
@@ -2160,34 +2206,60 @@ function AdminDashboard() {
                     <div className="chart-card">
                       <h3>Order Demographics Hours (Peak hours)</h3>
                       <div className="chart-container-box">
-                        {/* Mock Peak hours chart using styled columns */}
-                        <div style={{ display: 'flex', width: '100%', height: '180px', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 20px' }}>
-                          {[25, 45, 15, 60, 95, 80, 40].map((h, i) => (
-                            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '10%' }}>
-                              <div style={{ height: `${h}%`, width: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '6px 6px 0 0' }}></div>
-                              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px' }}>{i * 2 + 10}h</span>
+                        {(() => {
+                          const hourBins = [10, 12, 14, 16, 18, 20, 22];
+                          const hourCounts = hourBins.map(binHour => {
+                            return orders.filter(o => {
+                              const hr = new Date(o.createdAt).getHours();
+                              return hr >= binHour && hr < binHour + 2;
+                            }).length;
+                          });
+                          const maxCnt = Math.max(...hourCounts, 1);
+
+                          return (
+                            <div style={{ display: 'flex', width: '100%', height: '180px', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 20px' }}>
+                              {hourBins.map((binHour, i) => {
+                                const hPct = Math.max(Math.round((hourCounts[i] / maxCnt) * 100), 10);
+                                return (
+                                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '10%' }}>
+                                    <div style={{ height: `${hPct}%`, width: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '6px 6px 0 0' }} title={`${hourCounts[i]} orders`}></div>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px' }}>{binHour}h</span>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
                     <div className="chart-card">
                       <h3>Top Selling Restaurants Rankings</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-                        {[
-                          { name: "The Gourmet Pavilion", sales: "142 orders", revenue: "Rs. 92,300" },
-                          { name: "Tandoori Flames", sales: "115 orders", revenue: "Rs. 48,300" },
-                          { name: "Caffeine & Co.", sales: "92 orders", revenue: "Rs. 34,960" }
-                        ].map((item, idx) => (
-                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                            <strong>#{idx + 1} {item.name}</strong>
-                            <div style={{ textAlign: 'right' }}>
-                              <span style={{ fontSize: '13px', display: 'block' }}>{item.sales}</span>
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.revenue}</span>
+                        {(() => {
+                          const rMap = {};
+                          orders.forEach(o => {
+                            const rName = o.restaurantId?.name || o.restaurantName || 'NaanNow Kitchen';
+                            if (!rMap[rName]) rMap[rName] = { name: rName, count: 0, total: 0 };
+                            rMap[rName].count += 1;
+                            rMap[rName].total += (o.totalAmount || 0);
+                          });
+                          const topList = Object.values(rMap).sort((a, b) => b.total - a.total).slice(0, 5);
+
+                          if (topList.length === 0) {
+                            return <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No sales data available yet.</p>;
+                          }
+
+                          return topList.map((item, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                              <strong>#{idx + 1} {item.name}</strong>
+                              <div style={{ textAlign: 'right' }}>
+                                <span style={{ fontSize: '13px', display: 'block' }}>{item.count} orders</span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rs. {item.total.toLocaleString()}</span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ));
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -2581,19 +2653,29 @@ function AdminDashboard() {
             </div>
 
             <div className="modal-body-section">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div>
                   <strong>Owner Name</strong>
-                  <p>{selectedRestaurant.name}</p>
+                  <p>{selectedRestaurant.name || "N/A"}</p>
+                </div>
+                <div>
+                  <strong>CNIC Number</strong>
+                  <p>{selectedRestaurant.cnicNumber || "Pending"}</p>
                 </div>
                 <div>
                   <strong>Contact details</strong>
-                  <p>{selectedRestaurant.phone}</p>
-                  <p>{selectedRestaurant.email}</p>
+                  <p>{selectedRestaurant.restaurantPhone || selectedRestaurant.phone || "N/A"}</p>
+                  <p>{selectedRestaurant.restaurantEmail || selectedRestaurant.email || "N/A"}</p>
                 </div>
                 <div>
-                  <strong>City Sector</strong>
-                  <p>{selectedRestaurant.city || "Islamabad"}</p>
+                  <strong>Location</strong>
+                  <p>{selectedRestaurant.restaurantAddress || selectedRestaurant.address || "N/A"}, {selectedRestaurant.city || "Islamabad"}</p>
+                  {selectedRestaurant.mapsLocation && <a href={selectedRestaurant.mapsLocation} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: 'var(--accent-color)' }}>📍 View Google Maps</a>}
+                </div>
+                <div>
+                  <strong>Bank Name & Holder</strong>
+                  <p>{selectedRestaurant.bankName || "N/A"}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Holder: {selectedRestaurant.holderName || "N/A"}</p>
                 </div>
               </div>
 
@@ -2624,20 +2706,68 @@ function AdminDashboard() {
 
               {/* Verification CNIC License files */}
               <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                <h4>Uploaded Verification Files</h4>
-                <div className="document-previews-grid">
-                  <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800")}>
-                    <img src={selectedRestaurant.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800"} alt="CNIC Front" />
-                    <span className="document-label">Owner CNIC Front</span>
-                  </div>
-                  <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800")}>
-                    <img src={selectedRestaurant.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800"} alt="CNIC Back" />
-                    <span className="document-label">Owner CNIC Back</span>
-                  </div>
-                  <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.licenseDoc || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800")}>
-                    <img src={selectedRestaurant.licenseDoc || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800"} alt="Food license" />
-                    <span className="document-label">Eatery License Document</span>
-                  </div>
+                <h4>Uploaded Verification Files & Photos</h4>
+                <div className="document-previews-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+                  {selectedRestaurant.cnicFront && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cnicFront.startsWith('http') ? selectedRestaurant.cnicFront : `http://localhost:5000/${selectedRestaurant.cnicFront.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.cnicFront.startsWith('http') ? selectedRestaurant.cnicFront : `http://localhost:5000/${selectedRestaurant.cnicFront.replace(/\\/g, '/')}`} alt="CNIC Front" />
+                      <span className="document-label">Owner CNIC Front</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.cnicBack && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cnicBack.startsWith('http') ? selectedRestaurant.cnicBack : `http://localhost:5000/${selectedRestaurant.cnicBack.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.cnicBack.startsWith('http') ? selectedRestaurant.cnicBack : `http://localhost:5000/${selectedRestaurant.cnicBack.replace(/\\/g, '/')}`} alt="CNIC Back" />
+                      <span className="document-label">Owner CNIC Back</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.logo && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.logo.startsWith('http') ? selectedRestaurant.logo : `http://localhost:5000/${selectedRestaurant.logo.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.logo.startsWith('http') ? selectedRestaurant.logo : `http://localhost:5000/${selectedRestaurant.logo.replace(/\\/g, '/')}`} alt="Logo" />
+                      <span className="document-label">Restaurant Logo</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.cover && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cover.startsWith('http') ? selectedRestaurant.cover : `http://localhost:5000/${selectedRestaurant.cover.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.cover.startsWith('http') ? selectedRestaurant.cover : `http://localhost:5000/${selectedRestaurant.cover.replace(/\\/g, '/')}`} alt="Cover Banner" />
+                      <span className="document-label">Cover Banner</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.photoFront && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.photoFront.startsWith('http') ? selectedRestaurant.photoFront : `http://localhost:5000/${selectedRestaurant.photoFront.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.photoFront.startsWith('http') ? selectedRestaurant.photoFront : `http://localhost:5000/${selectedRestaurant.photoFront.replace(/\\/g, '/')}`} alt="Front View" />
+                      <span className="document-label">Front View Photo</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.photoKitchen && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.photoKitchen.startsWith('http') ? selectedRestaurant.photoKitchen : `http://localhost:5000/${selectedRestaurant.photoKitchen.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.photoKitchen.startsWith('http') ? selectedRestaurant.photoKitchen : `http://localhost:5000/${selectedRestaurant.photoKitchen.replace(/\\/g, '/')}`} alt="Kitchen" />
+                      <span className="document-label">Kitchen Photo</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.photoDining && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.photoDining.startsWith('http') ? selectedRestaurant.photoDining : `http://localhost:5000/${selectedRestaurant.photoDining.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.photoDining.startsWith('http') ? selectedRestaurant.photoDining : `http://localhost:5000/${selectedRestaurant.photoDining.replace(/\\/g, '/')}`} alt="Dining" />
+                      <span className="document-label">Dining Area</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.certDoc && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.certDoc.startsWith('http') ? selectedRestaurant.certDoc : `http://localhost:5000/${selectedRestaurant.certDoc.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.certDoc.startsWith('http') ? selectedRestaurant.certDoc : `http://localhost:5000/${selectedRestaurant.certDoc.replace(/\\/g, '/')}`} alt="Cert" />
+                      <span className="document-label">Registration Cert</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.licenseDoc && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.licenseDoc.startsWith('http') ? selectedRestaurant.licenseDoc : `http://localhost:5000/${selectedRestaurant.licenseDoc.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.licenseDoc.startsWith('http') ? selectedRestaurant.licenseDoc : `http://localhost:5000/${selectedRestaurant.licenseDoc.replace(/\\/g, '/')}`} alt="Food license" />
+                      <span className="document-label">Food Auth License</span>
+                    </div>
+                  )}
+                  {selectedRestaurant.ntnDoc && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.ntnDoc.startsWith('http') ? selectedRestaurant.ntnDoc : `http://localhost:5000/${selectedRestaurant.ntnDoc.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRestaurant.ntnDoc.startsWith('http') ? selectedRestaurant.ntnDoc : `http://localhost:5000/${selectedRestaurant.ntnDoc.replace(/\\/g, '/')}`} alt="NTN" />
+                      <span className="document-label">NTN Certificate</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2673,11 +2803,15 @@ function AdminDashboard() {
             </div>
 
             <div className="modal-body-section">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 <div>
-                  <strong>Bike Plate / Model</strong>
-                  <p>{selectedRider.vehicleDetails || "Honda CD70"}</p>
-                  <code style={{ fontSize: '12px' }}>{selectedRider.licensePlate}</code>
+                  <strong>Full Name & DOB</strong>
+                  <p>{selectedRider.name}</p>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>DOB: {selectedRider.dob ? new Date(selectedRider.dob).toLocaleDateString() : "N/A"}</span>
+                </div>
+                <div>
+                  <strong>CNIC Number</strong>
+                  <p>{selectedRider.cnicNumber || "Pending"}</p>
                 </div>
                 <div>
                   <strong>Contact details</strong>
@@ -2685,27 +2819,50 @@ function AdminDashboard() {
                   <p>{selectedRider.email}</p>
                 </div>
                 <div>
-                  <strong>Verification Status</strong>
-                  <p><span className={`status-pill ${(selectedRider.status || 'approved').toLowerCase()}`}>{selectedRider.status || 'approved'}</span></p>
+                  <strong>Current Address</strong>
+                  <p>{selectedRider.address || "N/A"}</p>
+                </div>
+                <div>
+                  <strong>Bike & License Plate</strong>
+                  <p>{selectedRider.bikeModel || selectedRider.vehicleDetails || "Honda CD70"} ({selectedRider.bikeColor || "Color N/A"})</p>
+                  <code style={{ fontSize: '12px' }}>Plate: {selectedRider.licensePlate || "N/A"}</code>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Lic #: {selectedRider.licenseNumber || "N/A"} • Reg #: {selectedRider.bikeRegistration || "N/A"}</div>
+                </div>
+                <div>
+                  <strong>Bank & Wallet</strong>
+                  <p>{selectedRider.bankName || "No Bank Set"}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Wallet: {selectedRider.walletNumber || "N/A"}</p>
                 </div>
               </div>
 
               {/* Rider CNIC Driving License Document Files */}
               <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
                 <h4>Uploaded Verification Files</h4>
-                <div className="document-previews-grid">
-                  <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800")}>
-                    <img src={selectedRider.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800"} alt="CNIC Front" />
-                    <span className="document-label">Rider CNIC Front</span>
-                  </div>
-                  <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800")}>
-                    <img src={selectedRider.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800"} alt="CNIC Back" />
-                    <span className="document-label">Rider CNIC Back</span>
-                  </div>
-                  <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.licenseImage || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800")}>
-                    <img src={selectedRider.licenseImage || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=800"} alt="Driving License" />
-                    <span className="document-label">Driving License Image</span>
-                  </div>
+                <div className="document-previews-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+                  {(selectedRider.avatar || selectedRider.profilePic) && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc((selectedRider.avatar || selectedRider.profilePic).startsWith('http') ? (selectedRider.avatar || selectedRider.profilePic) : `http://localhost:5000/${(selectedRider.avatar || selectedRider.profilePic).replace(/\\/g, '/')}`)}>
+                      <img src={(selectedRider.avatar || selectedRider.profilePic).startsWith('http') ? (selectedRider.avatar || selectedRider.profilePic) : `http://localhost:5000/${(selectedRider.avatar || selectedRider.profilePic).replace(/\\/g, '/')}`} alt="Profile Avatar" />
+                      <span className="document-label">Rider Profile Picture</span>
+                    </div>
+                  )}
+                  {selectedRider.cnicFront && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.cnicFront.startsWith('http') ? selectedRider.cnicFront : `http://localhost:5000/${selectedRider.cnicFront.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRider.cnicFront.startsWith('http') ? selectedRider.cnicFront : `http://localhost:5000/${selectedRider.cnicFront.replace(/\\/g, '/')}`} alt="CNIC Front" />
+                      <span className="document-label">Rider CNIC Front</span>
+                    </div>
+                  )}
+                  {selectedRider.cnicBack && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.cnicBack.startsWith('http') ? selectedRider.cnicBack : `http://localhost:5000/${selectedRider.cnicBack.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRider.cnicBack.startsWith('http') ? selectedRider.cnicBack : `http://localhost:5000/${selectedRider.cnicBack.replace(/\\/g, '/')}`} alt="CNIC Back" />
+                      <span className="document-label">Rider CNIC Back</span>
+                    </div>
+                  )}
+                  {selectedRider.licenseImage && (
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.licenseImage.startsWith('http') ? selectedRider.licenseImage : `http://localhost:5000/${selectedRider.licenseImage.replace(/\\/g, '/')}`)}>
+                      <img src={selectedRider.licenseImage.startsWith('http') ? selectedRider.licenseImage : `http://localhost:5000/${selectedRider.licenseImage.replace(/\\/g, '/')}`} alt="Driving License" />
+                      <span className="document-label">Driving License Image</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

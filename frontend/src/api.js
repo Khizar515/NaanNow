@@ -180,6 +180,14 @@ export const api = {
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
+  confirmReceipt: async (orderId) => {
+    const res = await fetch(`${API_URL}/orders/${orderId}/confirm-receipt`, {
+      method: 'PUT',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
 
   // Users
   getAllUsers: async () => {
@@ -269,6 +277,15 @@ export const api = {
     const res = await fetch(`${API_URL}/cards/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  topUpCard: async (id, amount) => {
+    const res = await fetch(`${API_URL}/cards/${id}/topup`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ amount })
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();

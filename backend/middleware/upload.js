@@ -12,15 +12,16 @@ const ensureDir = (dir) => {
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let folder = 'uploads/';
+    const userIdStr = req.user ? req.user._id.toString() : 'guest';
     // Route based logic to pick folder
     if (req.originalUrl.includes('avatar') || req.originalUrl.includes('profile')) {
-      folder += 'profiles/';
+      folder += `profiles/${userIdStr}/`;
     } else if (req.originalUrl.includes('docs')) {
-      folder += 'documents/';
+      folder += `documents/${userIdStr}/`;
     } else if (req.originalUrl.includes('menu')) {
       folder += 'menu/';
     } else {
-      folder += 'misc/';
+      folder += `misc/${userIdStr}/`;
     }
     
     ensureDir(folder);

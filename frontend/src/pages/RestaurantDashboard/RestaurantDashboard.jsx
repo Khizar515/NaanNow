@@ -43,41 +43,31 @@ function RestaurantDashboard() {
   });
   const [wizardError, setWizardError] = useState('');
 
+  const [wizardFiles, setWizardFiles] = useState({});
+
+  const formatCNIC = (val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 13);
+    if (digits.length <= 5) return digits;
+    if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+  };
+
+  const formatPhone = (val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 4) return digits;
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  };
+
   const handleFileChange = (e, field) => {
     const file = e.target.files[0];
     if (file) {
+      setWizardFiles(prev => ({ ...prev, [field]: file }));
       const reader = new FileReader();
       reader.onloadend = () => {
         setWizardData(prev => ({ ...prev, [field]: reader.result }));
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleAutoFillWizard = () => {
-    setWizardData({
-      cnicNumber: '37405-9876543-1',
-      cnicFront: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?w=500',
-      cnicBack: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
-      restaurantName: 'KFC (F-10)',
-      restaurantAddress: 'Plot 14-B, Markaz F-10, Islamabad',
-      city: 'Islamabad',
-      mapsLocation: 'https://maps.google.com/?q=KFC+F-10+Markaz',
-      restaurantPhone: '051-111-532-532',
-      restaurantEmail: 'f10@kfc.com.pk',
-      logo: 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?q=80&w=1167',
-      cover: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000',
-      photoFront: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500',
-      photoKitchen: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=500',
-      photoDining: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500',
-      certDoc: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=500',
-      licenseDoc: 'https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=500',
-      ntnDoc: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500',
-      bankName: 'Habib Bank Limited (HBL)',
-      holderName: 'KFC Pakistan Private Limited',
-      accountNumber: 'PK21HABB001122334455'
-    });
-    setWizardError('');
   };
 
   const handleResubmitAction = () => {
@@ -99,11 +89,9 @@ function RestaurantDashboard() {
     try {
       const formData = new FormData();
       Object.keys(wizardData).forEach(key => {
-        if (wizardData[key]) {
-          // If it's a data URL (from handleFileChange), we should ideally convert it to File. 
-          // For simplicity in this simulated dynamic app, we send base64 if uploadDocs supports it, 
-          // or we just rely on standard fields. We will pass it as a text field for now, 
-          // but if we had real files, we'd append them.
+        if (wizardFiles[key]) {
+          formData.append(key, wizardFiles[key]);
+        } else if (wizardData[key]) {
           formData.append(key, wizardData[key]);
         }
       });
@@ -407,15 +395,12 @@ function RestaurantDashboard() {
             </button>
           </div>
         ) : (isUnverified || isRejected) ? (
-          <div className="status-card" style={{ maxWidth: '720px', textAlign: 'left' }}>
+          <div className="status-card" style={{ maxWidth: '720px', textAlign: 'left', boxSizing: 'border-box', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
               <div>
                 <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification Portal</span>
                 <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>Restaurant Profile Verification</h2>
               </div>
-              <button className="btn-detail-view" onClick={handleAutoFillWizard} style={{ padding: '8px 12px', fontSize: '12px', cursor: 'pointer' }}>
-                ⚡ Auto-fill Demo Data
-              </button>
             </div>
 
             {isRejected && (
@@ -457,7 +442,7 @@ function RestaurantDashboard() {
                       type="text"
                       placeholder="e.g. 37405-9876543-1"
                       value={wizardData.cnicNumber}
-                      onChange={(e) => setWizardData({ ...wizardData, cnicNumber: e.target.value })}
+                      onChange={(e) => setWizardData({ ...wizardData, cnicNumber: formatCNIC(e.target.value) })}
                       required
                     />
                   </div>
@@ -537,14 +522,14 @@ function RestaurantDashboard() {
                       onChange={(e) => setWizardData({ ...wizardData, mapsLocation: e.target.value })}
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', boxSizing: 'border-box' }}>
                     <div className="form-group-field">
                       <label>Restaurant Phone</label>
                       <input
                         type="text"
-                        placeholder="e.g. 051-111-532-532"
+                        placeholder="e.g. 0511-1153253"
                         value={wizardData.restaurantPhone}
-                        onChange={(e) => setWizardData({ ...wizardData, restaurantPhone: e.target.value })}
+                        onChange={(e) => setWizardData({ ...wizardData, restaurantPhone: formatPhone(e.target.value) })}
                         required
                       />
                     </div>
@@ -594,7 +579,7 @@ function RestaurantDashboard() {
 
               {wizardStep === 3 && (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', boxSizing: 'border-box' }}>
                     <div className="form-group-field">
                       <label>Front View Photo</label>
                       <input
@@ -637,7 +622,7 @@ function RestaurantDashboard() {
                       )}
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', boxSizing: 'border-box' }}>
                     <div className="form-group-field">
                       <label>Registration Cert</label>
                       <input
@@ -680,7 +665,7 @@ function RestaurantDashboard() {
                       )}
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '10px', boxSizing: 'border-box' }}>
                     <div className="form-group-field">
                       <label>Bank Name</label>
                       <input

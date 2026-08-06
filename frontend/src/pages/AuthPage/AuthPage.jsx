@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/logo-rotate.svg';
@@ -6,9 +6,19 @@ import './AuthPage.css';
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { user, login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [selectedRole, setSelectedRole] = useState('customer'); // 'customer' | 'rider' | 'manager'
+
+  // If user is already logged in, redirect immediately with replace: true so back button won't return to login
+  useEffect(() => {
+    if (user) {
+      const target = user.role === 'admin' ? '/admin-dashboard' :
+                     user.role === 'rider' ? '/rider-dashboard' :
+                     user.role === 'manager' ? '/restaurant-dashboard' : '/';
+      navigate(target, { replace: true });
+    }
+  }, [user, navigate]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -74,15 +84,10 @@ function AuthPage() {
       }
 
       setTimeout(() => {
-        if (userData.role === 'admin') {
-          navigate('/admin-dashboard');
-        } else if (userData.role === 'rider') {
-          navigate('/rider-dashboard');
-        } else if (userData.role === 'manager') {
-          navigate('/restaurant-dashboard');
-        } else {
-          navigate('/');
-        }
+        const target = userData.role === 'admin' ? '/admin-dashboard' :
+                       userData.role === 'rider' ? '/rider-dashboard' :
+                       userData.role === 'manager' ? '/restaurant-dashboard' : '/';
+        navigate(target, { replace: true });
       }, 1200);
 
     } catch (err) {

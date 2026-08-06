@@ -70,6 +70,10 @@ router.post('/:id/topup', auth, async (req, res) => {
        return res.status(400).json({ message: 'Cannot top up a disabled card' });
     }
 
+    if (amount > 20000) {
+      return res.status(400).json({ message: 'Top up failed. Single top up cannot exceed Rs. 20,000' });
+    }
+
     if (card.balance + amount > 50000) {
       return res.status(400).json({ message: 'Top up failed. Max balance cannot exceed 50,000' });
     }

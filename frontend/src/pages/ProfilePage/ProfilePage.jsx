@@ -33,6 +33,10 @@ function ProfilePage() {
   // Alerts
   const [notification, setNotification] = useState(null);
 
+  // Top up modal states
+  const [topUpModalCard, setTopUpModalCard] = useState(null);
+  const [topUpAmount, setTopUpAmount] = useState('');
+
   const fileInputRef = useRef(null);
 
   // Initialize edit states when user changes
@@ -215,6 +219,32 @@ function ProfilePage() {
     }
   };
 
+  const handleTopUpSubmit = async (e) => {
+    e.preventDefault();
+    const amountNum = Number(topUpAmount);
+    if (!amountNum || amountNum <= 0) {
+      showNotification('Please enter a valid positive amount', 'error');
+      return;
+    }
+    if (amountNum > 20000) {
+      showNotification('Single top up cannot exceed Rs. 20,000', 'error');
+      return;
+    }
+    if ((topUpModalCard.balance || 0) + amountNum > 50000) {
+      showNotification(`Top up failed. Max balance cannot exceed 50,000 (Current balance: Rs. ${topUpModalCard.balance || 0})`, 'error');
+      return;
+    }
+    try {
+      await api.topUpCard(topUpModalCard._id, amountNum);
+      showNotification(`Successfully topped up Rs. ${amountNum.toLocaleString()}`);
+      setTopUpModalCard(null);
+      setTopUpAmount('');
+      fetchCards();
+    } catch (err) {
+      showNotification(err.message, 'error');
+    }
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -252,10 +282,10 @@ function ProfilePage() {
     return <div className="profile-container"><div style={{padding: '100px', textAlign:'center'}}>Please log in to view profile.</div></div>;
   }
 
-  const defaultAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150';
   const getAvatarUrl = () => {
-    if (!user.avatar) return defaultAvatar;
-    return user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000/${user.avatar.replace(/\\/g, '/')}`;
+    const pic = user.profilePic || user.avatar;
+    if (!pic) return null;
+    return pic.startsWith('http') ? pic : `http://localhost:5000/${pic.replace(/\\/g, '/')}`;
   };
 
   return (
@@ -273,7 +303,13 @@ function ProfilePage() {
         <aside className="profile-sidebar">
           <div className="avatar-section">
             <div className="avatar-wrapper">
-              <img src={getAvatarUrl()} alt={user.name} className="profile-avatar" />
+              {getAvatarUrl() ? (
+                <img src={getAvatarUrl()} alt={user.name} className="profile-avatar" />
+              ) : (
+                <div className="profile-avatar" style={{ backgroundColor: 'var(--color-tandoori)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', fontWeight: 'bold' }}>
+                  {user.name ? user.name[0].toUpperCase() : '👤'}
+                </div>
+              )}
               <div className="avatar-overlay" onClick={() => fileInputRef.current.click()}>
                 <span>Change Image</span>
               </div>
@@ -455,7 +491,7 @@ function ProfilePage() {
                       <div className="card-bottom">
                         <div className="card-holder-info">
                           <span className="tiny-label">CARD HOLDER</span>
-                          <span className="holder-name-display">{cardHolder.toUpperCase() || 'MUHAMMAD SAAD'}</span>
+                          <span className="holder-name-display">{cardHolder.toUpperCase() || (user.name ? user.name.toUpperCase() : 'YOUR NAME')}</span>
                         </div>
                         <div className="card-expiry-info">
                           <span className="tiny-label">EXPIRES</span>
@@ -476,7 +512,7 @@ function ProfilePage() {
                         type="text"
                         value={cardHolder}
                         onChange={(e) => setCardHolder(e.target.value)}
-                        placeholder="Muhammad Saad"
+                        placeholder="Name on Card"
                         required
                       />
                     </div>
@@ -530,22 +566,32 @@ function ProfilePage() {
                     {paymentMethods.map(card => {
                       const brand = card.cardNumber.startsWith('4') ? 'Visa' : 'Mastercard';
                       return (
-                      <div key={card._id} className="saved-card-item">
+                      <div key={card._id} className="saved-card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div className="card-info-left">
                           <div className={`card-icon-avatar ${brand.toLowerCase()}`}>
                             {brand === 'Visa' ? 'V' : brand === 'Mastercard' ? 'M' : '💳'}
                           </div>
                           <div className="card-digits-details">
                             <span className="card-name-brand">{brand} ending in •••• {card.cardNumber.slice(-4)}</span>
-                            <span className="card-expiry-span">Expires {card.expiryDate}</span>
+                            <span className="card-expiry-span">Expires {card.expiryDate} • Balance: <strong style={{ color: 'var(--color-tandoori)' }}>Rs. {(card.balance || 0).toLocaleString()}</strong></span>
                           </div>
                         </div>
-                        <button className="btn-icon-danger" onClick={() => handleDeleteCard(card._id)} title="Remove Card">
-                          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button 
+                            type="button" 
+                            className="btn-secondary" 
+                            style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px' }} 
+                            onClick={() => { setTopUpModalCard(card); setTopUpAmount(''); }}
+                          >
+                            💳 Top Up
+                          </button>
+                          <button className="btn-icon-danger" onClick={() => handleDeleteCard(card._id)} title="Remove Card">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     )})}
                   </div>
@@ -673,6 +719,68 @@ function ProfilePage() {
 
         </main>
       </div>
+
+      {/* Top Up Modal Overlay */}
+      {topUpModalCard && (
+        <div className="address-modal-backdrop" onClick={() => setTopUpModalCard(null)}>
+          <div className="address-modal-card" style={{ maxWidth: '420px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="address-modal-header">
+              <h3>Card Top Up</h3>
+              <button className="close-modal-btn" onClick={() => setTopUpModalCard(null)}>&times;</button>
+            </div>
+            <form onSubmit={handleTopUpSubmit}>
+              <div className="address-modal-body" style={{ gap: '14px' }}>
+                <div>
+                  <span style={{ fontSize: '12px', color: '#666', display: 'block' }}>Selected Card</span>
+                  <strong style={{ fontSize: '15px' }}>•••• •••• •••• {topUpModalCard.cardNumber.slice(-4)}</strong>
+                  <div style={{ fontSize: '12px', color: 'var(--color-tandoori)', marginTop: '2px' }}>
+                    Current Balance: Rs. {(topUpModalCard.balance || 0).toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: '13px', fontWeight: '600' }}>Top Up Amount (Max Rs. 20,000 per transaction)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20000"
+                    value={topUpAmount}
+                    onChange={(e) => setTopUpAmount(e.target.value)}
+                    placeholder="e.g. 5000"
+                    required
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '15px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[1000, 2000, 5000, 10000].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      className="btn-secondary"
+                      style={{ flex: 1, padding: '6px 0', fontSize: '11px' }}
+                      onClick={() => setTopUpAmount(amt.toString())}
+                    >
+                      +Rs. {amt / 1000}k
+                    </button>
+                  ))}
+                </div>
+
+                <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>
+                  Maximum overall card balance limit is Rs. 50,000.
+                </p>
+              </div>
+
+              <div className="address-modal-footer">
+                <button type="button" className="modal-cancel-btn" onClick={() => setTopUpModalCard(null)}>Cancel</button>
+                <button type="submit" className="modal-save-btn">
+                  Confirm Top Up
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

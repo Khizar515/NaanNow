@@ -125,26 +125,7 @@ router.put('/:id/status', auth, restrictTo('manager', 'rider', 'admin'), async (
     }
 
     if (status === 'delivered' && order.status !== 'delivered') {
-      const riderFee = 100; // Example fee
-      const managerEarnings = order.totalAmount * 0.85; // Example manager earnings
-
-      if (order.riderId) {
-        let rider = await User.findById(order.riderId);
-        if (rider) {
-          rider.walletBalance += riderFee;
-          await rider.save();
-        }
-      }
-
-      // Find manager via restaurant
-      let restaurant = await Restaurant.findById(order.restaurantId);
-      if (restaurant && restaurant.managerId) {
-        let manager = await User.findById(restaurant.managerId);
-        if (manager) {
-          manager.walletBalance += managerEarnings;
-          await manager.save();
-        }
-      }
+      order.completedAt = new Date();
     }
 
     order.status = status;
@@ -156,6 +137,55 @@ router.put('/:id/status', auth, restrictTo('manager', 'rider', 'admin'), async (
     res.status(500).send('Server error');
   }
 });
+
+// @route   PUT /api/orders/:id/confirm-receipt
+// @desc    Customer confirms receiving the order -> status becomes completed & money transfers to rider and manager
+router.put('/:id/confirm-receipt', auth, restrictTo('customer'), async (req, res) => {
+  try {
+    let order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    if (order.customerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (order.status !== 'delivered' && order.status !== 'completed') {
+      return res.status(400).json({ message: 'Order must be delivered by rider before confirming receipt' });
+    }
+
+    if (order.status === 'delivered') {
+      const riderFee = 150;
+      const managerEarnings = order.totalAmount * 0.85;
+
+      if (order.riderId) {
+        let rider = await User.findById(order.riderId);
+        if (rider) {
+          rider.walletBalance = (rider.walletBalance || 0) + riderFee;
+          await rider.save();
+        }
+      }
+
+      let restaurant = await Restaurant.findById(order.restaurantId);
+      if (restaurant && restaurant.managerId) {
+        let manager = await User.findById(restaurant.managerId);
+        if (manager) {
+          manager.walletBalance = (manager.walletBalance || 0) + managerEarnings;
+          await manager.save();
+        }
+      }
+
+      order.status = 'completed';
+      order.customerConfirmedAt = new Date();
+      await order.save();
+    }
+
+    res.json(order);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
 // @route   PUT /api/orders/:id/assign
 // @desc    Assign order to rider
 router.put('/:id/assign', auth, restrictTo('rider'), async (req, res) => {
@@ -176,10 +206,10 @@ router.put('/:id/assign', auth, restrictTo('rider'), async (req, res) => {
 });
 
 // @route   PUT /api/orders/:id/rate
-// @desc    Rate an order
+// @desc    Rate an order (Rider & Restaurant)
 router.put('/:id/rate', auth, restrictTo('customer'), async (req, res) => {
   try {
-    const { riderRating, riderReview, itemRatings } = req.body;
+    const { riderRating, riderReview, restaurantRating, restaurantReview, itemRatings } = req.body;
     let order = await Order.findById(req.params.id);
 
     if (!order) return res.status(404).json({ message: 'Order not found' });
@@ -190,6 +220,8 @@ router.put('/:id/rate', auth, restrictTo('customer'), async (req, res) => {
     order.rating = {
       riderRating,
       riderReview,
+      restaurantRating,
+      restaurantReview,
       itemRatings
     };
 
@@ -197,9 +229,23 @@ router.put('/:id/rate', auth, restrictTo('customer'), async (req, res) => {
     if (riderRating && order.riderId) {
       const rider = await User.findById(order.riderId);
       if (rider) {
-        // Very basic mock rating update
-        rider.rating = rider.rating ? ((rider.rating * 10 + riderRating) / 11).toFixed(1) : riderRating;
+        const riderOrders = await Order.find({ riderId: order.riderId, 'rating.riderRating': { $exists: true } });
+        const totalRiderRatings = riderOrders.reduce((sum, o) => sum + (o.rating?.riderRating || 0), 0) + riderRating;
+        const count = riderOrders.length + 1;
+        rider.rating = Number((totalRiderRatings / count).toFixed(1));
         await rider.save();
+      }
+    }
+
+    // Update restaurant average rating
+    if (restaurantRating && order.restaurantId) {
+      const restaurant = await Restaurant.findById(order.restaurantId);
+      if (restaurant) {
+        const restOrders = await Order.find({ restaurantId: order.restaurantId, 'rating.restaurantRating': { $exists: true } });
+        const totalRestRatings = restOrders.reduce((sum, o) => sum + (o.rating?.restaurantRating || 0), 0) + restaurantRating;
+        const count = restOrders.length + 1;
+        restaurant.rating = Number((totalRestRatings / count).toFixed(1));
+        await restaurant.save();
       }
     }
 

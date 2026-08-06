@@ -6,8 +6,11 @@ import './OrdersPage.css';
 
 // Helper to determine simulated progress status based on creation time
 const getOrderProgress = (order) => {
-  if (order.status === 'completed' || order.status === 'delivered') {
+  if (order.status === 'completed') {
     return { status: 'Completed', step: 4, remaining: 0 };
+  }
+  if (order.status === 'delivered') {
+    return { status: 'Delivered - Confirm Receipt', step: 3.5, remaining: 0 };
   }
 
   switch (order.status) {
@@ -30,6 +33,13 @@ function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [tick, setTick] = useState(0);
+
+  // Rating Modal state
+  const [ratingOrder, setRatingOrder] = useState(null);
+  const [riderRating, setRiderRating] = useState(5);
+  const [riderReview, setRiderReview] = useState('');
+  const [restaurantRating, setRestaurantRating] = useState(5);
+  const [restaurantReview, setRestaurantReview] = useState('');
 
   // Load orders from API
   useEffect(() => {
@@ -70,6 +80,40 @@ function OrdersPage() {
   // Currently selected order
   const selectedOrder = liveOrders.find(o => o._id === selectedOrderId) || activeOrders[0] || historyOrders[0];
 
+  const handleConfirmReceipt = async (orderId, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const updatedOrder = await api.confirmReceipt(orderId);
+      setOrders(prev => prev.map(o => o._id === orderId ? updatedOrder : o));
+      // Trigger rating modal automatically
+      setRatingOrder(updatedOrder);
+      setRiderRating(5);
+      setRiderReview('');
+      setRestaurantRating(5);
+      setRestaurantReview('');
+    } catch (err) {
+      alert(err.message || 'Failed to confirm receipt');
+    }
+  };
+
+  const handleRatingSubmit = async (e) => {
+    e.preventDefault();
+    if (!ratingOrder) return;
+    try {
+      const updatedOrder = await api.rateOrder(ratingOrder._id, {
+        riderRating,
+        riderReview,
+        restaurantRating,
+        restaurantReview
+      });
+      setOrders(prev => prev.map(o => o._id === ratingOrder._id ? updatedOrder : o));
+      alert('🎉 Thank you for rating your rider and restaurant!');
+      setRatingOrder(null);
+    } catch (err) {
+      alert(err.message || 'Failed to submit review');
+    }
+  };
+
   const handleReorder = (order, e) => {
     e.stopPropagation();
     order.items.forEach(item => {
@@ -97,6 +141,7 @@ function OrdersPage() {
       case 2: return 40;
       case 2.5: return 55;
       case 3: return 72;
+      case 3.5: return 88;
       case 4: return 100;
       default: return 0;
     }
@@ -229,7 +274,34 @@ function OrdersPage() {
                         </p>
                         <div className="order-list-footer">
                           <span className="order-price">Rs {order.totalAmount}</span>
-                          <div className="history-actions">
+                          <div className="history-actions" style={{ gap: '6px' }}>
+                            {order.status === 'delivered' && (
+                              <button 
+                                type="button"
+                                className="confirm-receipt-btn"
+                                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#10b981', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                                onClick={(e) => handleConfirmReceipt(order._id, e)}
+                              >
+                                Confirm Receipt ✅
+                              </button>
+                            )}
+                            {order.status === 'completed' && !order.rating?.riderRating && (
+                              <button 
+                                type="button"
+                                className="rate-order-btn"
+                                style={{ padding: '6px 10px', fontSize: '12px', fontWeight: '600', backgroundColor: '#f59e0b', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRatingOrder(order);
+                                  setRiderRating(order.rating?.riderRating || 5);
+                                  setRiderReview(order.rating?.riderReview || '');
+                                  setRestaurantRating(order.rating?.restaurantRating || 5);
+                                  setRestaurantReview(order.rating?.restaurantReview || '');
+                                }}
+                              >
+                                Rate Order ⭐
+                              </button>
+                            )}
                             <button 
                               className="view-details-link"
                               onClick={() => setSelectedOrderId(order._id)}
@@ -326,8 +398,20 @@ function OrdersPage() {
                     {selectedOrder.liveStep === 3 && (
                       <p>🛵 <strong>Warm Delivery Transit:</strong> Food is sealed in thermal packages and our rider is speeding to your address.</p>
                     )}
+                    {selectedOrder.liveStep === 3.5 && (
+                      <div style={{ textAlign: 'center', padding: '6px' }}>
+                        <p style={{ marginBottom: '10px' }}>📦 <strong>Rider has delivered your food!</strong> Please confirm receipt to finish the order and credit the rider.</p>
+                        <button
+                          className="confirm-receipt-btn"
+                          style={{ padding: '10px 24px', fontSize: '14px', fontWeight: 'bold', backgroundColor: '#10b981', color: '#fff', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+                          onClick={(e) => handleConfirmReceipt(selectedOrder._id, e)}
+                        >
+                          Confirm Order Received ✅
+                        </button>
+                      </div>
+                    )}
                     {selectedOrder.liveStep === 4 && (
-                      <p>✅ <strong>Delivered successfully:</strong> Enjoy your fresh NaanNow meal. Don't forget to review us!</p>
+                      <p>✅ <strong>Order completed:</strong> Enjoy your fresh NaanNow meal! Thank you for dining with us.</p>
                     )}
                   </div>
                 </div>
@@ -393,6 +477,98 @@ function OrdersPage() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Rating & Review Modal Overlay */}
+      {ratingOrder && (
+        <div className="address-modal-backdrop" onClick={() => setRatingOrder(null)}>
+          <div className="address-modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="address-modal-header">
+              <h3>Rate Your Order Experience</h3>
+              <button className="close-modal-btn" onClick={() => setRatingOrder(null)}>&times;</button>
+            </div>
+            <form onSubmit={handleRatingSubmit}>
+              <div className="address-modal-body" style={{ gap: '18px' }}>
+                <p style={{ fontSize: '13px', color: '#666', margin: 0 }}>
+                  Order <strong>#{ratingOrder.orderNumber}</strong> • {ratingOrder.restaurantId?.name || "NaanNow Kitchen"}
+                </p>
+
+                {/* Section 1: Rate Rider */}
+                <div style={{ border: '1px solid #eee', padding: '14px', borderRadius: '12px', backgroundColor: '#fafafa' }}>
+                  <h4 style={{ fontSize: '14px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    🛵 Rate Rider ({ratingOrder.riderId?.name || 'Delivery Rider'})
+                  </h4>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button
+                        key={star}
+                        type="button"
+                        style={{
+                          fontSize: '24px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: star <= riderRating ? '#f59e0b' : '#d1d5db',
+                          transition: '0.1s'
+                        }}
+                        onClick={() => setRiderRating(star)}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Write an optional review for rider..."
+                    value={riderReview}
+                    onChange={(e) => setRiderReview(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '13px' }}
+                  />
+                </div>
+
+                {/* Section 2: Rate Restaurant */}
+                <div style={{ border: '1px solid #eee', padding: '14px', borderRadius: '12px', backgroundColor: '#fafafa' }}>
+                  <h4 style={{ fontSize: '14px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    🍽️ Rate Restaurant ({ratingOrder.restaurantId?.name || 'Restaurant'})
+                  </h4>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button
+                        key={star}
+                        type="button"
+                        style={{
+                          fontSize: '24px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: star <= restaurantRating ? '#f59e0b' : '#d1d5db',
+                          transition: '0.1s'
+                        }}
+                        onClick={() => setRestaurantRating(star)}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Write an optional review for restaurant..."
+                    value={restaurantReview}
+                    onChange={(e) => setRestaurantReview(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div className="address-modal-footer" style={{ marginTop: '16px' }}>
+                <button type="button" className="modal-cancel-btn" onClick={() => setRatingOrder(null)}>Skip</button>
+                <button type="submit" className="modal-save-btn" style={{ backgroundColor: '#f59e0b' }}>
+                  Submit Ratings ⭐
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

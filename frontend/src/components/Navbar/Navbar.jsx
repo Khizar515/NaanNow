@@ -201,7 +201,17 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
 
         {/* Mobile Profile Icon (Visible only on mobile, Left side) */}
         <button className="icon-btn mobile-only" onClick={() => navigate('/profile')}>
-          <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          {currentUser && (currentUser.profilePic || currentUser.avatar) ? (
+            <img 
+              src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`} 
+              alt={currentUser.name} 
+              style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} 
+            />
+          ) : (
+            <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--color-tandoori)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>
+              {currentUser?.name ? currentUser.name[0].toUpperCase() : '👤'}
+            </div>
+          )}
         </button>
 
         {/* Brand (Centered on mobile) */}
@@ -229,8 +239,18 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
           {/* Desktop Profile Dropdown or Login Button */}
           {currentUser ? (
             <div className="profile-menu-container desktop-only">
-              <button className="action-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <button className="action-btn" onClick={() => setIsProfileOpen(!isProfileOpen)} style={{ gap: '8px' }}>
+                {(currentUser.profilePic || currentUser.avatar) ? (
+                  <img 
+                    src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`} 
+                    alt={currentUser.name} 
+                    style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} 
+                  />
+                ) : (
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: 'var(--color-tandoori)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' }}>
+                    {currentUser.name ? currentUser.name[0].toUpperCase() : 'U'}
+                  </div>
+                )}
                 {currentUser.name}
                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ transform: isProfileOpen ? 'rotate(180deg)' : 'rotate(0)', transition: '0.2s' }}>
                   <path d="M6 9l6 6 6-6"></path>

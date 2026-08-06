@@ -15,6 +15,8 @@ const chatMessageSchema = new mongoose.Schema({
 const ratingSchema = new mongoose.Schema({
   riderRating: { type: Number, min: 1, max: 5 },
   riderReview: { type: String },
+  restaurantRating: { type: Number, min: 1, max: 5 },
+  restaurantReview: { type: String },
   itemRatings: { type: Map, of: Number } // item id to rating mapping
 });
 
@@ -27,7 +29,7 @@ const orderSchema = new mongoose.Schema({
   totalAmount: { type: Number, required: true },
   status: { 
     type: String, 
-    enum: ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'], 
+    enum: ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'completed', 'cancelled'], 
     default: 'pending' 
   },
   deliveryAddress: { type: String },
@@ -38,6 +40,7 @@ const orderSchema = new mongoose.Schema({
   name: { type: String },
   dispatchedAt: { type: Date },
   completedAt: { type: Date },
+  customerConfirmedAt: { type: Date },
   messages: [chatMessageSchema],
   rating: ratingSchema,
   adminNotes: { type: String }
