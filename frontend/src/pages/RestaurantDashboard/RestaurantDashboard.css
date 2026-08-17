@@ -903,24 +903,25 @@
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(79, 46, 29, 0.4);
-  backdrop-filter: blur(8px);
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000;
   animation: fadeIn 0.25s ease;
 }
 
 .modal-content-card {
-  background: white;
-  width: 580px;
-  max-width: 90%;
+  background: #ffffff;
+  width: 600px;
+  max-width: 92%;
   border-radius: 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0,0,0,0.1);
   overflow: hidden;
+  border: 1px solid #e2e8f0;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

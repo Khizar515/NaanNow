@@ -125,6 +125,7 @@ function RestaurantDashboard() {
   // State definitions
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [restaurantLoadError, setRestaurantLoadError] = useState(false);
+  const [platformSettings, setPlatformSettings] = useState({ commission: 15 });
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
 
@@ -136,6 +137,7 @@ function RestaurantDashboard() {
   const [menuFilter, setMenuFilter] = useState('All');
 
   // Menu Modal State
+  const [dbCategories, setDbCategories] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
   const [editingItem, setEditingItem] = useState(null);
@@ -144,13 +146,20 @@ function RestaurantDashboard() {
     price: '',
     category: '',
     description: '',
-    image: IMAGE_TEMPLATES[0].url
+    image: '',
+    imageFile: null
   });
   const [formError, setFormError] = useState('');
 
   // Load baseline data from API
   useEffect(() => {
     const loadData = async () => {
+      try {
+        const cats = await api.getCategories();
+        setDbCategories(cats || []);
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
       try {
         const rest = await api.getMyRestaurant();
         setSelectedRestaurant(rest);
@@ -159,7 +168,12 @@ function RestaurantDashboard() {
         console.error("Failed to load restaurant profile:", err);
         setRestaurantLoadError(true);
       }
-      
+      try {
+        const settings = await api.getSettings();
+        if (settings) setPlatformSettings(settings);
+      } catch (err) {
+        console.error("Failed to load platform settings:", err);
+      }
       try {
         const resOrders = await api.getOrders();
         setOrders(resOrders);
@@ -274,26 +288,41 @@ function RestaurantDashboard() {
     }
   };
 
+  // Toggle Open/Closed Status
+  const handleToggleOpenRestaurant = async () => {
+    if (!selectedRestaurant) return;
+    try {
+      const updated = await api.toggleRestaurantOpen(selectedRestaurant._id, !selectedRestaurant.isOpen);
+      setSelectedRestaurant(updated);
+    } catch (err) {
+      console.error("Failed to toggle restaurant status:", err);
+      alert("Could not update restaurant status.");
+    }
+  };
+
   // MENU CRUD: Open Modal
   const openMenuModal = (mode, item = null) => {
     setModalMode(mode);
     setEditingItem(item);
     setFormError('');
+    const defaultCat = dbCategories.length > 0 ? dbCategories[0].name : (selectedRestaurant?.menu[0]?.category || 'Naan');
     if (mode === 'edit' && item) {
       setMenuForm({
         name: item.name,
         price: item.price,
-        category: item.category,
+        category: item.category || defaultCat,
         description: item.description,
-        image: item.image
+        image: item.image || '',
+        imageFile: null
       });
     } else {
       setMenuForm({
         name: '',
         price: '',
-        category: selectedRestaurant.menu[0]?.category || 'Naan',
+        category: defaultCat,
         description: '',
-        image: IMAGE_TEMPLATES[0].url
+        image: '',
+        imageFile: null
       });
     }
     setIsModalOpen(true);
@@ -304,9 +333,14 @@ function RestaurantDashboard() {
     e.preventDefault();
     setFormError('');
 
-    const { name, price, category, description, image } = menuForm;
+    const { name, price, category, description, image, imageFile } = menuForm;
     if (!name.trim() || !price || !category.trim() || !description.trim()) {
-      setFormError('Please fill in all details.');
+      setFormError('Please fill in all required details.');
+      return;
+    }
+
+    if (modalMode === 'add' && !imageFile && !image) {
+      setFormError('Please upload an image from your device.');
       return;
     }
 
@@ -322,9 +356,12 @@ function RestaurantDashboard() {
       formData.append('price', priceNum);
       formData.append('category', category.trim());
       formData.append('description', description.trim());
-      // Here image is a url but the endpoint supports a file. If it's a file we'd append the file.
-      // We will just pass the url to image if it's string.
-      formData.append('image', image);
+
+      if (imageFile) {
+        formData.append('image', imageFile);
+      } else if (image) {
+        formData.append('image', image);
+      }
 
       let updatedRestaurant;
       if (modalMode === 'add') {
@@ -364,6 +401,7 @@ function RestaurantDashboard() {
     : [];
 
   if (currentUser && currentUser.status !== 'approved') {
+    const isRevoked = currentUser.status === 'revoked';
     const isRejected = currentUser.status === 'rejected';
     const isPending = currentUser.status === 'pending';
     const isUnverified = currentUser.status === 'unverified';
@@ -394,14 +432,24 @@ function RestaurantDashboard() {
               Log Out
             </button>
           </div>
-        ) : (isUnverified || isRejected) ? (
+        ) : (isUnverified || isRejected || isRevoked) ? (
           <div className="status-card" style={{ maxWidth: '720px', textAlign: 'left', boxSizing: 'border-box', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
               <div>
-                <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification Portal</span>
-                <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>Restaurant Profile Verification</h2>
+                <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification & Conflict Resolution Portal</span>
+                <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>
+                  {isRevoked ? '🚫 Restaurant Approval Revoked' : 'Restaurant Profile Verification'}
+                </h2>
               </div>
             </div>
+
+            {isRevoked && (
+              <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '16px', borderRadius: '10px', color: '#b91c1c' }}>
+                <strong style={{ fontSize: '15px', display: 'block', marginBottom: '6px' }}>⚠️ Approval Status Revoked by Administrator:</strong>
+                <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.5' }}>Reason for Revocation: "{currentUser.rejectionReason || 'Compliance conflict identified. Please resubmit verification documents to clear the conflict.'}"</p>
+                <p style={{ fontSize: '12px', marginTop: '10px', fontStyle: 'italic', color: '#7f1d1d' }}>Your restaurant is currently hidden from customer order listings until re-approved.</p>
+              </div>
+            )}
 
             {isRejected && (
               <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px', borderRadius: '10px', color: '#b91c1c' }}>
@@ -436,24 +484,25 @@ function RestaurantDashboard() {
                       style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
                     />
                   </div>
-                  <div className="form-group-field">
+                  <div className="form-group-field" style={{ paddingRight: '20px', boxSizing: 'border-box' }}>
                     <label>Owner CNIC Number</label>
                     <input
                       type="text"
-                      placeholder="e.g. 37405-9876543-1"
+                      placeholder="00000-0000000-0"
                       value={wizardData.cnicNumber}
                       onChange={(e) => setWizardData({ ...wizardData, cnicNumber: formatCNIC(e.target.value) })}
                       required
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div className="form-group-field">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', paddingRight: '20px', width: '100%', boxSizing: 'border-box' }}>
+                    <div className="form-group-field" style={{ width: '100%', boxSizing: 'border-box' }}>
                       <label>CNIC Front Image</label>
                       <input
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleFileChange(e, 'cnicFront')}
                         required={!wizardData.cnicFront}
+                        style={{ width: '100%', boxSizing: 'border-box' }}
                       />
                       {wizardData.cnicFront && (
                         <div style={{ marginTop: '8px' }}>
@@ -461,13 +510,14 @@ function RestaurantDashboard() {
                         </div>
                       )}
                     </div>
-                    <div className="form-group-field">
+                    <div className="form-group-field" style={{ width: '100%', boxSizing: 'border-box' }}>
                       <label>CNIC Back Image</label>
                       <input
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleFileChange(e, 'cnicBack')}
                         required={!wizardData.cnicBack}
+                        style={{ width: '100%', boxSizing: 'border-box' }}
                       />
                       {wizardData.cnicBack && (
                         <div style={{ marginTop: '8px' }}>
@@ -527,7 +577,7 @@ function RestaurantDashboard() {
                       <label>Restaurant Phone</label>
                       <input
                         type="text"
-                        placeholder="e.g. 0511-1153253"
+                        placeholder="0000-0000000"
                         value={wizardData.restaurantPhone}
                         onChange={(e) => setWizardData({ ...wizardData, restaurantPhone: formatPhone(e.target.value) })}
                         required
@@ -544,7 +594,7 @@ function RestaurantDashboard() {
                       />
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', width: '100%', boxSizing: 'border-box', padding: '0 8px' }}>
                     <div className="form-group-field">
                       <label>Restaurant Logo</label>
                       <input
@@ -773,11 +823,31 @@ function RestaurantDashboard() {
           </div>
         </div>
 
-        {/* Static Restaurant Label (KFC Exclusive) */}
-        <div className="restaurant-selector-wrapper">
-          <span className="managing-label">Managing Venue:</span>
+        <div className="restaurant-selector-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div className="managing-venue-badge">
             <span className="venue-logo">🍗</span> {selectedRestaurant.name}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', padding: '6px 14px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.2)' }}>
+            <span style={{ fontSize: '13px', fontWeight: '700', color: selectedRestaurant.isOpen !== false ? '#4ade80' : '#f87171' }}>
+              {selectedRestaurant.isOpen !== false ? '🟢 OPEN' : '🔴 CLOSED'}
+            </span>
+            <button
+              onClick={handleToggleOpenRestaurant}
+              style={{
+                backgroundColor: selectedRestaurant.isOpen !== false ? '#ef4444' : '#22c55e',
+                color: '#fff',
+                border: 'none',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: '0.2s'
+              }}
+            >
+              {selectedRestaurant.isOpen !== false ? 'Close Restaurant' : 'Open Restaurant'}
+            </button>
           </div>
         </div>
       </div>
@@ -818,6 +888,15 @@ function RestaurantDashboard() {
           </div>
           <div className="card-value">Rs. {aov}</div>
           <div className="card-description">Per completed receipt</div>
+        </div>
+
+        <div className="metric-card commission" style={{ borderLeft: '4px solid var(--color-tandoori)' }}>
+          <div className="card-header">
+            <span className="card-title">Platform Commission</span>
+            <span className="card-icon">🏷️</span>
+          </div>
+          <div className="card-value" style={{ color: 'var(--color-tandoori)' }}>{platformSettings?.commission || 15}%</div>
+          <div className="card-description">Fixed platform deduction per order</div>
         </div>
       </div>
 
@@ -1189,14 +1268,40 @@ function RestaurantDashboard() {
 
                 <div className="form-group">
                   <label htmlFor="item-category">Category *</label>
-                  <input
-                    type="text"
+                  <select
                     id="item-category"
                     value={menuForm.category}
                     onChange={(e) => setMenuForm({ ...menuForm, category: e.target.value })}
-                    placeholder="e.g. Breads, BBQ, Burgers"
                     required
-                  />
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid #d1d5db',
+                      backgroundColor: '#ffffff',
+                      fontSize: '14px',
+                      color: '#1f2937'
+                    }}
+                  >
+                    {dbCategories.length > 0 ? (
+                      dbCategories.map(c => (
+                        <option key={c._id || c.name} value={c.name}>
+                          {c.icon ? `${c.icon} ` : ''}{c.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Naan">🫓 Naan</option>
+                        <option value="Breads">🍞 Breads</option>
+                        <option value="Burgers">🍔 Burgers</option>
+                        <option value="BBQ">🍢 BBQ</option>
+                        <option value="Curries">🍲 Curries</option>
+                        <option value="Rice">🍚 Rice</option>
+                        <option value="Desserts">🍰 Desserts</option>
+                        <option value="Beverages">🥤 Beverages</option>
+                      </>
+                    )}
+                  </select>
                 </div>
               </div>
 
@@ -1213,33 +1318,39 @@ function RestaurantDashboard() {
               </div>
 
               <div className="form-group">
-                <label>Choose Image Cover Template:</label>
-                <div className="image-templates-row">
-                  {IMAGE_TEMPLATES.map(t => {
-                    const isSelected = menuForm.image === t.url;
-                    return (
-                      <button
-                        type="button"
-                        key={t.name}
-                        className={`template-selector-btn ${isSelected ? 'active' : ''}`}
-                        onClick={() => setMenuForm({ ...menuForm, image: t.url })}
-                      >
-                        {t.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="item-image-url">Or Custom Image URL</label>
+                <label htmlFor="item-file">Upload Item Image (From Local Device) *</label>
                 <input
-                  type="url"
-                  id="item-image-url"
-                  value={menuForm.image}
-                  onChange={(e) => setMenuForm({ ...menuForm, image: e.target.value })}
-                  placeholder="Paste direct HTTPS link here"
+                  type="file"
+                  id="item-file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setMenuForm(prev => ({
+                        ...prev,
+                        imageFile: file,
+                        imagePreview: URL.createObjectURL(file)
+                      }));
+                    }
+                  }}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: '#ffffff',
+                    width: '100%'
+                  }}
                 />
+                {(menuForm.imagePreview || menuForm.image) && (
+                  <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <img
+                      src={menuForm.imagePreview || menuForm.image}
+                      alt="Preview"
+                      style={{ width: '80px', height: '80px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e5e7eb' }}
+                    />
+                    <span style={{ fontSize: '12px', color: '#6b7280' }}>Current Image Preview</span>
+                  </div>
+                )}
               </div>
 
               <div className="modal-action-row">

@@ -30,38 +30,73 @@ router.get('/:id', auth, restrictTo('admin'), async (req, res) => {
   }
 });
 
+// @route   PUT /api/users/toggle-online
+// @desc    Toggle online status for rider
+router.put('/toggle-online', auth, restrictTo('rider'), async (req, res) => {
+  try {
+    let user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (req.body.isOnline !== undefined) {
+      user.isOnline = req.body.isOnline;
+    } else {
+      user.isOnline = !user.isOnline;
+    }
+
+    await user.save();
+    res.json({ isOnline: user.isOnline });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
 // @route   PUT /api/users/:id/status
-// @desc    Update user status (e.g. approve rider/manager)
+// @desc    Update user status (e.g. approve rider/manager, block customer with reason)
 router.put('/:id/status', auth, restrictTo('admin'), async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, blockReason } = req.body;
     let user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.status = status;
-    user.rejectionReason = ''; // Clear rejection reason on approve
+    if (status === 'approved') {
+      user.rejectionReason = ''; // Clear rejection reason on approve
+      user.blockReason = '';
+    }
+
+    if (status === 'blocked' && blockReason) {
+      user.blockReason = blockReason;
+    }
     
-    // Auto create restaurant if manager is approved
-    if (status === 'approved' && user.role === 'manager') {
+    // Auto create/update restaurant if manager status changes
+    if (user.role === 'manager') {
       const Restaurant = require('../models/Restaurant');
       let rest = await Restaurant.findOne({ managerId: user._id });
-      if (!rest) {
-        rest = new Restaurant({
-          name: user.restaurantName || `${user.name}'s Restaurant`,
-          managerId: user._id,
-          address: user.restaurantAddress,
-          city: user.city,
-          phone: user.restaurantPhone,
-          email: user.restaurantEmail,
-          logo: user.logo,
-          image: user.cover,
-          cuisine: "Multiple Cuisines",
-          status: 'approved'
-        });
-        await rest.save();
-      } else {
-        rest.status = 'approved';
-        await rest.save();
+      if (status === 'approved') {
+        if (!rest) {
+          rest = new Restaurant({
+            name: user.restaurantName || `${user.name}'s Restaurant`,
+            managerId: user._id,
+            address: user.restaurantAddress,
+            city: user.city,
+            phone: user.restaurantPhone,
+            email: user.restaurantEmail,
+            logo: user.logo,
+            image: user.cover,
+            cuisine: "Multiple Cuisines",
+            status: 'approved'
+          });
+          await rest.save();
+        } else {
+          rest.status = 'approved';
+          await rest.save();
+        }
+      } else if (status === 'blocked') {
+        if (rest) {
+          rest.status = 'suspended';
+          await rest.save();
+        }
       }
     }
 
@@ -88,6 +123,30 @@ router.put('/:id/reject', auth, restrictTo('admin'), async (req, res) => {
     if (user.role === 'manager') {
       const Restaurant = require('../models/Restaurant');
       await Restaurant.findOneAndUpdate({ managerId: user._id }, { status: 'rejected' });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// @route   PUT /api/users/:id/revoke
+// @desc    Revoke approval for restaurant or rider with reason
+router.put('/:id/revoke', auth, restrictTo('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    let user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.status = 'revoked';
+    user.rejectionReason = reason || 'Approval status revoked by administrator.';
+    await user.save();
+    
+    if (user.role === 'manager') {
+      const Restaurant = require('../models/Restaurant');
+      await Restaurant.findOneAndUpdate({ managerId: user._id }, { status: 'revoked' });
     }
 
     res.json(user);

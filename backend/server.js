@@ -15,6 +15,7 @@ const promotionRoutes = require('./routes/promotions');
 const notificationRoutes = require('./routes/notifications');
 const withdrawalRoutes = require('./routes/withdrawals');
 const settingsRoutes = require('./routes/settings');
+const categoryRoutes = require('./routes/categories');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Root route
 app.get('/', (req, res) => {

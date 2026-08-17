@@ -14,17 +14,21 @@ import RiderDashboard from './pages/RiderDashboard/RiderDashboard';
 import AuthPage from './pages/AuthPage/AuthPage';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
-import { TOP_RESTAURANTS } from './data/restaurants';
+import BlockedPage from './pages/BlockedPage/BlockedPage';
+import { useAuth } from './context/AuthContext';
 import './index.css'; // The CSS file for the layout below
 
 function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
+  const { user } = useAuth();
 
-  // Initialize dummy data from local storage removed as we now use backend API.
+  const showNavbar = location.pathname !== '/login' && location.pathname !== '/admin-dashboard' && location.pathname !== '/blocked';
 
-  const showNavbar = location.pathname !== '/login' && location.pathname !== '/admin-dashboard';
+  if (user && user.status === 'blocked' && location.pathname !== '/blocked' && location.pathname !== '/login') {
+    return <BlockedPage />;
+  }
 
   return (
     <div className="app-container">
@@ -50,6 +54,7 @@ function App() {
         <Route path="/rider-dashboard" element={<RiderDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/login" element={<AuthPage />} />
+        <Route path="/blocked" element={<BlockedPage />} />
       </Routes>
     </div>
   );

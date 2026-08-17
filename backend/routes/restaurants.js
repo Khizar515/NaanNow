@@ -4,12 +4,36 @@ const Restaurant = require('../models/Restaurant');
 const { auth, restrictTo } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
+const Order = require('../models/Order');
+
+// Helper to compute ratings & review count from orders
+const getRestaurantRatings = async (restaurantId) => {
+  const orders = await Order.find({
+    restaurantId: restaurantId,
+    'rating.restaurantRating': { $exists: true, $ne: null }
+  });
+  if (orders.length === 0) {
+    return { rating: 0, reviewCount: 0 };
+  }
+  const total = orders.reduce((sum, o) => sum + (o.rating.restaurantRating || 0), 0);
+  const avg = Number((total / orders.length).toFixed(1));
+  return { rating: avg, reviewCount: orders.length };
+};
+
 // @route   GET /api/restaurants
 // @desc    Get all restaurants
 router.get('/', async (req, res) => {
   try {
-    const restaurants = await Restaurant.find();
-    res.json(restaurants);
+    const restaurants = await Restaurant.find().lean();
+    const enriched = await Promise.all(restaurants.map(async (r) => {
+      const stats = await getRestaurantRatings(r._id);
+      return {
+        ...r,
+        rating: stats.rating > 0 ? stats.rating : r.rating || 0,
+        reviewCount: stats.reviewCount
+      };
+    }));
+    res.json(enriched);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
@@ -24,7 +48,11 @@ router.get('/manager/me', auth, restrictTo('manager'), async (req, res) => {
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found for this manager' });
     }
-    res.json(restaurant);
+    const stats = await getRestaurantRatings(restaurant._id);
+    const result = restaurant.toObject();
+    result.rating = stats.rating > 0 ? stats.rating : result.rating || 0;
+    result.reviewCount = stats.reviewCount;
+    res.json(result);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
@@ -39,12 +67,41 @@ router.get('/:id', async (req, res) => {
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
-    res.json(restaurant);
+    const stats = await getRestaurantRatings(restaurant._id);
+    const result = restaurant.toObject();
+    result.rating = stats.rating > 0 ? stats.rating : result.rating || 0;
+    result.reviewCount = stats.reviewCount;
+    res.json(result);
   } catch (err) {
     console.error(err.message);
     if(err.kind === 'ObjectId') {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
+    res.status(500).send('Server error');
+  }
+});
+
+// @route   PUT /api/restaurants/:id/toggle-open
+// @desc    Toggle restaurant open/closed status (Manager)
+router.put('/:id/toggle-open', auth, restrictTo('manager'), async (req, res) => {
+  try {
+    let restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+
+    if (restaurant.managerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (req.body.isOpen !== undefined) {
+      restaurant.isOpen = req.body.isOpen;
+    } else {
+      restaurant.isOpen = !restaurant.isOpen;
+    }
+
+    await restaurant.save();
+    res.json(restaurant);
+  } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server error');
   }
 });

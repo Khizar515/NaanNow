@@ -256,6 +256,11 @@ function AdminDashboard() {
   // ------------------------------------------------------------------------
   // 1. Initial Seeding and Database Loading
   // ------------------------------------------------------------------------
+  const [categories, setCategories] = useState([]);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('🍽️');
+  const [editingCat, setEditingCat] = useState(null); // { _id, name, icon }
+
   useEffect(() => {
     // Auth Check & Load Data
     const initAdmin = async () => {
@@ -282,7 +287,8 @@ function AdminDashboard() {
           ticketsData,
           promotionsData,
           withdrawalsData,
-          settingsData
+          settingsData,
+          categoriesData
         ] = await Promise.all([
           api.getAllUsers(),
           api.getOrders(),
@@ -290,7 +296,8 @@ function AdminDashboard() {
           api.getTickets().catch(() => []),
           api.getPromotions().catch(() => []),
           api.getWithdrawals().catch(() => []),
-          api.getSettings().catch(() => platformSettings)
+          api.getSettings().catch(() => platformSettings),
+          api.getCategories().catch(() => [])
         ]);
 
         setUsers(usersData);
@@ -300,6 +307,7 @@ function AdminDashboard() {
         setPromotions(promotionsData);
         setWithdrawals(withdrawalsData);
         setPlatformSettings(settingsData);
+        setCategories(categoriesData);
       } catch (err) {
         console.error("Failed to load admin data:", err);
       }
@@ -387,27 +395,6 @@ function AdminDashboard() {
         });
         return updated;
       });
-
-      // 2. Random Live Activity event triggers
-      const eventChance = Math.random();
-      if (eventChance > 0.6) {
-        const events = [
-          { type: "order", text: "Order #NN-194823 has been accepted by Caffeine & Co.", status: "success" },
-          { type: "rider", text: "Rider Ali Khan received delivery assignment for NN-827364", status: "info" },
-          { type: "complaint", text: "Customer complaint ticket TK-102 updated", status: "error" },
-          { type: "order", text: "Order #NN-827364 status changed to Preparing", status: "warning" },
-          { type: "restaurant", text: "New restaurant request: Khyber Shinwari (F-7)", status: "info" }
-        ];
-        const randomEvent = events[Math.floor(Math.random() * events.length)];
-        const newEvent = {
-          id: Date.now(),
-          type: randomEvent.type,
-          text: randomEvent.text,
-          time: "Just now",
-          status: randomEvent.status
-        };
-        setLiveActivities(prev => [newEvent, ...prev.slice(0, 10)]);
-      }
     }, 6000);
 
     return () => clearInterval(interval);
@@ -481,7 +468,7 @@ function AdminDashboard() {
         api.getWithdrawals().catch(() => []),
         api.getSettings().catch(() => platformSettings)
       ]);
-      
+
       setUsers(usersData);
       setOrders(ordersData);
       setRestaurants(restaurantsData);
@@ -494,24 +481,45 @@ function AdminDashboard() {
     }
   };
 
+  // Helper to resolve MongoDB ObjectId from email or id
+  const resolveUserId = (identifier) => {
+    if (!identifier) return null;
+    const found = users.find(u => u._id === identifier || u.email === identifier || u.id === identifier);
+    return found ? found._id : identifier;
+  };
+
   // User Verification Actions
-  const handleApproveUser = async (userId, role) => {
+  const handleApproveUser = async (identifier, role) => {
+    const userId = resolveUserId(identifier);
     try {
       await api.updateUserStatus(userId, 'approved');
       await reloadAdminData();
       triggerToast(`${role.toUpperCase()} approved successfully!`);
 
       // Sync modals
-      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
-      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
+      if (selectedRider && (selectedRider._id === userId || selectedRider.email === identifier)) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
+      if (selectedRestaurant && (selectedRestaurant._id === userId || selectedRestaurant.email === identifier)) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
     } catch (err) {
       console.error(err);
       triggerToast('Failed to approve user', 'error');
     }
   };
 
-  const handleOpenReject = (userId, name, role) => {
-    setRejectionModal({ type: role, userId, name });
+  const handleOpenReject = (identifier, name, role) => {
+    const userId = resolveUserId(identifier);
+    setRejectionModal({ type: role, action: 'reject', userId, name });
+    setRejectionInput('');
+  };
+
+  const handleOpenRevoke = (identifier, name, role) => {
+    const userId = resolveUserId(identifier);
+    setRejectionModal({ type: role, action: 'revoke', userId, name });
+    setRejectionInput('');
+  };
+
+  const handleOpenBlockCustomer = (identifier, name) => {
+    const userId = resolveUserId(identifier);
+    setRejectionModal({ type: 'customer', action: 'block', userId, name });
     setRejectionInput('');
   };
 
@@ -520,48 +528,61 @@ function AdminDashboard() {
       alert("Please specify a reason.");
       return;
     }
-    const { userId, type } = rejectionModal;
+    const { userId: rawId, type, action } = rejectionModal;
+    const userId = resolveUserId(rawId);
     try {
-      await api.rejectUser(userId, rejectionInput.trim());
+      if (action === 'revoke') {
+        await api.revokeUser(userId, rejectionInput.trim());
+        triggerToast(`${type.toUpperCase()} approval revoked.`);
+      } else if (action === 'block') {
+        await api.updateUserStatusWithReason(userId, 'blocked', rejectionInput.trim());
+        triggerToast(`Customer account blocked.`);
+      } else {
+        await api.rejectUser(userId, rejectionInput.trim());
+        triggerToast(`${type.toUpperCase()} rejected. Notes saved.`);
+      }
       await reloadAdminData();
-      triggerToast(`${type.toUpperCase()} rejected. Notes saved.`);
       setRejectionModal(null);
 
       // Sync modal
-      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'rejected', rejectionReason: rejectionInput }));
-      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'rejected', rejectionReason: rejectionInput }));
+      const newStatus = action === 'revoke' ? 'revoked' : action === 'block' ? 'blocked' : 'rejected';
+      if (selectedRider && (selectedRider._id === userId || selectedRider.email === rawId)) setSelectedRider(prev => ({ ...prev, status: newStatus, rejectionReason: rejectionInput }));
+      if (selectedRestaurant && (selectedRestaurant._id === userId || selectedRestaurant.email === rawId)) setSelectedRestaurant(prev => ({ ...prev, status: newStatus, rejectionReason: rejectionInput }));
+      if (selectedCustomer && (selectedCustomer._id === userId || selectedCustomer.email === rawId)) setSelectedCustomer(prev => ({ ...prev, status: newStatus, blockReason: rejectionInput }));
     } catch (err) {
       console.error(err);
-      triggerToast('Failed to reject user', 'error');
+      triggerToast(`Failed to ${action || 'process'} request`, 'error');
     }
   };
 
-  const handleSuspendUser = async (userId, role) => {
+  const handleSuspendUser = async (identifier, role) => {
+    const userId = resolveUserId(identifier);
     try {
       await api.updateUserStatus(userId, 'blocked');
       await reloadAdminData();
       triggerToast(`${role.toUpperCase()} account suspended.`);
 
       // Sync modal
-      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'blocked' }));
-      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'blocked' }));
-      if (selectedCustomer && selectedCustomer._id === userId) setSelectedCustomer(prev => ({ ...prev, status: 'blocked' }));
+      if (selectedRider && (selectedRider._id === userId || selectedRider.email === identifier)) setSelectedRider(prev => ({ ...prev, status: 'blocked' }));
+      if (selectedRestaurant && (selectedRestaurant._id === userId || selectedRestaurant.email === identifier)) setSelectedRestaurant(prev => ({ ...prev, status: 'blocked' }));
+      if (selectedCustomer && (selectedCustomer._id === userId || selectedCustomer.email === identifier)) setSelectedCustomer(prev => ({ ...prev, status: 'blocked' }));
     } catch (err) {
       console.error(err);
       triggerToast('Failed to suspend user', 'error');
     }
   };
 
-  const handleUnblockUser = async (userId, role) => {
+  const handleUnblockUser = async (identifier, role) => {
+    const userId = resolveUserId(identifier);
     try {
       await api.updateUserStatus(userId, 'approved');
       await reloadAdminData();
       triggerToast(`${role.toUpperCase()} account reactivated.`);
 
       // Sync modal
-      if (selectedRider && selectedRider._id === userId) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
-      if (selectedRestaurant && selectedRestaurant._id === userId) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
-      if (selectedCustomer && selectedCustomer._id === userId) setSelectedCustomer(prev => ({ ...prev, status: 'approved' }));
+      if (selectedRider && (selectedRider._id === userId || selectedRider.email === identifier)) setSelectedRider(prev => ({ ...prev, status: 'approved' }));
+      if (selectedRestaurant && (selectedRestaurant._id === userId || selectedRestaurant.email === identifier)) setSelectedRestaurant(prev => ({ ...prev, status: 'approved' }));
+      if (selectedCustomer && (selectedCustomer._id === userId || selectedCustomer.email === identifier)) setSelectedCustomer(prev => ({ ...prev, status: 'approved' }));
     } catch (err) {
       console.error(err);
       triggerToast('Failed to unblock user', 'error');
@@ -789,6 +810,46 @@ function AdminDashboard() {
     navigate('/login');
   };
 
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    try {
+      const added = await api.createCategory(newCatName.trim(), newCatIcon.trim() || '🍽️');
+      setCategories(prev => [...prev, added]);
+      setNewCatName('');
+      triggerToast(`Category "${added.name}" added to database!`);
+    } catch (err) {
+      console.error(err);
+      triggerToast(err.message || 'Failed to add category', 'error');
+    }
+  };
+
+  const handleSaveEditCategory = async (e) => {
+    e.preventDefault();
+    if (!editingCat || !editingCat.name.trim()) return;
+    try {
+      const updated = await api.updateCategory(editingCat._id, { name: editingCat.name.trim(), icon: editingCat.icon });
+      setCategories(prev => prev.map(c => c._id === editingCat._id ? updated : c));
+      setEditingCat(null);
+      triggerToast(`Category updated successfully!`);
+    } catch (err) {
+      console.error(err);
+      triggerToast(err.message || 'Failed to update category', 'error');
+    }
+  };
+
+  const handleDeleteCategory = async (catId) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    try {
+      await api.deleteCategory(catId);
+      setCategories(prev => prev.filter(c => c._id !== catId));
+      triggerToast(`Category removed from database.`);
+    } catch (err) {
+      console.error(err);
+      triggerToast('Failed to delete category', 'error');
+    }
+  };
+
   // ------------------------------------------------------------------------
   // Data Filtering Engine
   // ------------------------------------------------------------------------
@@ -799,6 +860,7 @@ function AdminDashboard() {
 
   const pendingApprovalsCount = users.filter(u => (u.status === 'pending' || u.status === 'unverified') && (u.role === 'rider' || u.role === 'manager')).length;
   const ridersCount = users.filter(u => u.role === 'rider').length;
+  const onlineRidersCount = users.filter(u => u.role === 'rider' && u.isOnline === true).length;
   const managersCount = users.filter(u => u.role === 'manager').length;
   const customersCount = users.filter(u => u.role === 'customer').length;
 
@@ -1259,14 +1321,14 @@ function AdminDashboard() {
 
                           <div className="metric-card">
                             <div className="metric-card-header">
-                              <span className="metric-card-title">Active Riders</span>
+                              <span className="metric-card-title">Online Riders</span>
                               <div className="metric-icon-box"><Icon name="riders" /></div>
                             </div>
                             <div className="metric-card-body">
-                              <span className="metric-num">{ridersCount}</span>
-                              <span className="metric-trend trend-up">● Online</span>
+                              <span className="metric-num">{onlineRidersCount}</span>
+                              <span className="metric-trend trend-up">● Active Now</span>
                             </div>
-                            <span className="metric-card-footer">Approved delivery fleet</span>
+                            <span className="metric-card-footer">{ridersCount} total registered riders</span>
                           </div>
 
                           <div className="metric-card">
@@ -1540,22 +1602,55 @@ function AdminDashboard() {
                       </div>
                       <div className="activity-list">
                         {(() => {
+                          const formatAMPM = (dateObj) => {
+                            if (!dateObj) return 'N/A';
+                            const d = new Date(dateObj);
+                            return d.toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true
+                            });
+                          };
+
                           const realStream = [
                             ...orders.map(o => ({
                               id: `ord-${o._id}`,
+                              rawDate: new Date(o.createdAt || Date.now()),
                               type: 'order',
                               status: o.status === 'delivered' || o.status === 'completed' ? 'approved' : 'pending',
-                              text: `Order ${o.orderNumber || o._id.toString().slice(-4)} (${o.restaurantId?.name || 'Restaurant'}) - Rs. ${(o.totalAmount || 0).toLocaleString()}`,
-                              time: new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              text: `Order ${o.orderNumber || '#' + o._id.toString().slice(-4)} (${o.restaurantId?.name || 'Restaurant'}) - Rs. ${(o.totalAmount || 0).toLocaleString()}`,
+                              time: formatAMPM(o.createdAt)
                             })),
-                            ...users.filter(u => u.role !== 'customer').map(u => ({
+                            ...users.map(u => ({
                               id: `usr-${u._id}`,
-                              type: u.role === 'rider' ? 'rider' : 'restaurant',
+                              rawDate: new Date(u.createdAt || Date.now()),
+                              type: u.role === 'rider' ? 'rider' : u.role === 'manager' ? 'restaurant' : 'customer',
                               status: u.status || 'approved',
-                              text: `${u.role === 'rider' ? 'Rider' : 'Manager'} ${u.name} status: ${u.status || 'approved'}`,
-                              time: new Date(u.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              text: `${u.role.toUpperCase()} Account (${u.name}) registered / updated. Status: ${u.status || 'approved'}`,
+                              time: formatAMPM(u.createdAt)
+                            })),
+                            ...tickets.map(t => ({
+                              id: `tkt-${t._id}`,
+                              rawDate: new Date(t.createdAt || Date.now()),
+                              type: 'ticket',
+                              status: t.status === 'Open' ? 'pending' : 'approved',
+                              text: `Support Ticket "${t.subject}" created. Status: ${t.status}`,
+                              time: formatAMPM(t.createdAt)
+                            })),
+                            ...withdrawals.map(w => ({
+                              id: `wth-${w._id}`,
+                              rawDate: new Date(w.createdAt || Date.now()),
+                              type: 'withdrawal',
+                              status: w.status === 'Completed' ? 'approved' : 'pending',
+                              text: `Withdrawal payout request of Rs. ${w.amount.toLocaleString()} (${w.method})`,
+                              time: formatAMPM(w.createdAt)
                             }))
-                          ].slice(0, 10);
+                          ]
+                            .sort((a, b) => b.rawDate - a.rawDate)
+                            .slice(0, 15);
 
                           return realStream.map((act) => (
                             <div className="activity-item" key={act.id}>
@@ -1563,12 +1658,15 @@ function AdminDashboard() {
                                 {act.type === 'order' && '📦'}
                                 {act.type === 'rider' && '🛵'}
                                 {act.type === 'restaurant' && '🏪'}
+                                {act.type === 'customer' && '👤'}
+                                {act.type === 'ticket' && '🎫'}
+                                {act.type === 'withdrawal' && '💳'}
                               </div>
                               <div className="activity-info">
                                 <p className="activity-title-text">{act.text}</p>
-                                <span className="activity-desc-text">NaanNow Live Hub Tracker</span>
+                                <span className="activity-desc-text">Database Event Log</span>
                               </div>
-                              <span className="activity-time-lbl">{act.time}</span>
+                              <span className="activity-time-lbl" style={{ whiteSpace: 'nowrap', fontSize: '11px' }}>{act.time}</span>
                             </div>
                           ));
                         })()}
@@ -1757,8 +1855,8 @@ function AdminDashboard() {
                                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{manager.phone || manager.email}</span>
                                 </div>
                               </td>
-                              <td>⭐ {manager.rating || '4.5'}</td>
-                              <td style={{ fontWeight: '600' }}>{manager.commissionRate || platformSettings.commission}%</td>
+                              <td>⭐ {manager.rating ? Number(manager.rating).toFixed(1) : '0.0 (New)'}</td>
+                              <td style={{ fontWeight: '600' }}>{platformSettings.commission}%</td>
                               <td>
                                 <span className={`status-pill ${(manager.status || 'approved').toLowerCase()}`}>
                                   {manager.status || 'approved'}
@@ -1882,7 +1980,7 @@ function AdminDashboard() {
                   <div className="page-header">
                     <div className="page-title-desc">
                       <h1>Customer Accounts Matrix</h1>
-                      <p>View customer profiles, orders history, loyalty points balances, and toggle account suspensions.</p>
+                      <p>View customer profiles, ordering history, account statuses, and manage account blocks with reasons.</p>
                     </div>
                   </div>
 
@@ -1890,7 +1988,7 @@ function AdminDashboard() {
                     <div className="filter-left">
                       <button className={`filter-chip ${customerFilter === 'all' ? 'active' : ''}`} onClick={() => setCustomerFilter('all')}>All Accounts</button>
                       <button className={`filter-chip ${customerFilter === 'approved' ? 'active' : ''}`} onClick={() => setCustomerFilter('approved')}>Active / Normal</button>
-                      <button className={`filter-chip ${customerFilter === 'blocked' ? 'active' : ''}`} onClick={() => setCustomerFilter('blocked')}>Suspended / Fraudulent</button>
+                      <button className={`filter-chip ${customerFilter === 'blocked' ? 'active' : ''}`} onClick={() => setCustomerFilter('blocked')}>Suspended / Blocked</button>
                     </div>
                   </div>
 
@@ -1901,7 +1999,6 @@ function AdminDashboard() {
                           <th>Customer Info</th>
                           <th>Total Orders</th>
                           <th>Spending Ledger</th>
-                          <th>Loyalty Points</th>
                           <th>Status</th>
                           <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
@@ -1909,7 +2006,7 @@ function AdminDashboard() {
                       <tbody>
                         {getFilteredCustomers().length === 0 ? (
                           <tr>
-                            <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                            <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                               No customer accounts match criteria.
                             </td>
                           </tr>
@@ -1920,16 +2017,15 @@ function AdminDashboard() {
                                 <div className="avatar-cell">
                                   <div className="avatar-initials" style={{ backgroundColor: 'var(--accent-color)' }}>C</div>
                                   <div>
-                                    <span className="user-fullname">{customer.name || "Muhammad Saad"}</span>
+                                    <span className="user-fullname">{customer.name}</span>
                                     <span className="user-subinfo" style={{ display: 'block' }}>{customer.email}</span>
                                   </div>
                                 </div>
                               </td>
-                              <td style={{ fontWeight: '500' }}>{orders.filter(o => o.phone === customer.phone || o.name === customer.name).length || 2} Orders</td>
+                              <td style={{ fontWeight: '500' }}>{orders.filter(o => o.phone === customer.phone || o.name === customer.name || (o.customerId && o.customerId._id === customer._id)).length} Orders</td>
                               <td style={{ fontWeight: '600', color: 'var(--accent-color)' }}>
-                                Rs. {(orders.filter(o => o.phone === customer.phone || o.name === customer.name).reduce((s, o) => s + (o.grandTotal || 0), 0) || 2610).toLocaleString()}
+                                Rs. {(orders.filter(o => o.phone === customer.phone || o.name === customer.name || (o.customerId && o.customerId._id === customer._id)).reduce((s, o) => s + (o.grandTotal || o.totalAmount || 0), 0)).toLocaleString()}
                               </td>
-                              <td>💎 {customer.loyaltyPoints || 350} Points</td>
                               <td>
                                 <span className={`status-pill ${(customer.status || 'approved').toLowerCase()}`}>
                                   {customer.status || 'approved'}
@@ -1999,8 +2095,8 @@ function AdminDashboard() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                          <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleApproveUser(pending.email, pending.role)}>Approve</button>
-                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenReject(pending.email, pending.name, pending.role)}>Reject Checks</button>
+                          <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleApproveUser(pending._id || pending.email, pending.role)}>Approve</button>
+                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenReject(pending._id || pending.email, pending.name, pending.role)}>Reject Checks</button>
                         </div>
                       </div>
                     ))}
@@ -2021,25 +2117,115 @@ function AdminDashboard() {
                   <div className="page-header">
                     <div className="page-title-desc">
                       <h1>Menu Categorization Matrix</h1>
-                      <p>Create and structure universal categories allowed on the platform.</p>
+                      <p>Create, edit, and structure universal categories allowed for restaurant partner menus across NaanNow.</p>
                     </div>
                   </div>
 
-                  <div className="activity-grid">
-                    <div className="chart-card">
-                      <h3>Active Global Categories</h3>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '20px 0' }}>
-                        {["Burgers", "Pasta", "Rice", "BBQ", "Breads", "Curries", "Desserts", "Coffee", "Bakery", "Beverages", "Noodles", "Starters"].map(cat => (
-                          <span key={cat} className="filter-chip active" style={{ padding: '8px 16px' }}>{cat}</span>
-                        ))}
+                  {/* Add New Category Form */}
+                  <div className="chart-card" style={{ marginBottom: '24px' }}>
+                    <h3>➕ Add New Platform Category</h3>
+                    <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap' }}>
+                      <input
+                        type="text"
+                        placeholder="Category Icon Emoji (e.g. 🍕, 🍔, 🥤)"
+                        value={newCatIcon}
+                        onChange={(e) => setNewCatIcon(e.target.value)}
+                        className="form-control-input"
+                        style={{ width: '80px', textAlign: 'center', fontSize: '18px' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Category Title (e.g. Pizza, Shakes, Rolls)"
+                        value={newCatName}
+                        onChange={(e) => setNewCatName(e.target.value)}
+                        className="form-control-input"
+                        style={{ flex: 1, minWidth: '200px' }}
+                        required
+                      />
+                      <button type="submit" className="btn-primary" style={{ padding: '10px 20px' }}>
+                        Add Category to DB
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Edit Category Modal / Overlay */}
+                  {editingCat && (
+                    <div className="modal-overlay" style={{ zIndex: 3000 }}>
+                      <div className="modal-content-card" style={{ maxWidth: '450px', padding: '24px' }}>
+                        <h3 style={{ marginBottom: '16px' }}>✏️ Edit Category: {editingCat.name}</h3>
+                        <form onSubmit={handleSaveEditCategory} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                          <div>
+                            <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Emoji Icon</label>
+                            <input
+                              type="text"
+                              value={editingCat.icon}
+                              onChange={(e) => setEditingCat({ ...editingCat, icon: e.target.value })}
+                              className="form-control-input"
+                              style={{ width: '100%', fontSize: '16px' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Category Name</label>
+                            <input
+                              type="text"
+                              value={editingCat.name}
+                              onChange={(e) => setEditingCat({ ...editingCat, name: e.target.value })}
+                              className="form-control-input"
+                              style={{ width: '100%' }}
+                              required
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                            <button type="button" className="btn-secondary" onClick={() => setEditingCat(null)}>Cancel</button>
+                            <button type="submit" className="btn-primary">Save Changes</button>
+                          </div>
+                        </form>
                       </div>
                     </div>
+                  )}
 
-                    <div className="chart-card">
-                      <h3>Category Settings & Permissions</h3>
-                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                        To map categories dynamically to partner menus, administrators can edit individual menu catalogs within the Restaurant Profile details modules.
-                      </p>
+                  <div className="chart-card">
+                    <h3>Active Database Menu Categories ({categories.length})</h3>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                      Restaurant managers select from these database categories when creating or editing menu items.
+                    </p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
+                      {categories.map(cat => (
+                        <div
+                          key={cat._id || cat.name}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justify: 'space-between',
+                            padding: '12px 16px',
+                            borderRadius: '12px',
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '20px' }}>{cat.icon || '🍽️'}</span>
+                            <span style={{ fontWeight: '600', fontSize: '14px' }}>{cat.name}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={() => setEditingCat({ _id: cat._id, name: cat.name, icon: cat.icon || '🍽️' })}
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
+                              title="Edit Category"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCategory(cat._id)}
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
+                              title="Delete Category"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -2679,28 +2865,16 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Commission Adjuster */}
+              {/* Global Platform Commission Info */}
               <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                <h4>Adjust Platform Commission (%)</h4>
-                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                  <input
-                    type="number"
-                    className="form-control-input"
-                    style={{ width: '120px' }}
-                    defaultValue={selectedRestaurant.commissionRate || platformSettings.commission}
-                    onBlur={(e) => {
-                      const updatedUsers = users.map(u => {
-                        if (u.email === selectedRestaurant.email) {
-                          return { ...u, commissionRate: Number(e.target.value) };
-                        }
-                        return u;
-                      });
-                      setUsers(updatedUsers);
-                      localStorage.setItem('naannow_registeredUsers', JSON.stringify(updatedUsers));
-                      triggerToast(`Commission set to ${e.target.value}% for ${selectedRestaurant.restaurantName}`);
-                    }}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>% commission is deducted per transaction split.</span>
+                <h4>Platform Commission Rate</h4>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 'bold', backgroundColor: 'rgba(229,121,25,0.1)', color: 'var(--color-tandoori)', padding: '6px 14px', borderRadius: '8px' }}>
+                    {platformSettings.commission}%
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Standard global commission rate applied to all restaurant partners via Platform Settings.
+                  </span>
                 </div>
               </div>
 
@@ -2775,15 +2949,18 @@ function AdminDashboard() {
             <div className="modal-footer-section">
               {selectedRestaurant.status === 'pending' && (
                 <>
-                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRestaurant.email, 'manager')}>Approve Eatery Partner</button>
-                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRestaurant.email, selectedRestaurant.restaurantName, 'manager')}>Reject Application</button>
+                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRestaurant._id || selectedRestaurant.email, 'manager')}>Approve Eatery Partner</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRestaurant._id || selectedRestaurant.email, selectedRestaurant.restaurantName, 'manager')}>Reject Application</button>
                 </>
               )}
               {selectedRestaurant.status === 'approved' && (
-                <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRestaurant.email, 'manager')}>Suspend Account</button>
+                <>
+                  <button className="btn-secondary" style={{ color: '#d97706', borderColor: '#d97706' }} onClick={() => handleOpenRevoke(selectedRestaurant._id || selectedRestaurant.email, selectedRestaurant.restaurantName, 'manager')}>Revoke Approval Status</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRestaurant._id || selectedRestaurant.email, 'manager')}>Suspend Account</button>
+                </>
               )}
-              {selectedRestaurant.status === 'blocked' && (
-                <button className="btn-primary" onClick={() => handleUnblockUser(selectedRestaurant.email, 'manager')}>Activate Account</button>
+              {(selectedRestaurant.status === 'blocked' || selectedRestaurant.status === 'suspended' || selectedRestaurant.status === 'revoked') && (
+                <button className="btn-primary" onClick={() => handleApproveUser(selectedRestaurant._id || selectedRestaurant.email, 'manager')}>Re-Approve Restaurant</button>
               )}
               <button className="btn-secondary" onClick={() => setSelectedRestaurant(null)}>Close</button>
             </div>
@@ -2870,15 +3047,18 @@ function AdminDashboard() {
             <div className="modal-footer-section">
               {selectedRider.status === 'pending' && (
                 <>
-                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRider.email, 'rider')}>Approve Rider Partner</button>
-                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRider.email, selectedRider.name, 'rider')}>Reject Application</button>
+                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRider._id || selectedRider.email, 'rider')}>Approve Rider Partner</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRider._id || selectedRider.email, selectedRider.name, 'rider')}>Reject Application</button>
                 </>
               )}
               {selectedRider.status === 'approved' && (
-                <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRider.email, 'rider')}>Suspend Rider</button>
+                <>
+                  <button className="btn-secondary" style={{ color: '#d97706', borderColor: '#d97706' }} onClick={() => handleOpenRevoke(selectedRider._id || selectedRider.email, selectedRider.name, 'rider')}>Revoke Approval Status</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRider._id || selectedRider.email, 'rider')}>Suspend Rider</button>
+                </>
               )}
-              {selectedRider.status === 'blocked' && (
-                <button className="btn-primary" onClick={() => handleUnblockUser(selectedRider.email, 'rider')}>Reactivate Rider</button>
+              {(selectedRider.status === 'blocked' || selectedRider.status === 'revoked' || selectedRider.status === 'rejected') && (
+                <button className="btn-primary" onClick={() => handleApproveUser(selectedRider._id || selectedRider.email, 'rider')}>Re-Approve Rider</button>
               )}
               <button className="btn-secondary" onClick={() => setSelectedRider(null)}>Close</button>
             </div>
@@ -2893,7 +3073,7 @@ function AdminDashboard() {
         <div className="modal-overlay" onClick={() => setSelectedCustomer(null)}>
           <div className="modal-content-card" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header-section">
-              <h3>Customer Profile Logs: {selectedCustomer.name || "Muhammad Saad"}</h3>
+              <h3>Customer Profile Logs: {selectedCustomer.name}</h3>
               <button className="modal-close-icon" onClick={() => setSelectedCustomer(null)}>&times;</button>
             </div>
 
@@ -2909,25 +3089,26 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Saved addresses mock logs */}
-              <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                <h4>Loyalty Ledger</h4>
-                <p>💎 Customer currently has <strong>{selectedCustomer.loyaltyPoints || 350}</strong> Loyalty Points.</p>
-              </div>
+              {selectedCustomer.status === 'blocked' && selectedCustomer.blockReason && (
+                <div style={{ marginTop: '16px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', padding: '12px 16px', borderRadius: '8px', color: '#991b1b' }}>
+                  <strong>Block Reason specified:</strong>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px' }}>"{selectedCustomer.blockReason}"</p>
+                </div>
+              )}
 
               <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                <h4>Fraud Suspect Prevention</h4>
+                <h4>Account Management</h4>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                  Suspended accounts are locked out of ordering and cart checkout immediately.
+                  Blocked customers are prevented from accessing the store homepage or ordering.
                 </p>
               </div>
             </div>
 
             <div className="modal-footer-section">
               {selectedCustomer.status === 'blocked' ? (
-                <button className="btn-primary" onClick={() => handleUnblockUser(selectedCustomer.email, 'customer')}>Activate Account</button>
+                <button className="btn-primary" onClick={() => handleUnblockUser(selectedCustomer.email || selectedCustomer._id, 'customer')}>Activate Account</button>
               ) : (
-                <button className="btn-secondary" style={{ color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedCustomer.email, 'customer')}>Suspend / Flag Account</button>
+                <button className="btn-secondary" style={{ color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenBlockCustomer(selectedCustomer.email || selectedCustomer._id, selectedCustomer.name)}>Block Customer Account</button>
               )}
               <button className="btn-secondary" onClick={() => setSelectedCustomer(null)}>Close</button>
             </div>

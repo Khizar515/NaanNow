@@ -4,9 +4,12 @@ import { api } from '../../api';
 import { CartContext } from '../../components/Context/CartContext';
 import './RestaurantPage.css';
 
+import { useAuth } from '../../context/AuthContext';
+
 function RestaurantPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const {
     cartItems,
@@ -126,23 +129,39 @@ function RestaurantPage() {
             <div className="restaurant-meta-row">
               <div className="meta-item rating">
                 <span className="star">★</span>
-                <span className="rating-value">{restaurant.rating}</span>
-                <span className="review-count">(100+ ratings)</span>
+                {restaurant.rating > 0 && restaurant.reviewCount > 0 ? (
+                  <>
+                    <span className="rating-value">{restaurant.rating}</span>
+                    <span className="review-count">({restaurant.reviewCount} rating{restaurant.reviewCount === 1 ? '' : 's'})</span>
+                  </>
+                ) : (
+                  <span className="rating-value">New</span>
+                )}
               </div>
-              <span className="meta-dot">•</span>
-              <div className="meta-item time">
-                <span>🕒 {restaurant.deliveryTime}</span>
-              </div>
-              <span className="meta-dot">•</span>
-              <div className="meta-item fee">
-                <span>🛵 {restaurant.deliveryFee}</span>
-              </div>
+              {restaurant.deliveryTime && <span className="meta-dot">•</span>}
+              {restaurant.deliveryTime && (
+                <div className="meta-item time">
+                  <span>🕒 {restaurant.deliveryTime}</span>
+                </div>
+              )}
+              {restaurant.deliveryFee && <span className="meta-dot">•</span>}
+              {restaurant.deliveryFee && (
+                <div className="meta-item fee">
+                  <span>🛵 {restaurant.deliveryFee}</span>
+                </div>
+              )}
             </div>
           </div>
 
           <button
             className={`hero-fav-btn ${isFavorited ? 'active' : ''}`}
-            onClick={() => toggleFavorite(restaurant._id)}
+            onClick={() => {
+              if (!user) {
+                navigate('/login');
+              } else {
+                toggleFavorite(restaurant._id);
+              }
+            }}
             aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
           >
             <svg
@@ -156,6 +175,12 @@ function RestaurantPage() {
           </button>
         </div>
       </div>
+
+      {restaurant.isOpen === false && (
+        <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', padding: '14px 20px', borderRadius: '12px', margin: '20px auto 0', maxWidth: '1200px', width: '90%', textAlign: 'center', fontWeight: '600', fontSize: '15px' }}>
+          🔴 Restaurant is currently Closed. You can browse the menu, but ordering is disabled at this time.
+        </div>
+      )}
 
       {/* 3. Menu Section Container */}
       <div className="menu-container">
@@ -249,16 +274,21 @@ function RestaurantPage() {
                           ) : (
                             <button
                               className="add-to-cart-btn"
-                              onClick={() => addToCart({
-                                _id: item._id,
-                                name: item.name,
-                                price: item.price,
-                                image: itemImgSrc,
-                                restaurantId: restaurant._id,
-                                restaurantName: restaurant.name
-                              })}
+                              disabled={restaurant.isOpen === false}
+                              style={restaurant.isOpen === false ? { backgroundColor: '#9ca3af', cursor: 'not-allowed', opacity: 0.7 } : {}}
+                              onClick={() => {
+                                if (restaurant.isOpen === false) return;
+                                addToCart({
+                                  _id: item._id,
+                                  name: item.name,
+                                  price: item.price,
+                                  image: itemImgSrc,
+                                  restaurantId: restaurant._id,
+                                  restaurantName: restaurant.name
+                                });
+                              }}
                             >
-                              Add to Tokri
+                              {restaurant.isOpen === false ? 'Closed' : 'Add to Tokri'}
                             </button>
                           )}
                         </div>

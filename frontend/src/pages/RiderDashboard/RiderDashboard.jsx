@@ -176,16 +176,36 @@ function RiderDashboard() {
           return;
         }
         setCurrentUser(user);
+        setIsOnline(user.isOnline !== false);
       } catch (err) {
         navigate('/login');
       }
     };
+    const fetchSettings = async () => {
+      try {
+        const settings = await api.getSettings();
+        if (settings) setPlatformSettings(settings);
+      } catch (err) {
+        console.error("Failed to load platform settings:", err);
+      }
+    };
     fetchAuth();
+    fetchSettings();
   }, [navigate]);
 
   // Rider state
   const [isOnline, setIsOnline] = useState(true);
+
+  const handleToggleOnline = async (newVal) => {
+    setIsOnline(newVal);
+    try {
+      await api.toggleRiderOnline(newVal);
+    } catch (err) {
+      console.error("Failed to toggle online status:", err);
+    }
+  };
   const [activeTab, setActiveTab] = useState('available'); // 'available', 'active', 'history'
+  const [platformSettings, setPlatformSettings] = useState({ deliveryCharges: 150 });
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
@@ -518,6 +538,7 @@ function RiderDashboard() {
   }
 
   if (currentUser && currentUser.status !== 'approved') {
+    const isRevoked = currentUser.status === 'revoked';
     const isRejected = currentUser.status === 'rejected';
     const isPending = currentUser.status === 'pending';
     const isUnverified = currentUser.status === 'unverified';
@@ -538,7 +559,7 @@ function RiderDashboard() {
                 <div><strong>Full Name:</strong> {currentUser.name}</div>
                 <div><strong>CNIC Number:</strong> {currentUser.cnicNumber || 'Submitted'}</div>
                 <div><strong>Vehicle details:</strong> {currentUser.vehicleDetails || 'Submitted'}</div>
-                <div><strong>License Plate:</strong> {currentUser.licensePlate || 'Submitted'}</div>
+                <div><strong>Status:</strong> Pending Approval</div>
               </div>
             </div>
             <button className="btn-logout" onClick={() => {
@@ -548,14 +569,23 @@ function RiderDashboard() {
               Log Out
             </button>
           </div>
-        ) : (isUnverified || isRejected) ? (
-          <div className="status-card" style={{ maxWidth: '680px', textAlign: 'left', boxSizing: 'border-box', overflow: 'hidden' }}>
+        ) : (isUnverified || isRejected || isRevoked) ? (
+          <div className="status-card" style={{ maxWidth: '720px', textAlign: 'left', boxSizing: 'border-box', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
               <div>
-                <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification Portal</span>
-                <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>Rider Registration Verification</h2>
+                <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Rider Verification & Conflict Portal</span>
+                <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>
+                  {isRevoked ? '🚫 Rider Approval Revoked' : 'Rider Verification Status'}
+                </h2>
               </div>
             </div>
+
+            {isRevoked && (
+              <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '16px', borderRadius: '10px', color: '#b91c1c' }}>
+                <strong style={{ fontSize: '15px', display: 'block', marginBottom: '6px' }}>⚠️ Approval Revoked by Administrator:</strong>
+                <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.5' }}>Reason: "{currentUser.rejectionReason || 'Compliance issue detected. Please re-upload valid verification documents to request re-approval.'}"</p>
+              </div>
+            )}
 
             {isRejected && (
               <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px', borderRadius: '10px', color: '#b91c1c' }}>
@@ -585,6 +615,7 @@ function RiderDashboard() {
                     <label>Date of Birth</label>
                     <input
                       type="date"
+                      min="1930-01-01"
                       max={new Date().toISOString().split('T')[0]}
                       value={wizardData.dob}
                       onChange={(e) => {
@@ -617,7 +648,7 @@ function RiderDashboard() {
                     <label>CNIC Number</label>
                     <input
                       type="text"
-                      placeholder="e.g. 37405-1234567-3"
+                      placeholder="00000-0000000-0"
                       value={wizardData.cnicNumber}
                       onChange={(e) => setWizardData({ ...wizardData, cnicNumber: formatCNIC(e.target.value) })}
                       required
@@ -755,7 +786,7 @@ function RiderDashboard() {
                     <label>Easypaisa/JazzCash Mobile Number (Optional)</label>
                     <input
                       type="text"
-                      placeholder="e.g. 0300-1234567"
+                      placeholder="0000-0000000"
                       value={wizardData.walletNumber}
                       onChange={(e) => setWizardData({ ...wizardData, walletNumber: formatPhone(e.target.value) })}
                     />
@@ -851,7 +882,7 @@ function RiderDashboard() {
               <input
                 type="checkbox"
                 checked={isOnline}
-                onChange={(e) => setIsOnline(e.target.checked)}
+                onChange={(e) => handleToggleOnline(e.target.checked)}
               />
               <span className="slider"></span>
             </label>
@@ -875,10 +906,10 @@ function RiderDashboard() {
             </div>
           </div>
           <div className="stat-card-modern">
-            <div className="stat-icon-container">🎁</div>
+            <div className="stat-icon-container">📏</div>
             <div className="stat-info">
-              <h3>Tips Received</h3>
-              <p className="stat-value">Rs. {stats.tipsAmount}</p>
+              <h3>Per KM Delivery Rate</h3>
+              <p className="stat-value">Rs. {platformSettings?.deliveryCharges || 150} / km</p>
             </div>
           </div>
           <div className="stat-card-modern">

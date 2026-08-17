@@ -14,6 +14,10 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  if (user.status === 'blocked' && location.pathname !== '/blocked') {
+    return <Navigate to="/blocked" replace />;
+  }
+
   return children ? children : <Outlet />;
 };
 

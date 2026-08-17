@@ -50,12 +50,14 @@ const userSchema = new mongoose.Schema({
   holderName: { type: String },
 
   // Common for Rider/Manager
+  isOnline: { type: Boolean, default: false },
   status: {
     type: String,
-    enum: ['unverified', 'pending', 'approved', 'blocked', 'rejected'],
+    enum: ['unverified', 'pending', 'approved', 'blocked', 'rejected', 'revoked'],
     default: 'approved'
   },
   rejectionReason: { type: String },
+  blockReason: { type: String },
   rating: { type: Number, default: 0 },
   walletBalance: { type: Number, default: 0 }
 }, { timestamps: true });

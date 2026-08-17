@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api';
+import { formatPhone } from '../../utils/formatters';
 import './ProfilePage.css';
 
 function ProfilePage() {
+  const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
 
@@ -416,8 +419,8 @@ function ProfilePage() {
                       <input
                         type="text"
                         value={editPhone}
-                        onChange={(e) => setEditPhone(e.target.value)}
-                        placeholder="03000000000"
+                        onChange={(e) => setEditPhone(formatPhone(e.target.value))}
+                        placeholder="0000-0000000"
                       />
                     </div>
                     <div className="form-actions">

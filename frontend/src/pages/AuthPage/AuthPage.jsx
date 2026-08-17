@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { formatPhone } from '../../utils/formatters';
 import logo from '../../assets/logo-rotate.svg';
 import './AuthPage.css';
 
@@ -34,7 +35,8 @@ function AuthPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const formattedValue = name === 'phone' ? formatPhone(value) : value;
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
   };
 
   const handleSubmit = async (e) => {
@@ -177,7 +179,7 @@ function AuthPage() {
                   <input
                     type="tel"
                     name="phone"
-                    placeholder="e.g. 03263111236"
+                    placeholder="0000-0000000"
                     value={formData.phone}
                     onChange={handleChange}
                     required

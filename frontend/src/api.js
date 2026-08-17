@@ -414,5 +414,82 @@ export const api = {
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
+  },
+
+  // Toggle Restaurant Open/Closed
+  toggleRestaurantOpen: async (restaurantId, isOpen) => {
+    const res = await fetch(`${API_URL}/restaurants/${restaurantId}/toggle-open`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ isOpen })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+
+  // Toggle Rider Online/Offline
+  toggleRiderOnline: async (isOnline) => {
+    const res = await fetch(`${API_URL}/users/toggle-online`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ isOnline })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+
+  // Revoke Approval
+  revokeUser: async (id, reason) => {
+    const res = await fetch(`${API_URL}/users/${id}/revoke`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ reason })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+
+  // Update User Status with blockReason
+  updateUserStatusWithReason: async (id, status, blockReason) => {
+    const res = await fetch(`${API_URL}/users/${id}/status`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status, blockReason })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+
+  // Categories
+  getCategories: async () => {
+    const res = await fetch(`${API_URL}/categories`);
+    if (!res.ok) throw new Error('Failed to fetch categories');
+    return res.json();
+  },
+  createCategory: async (name, icon) => {
+    const res = await fetch(`${API_URL}/categories`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name, icon })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  updateCategory: async (id, data) => {
+    const res = await fetch(`${API_URL}/categories/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  deleteCategory: async (id) => {
+    const res = await fetch(`${API_URL}/categories/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
   }
 };

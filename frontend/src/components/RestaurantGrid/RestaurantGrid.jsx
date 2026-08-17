@@ -121,7 +121,11 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false, se
                   <img src={imageSrc} alt={restaurant.name} className="restaurant-img" />
                   
                   {/* Badges */}
-                  {restaurant.deal && <span className="card-badge-deal">{restaurant.deal}</span>}
+                  {restaurant.isOpen === false ? (
+                    <span className="card-badge-deal" style={{ backgroundColor: '#ef4444', color: '#fff' }}>🔴 Closed</span>
+                  ) : (
+                    restaurant.deal && <span className="card-badge-deal">{restaurant.deal}</span>
+                  )}
                   {restaurant.isSuper && <span className="card-badge-super">🎖️ Super</span>}
 
                   {/* Wishlist Button */}
@@ -129,7 +133,7 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false, se
                     className={`wishlist-btn ${isFavorited ? 'active' : ''}`}
                     aria-label={isFavorited ? "Remove from wishlist" : "Add to wishlist"}
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevents the card's click event if you wrap it in a Link later
+                      e.stopPropagation(); // Prevents the card's click event
                       if (!user) {
                         navigate('/login');
                       } else {
@@ -156,17 +160,22 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false, se
                     <h3>{restaurant.name}</h3>
                     <div className="card-rating">
                       <span className="star-icon">★</span>
-                      <span>{restaurant.rating}</span>
+                      <span>{restaurant.rating > 0 ? restaurant.rating : 'New'}</span>
                     </div>
                   </div>
-                  
                   
                   <p className="card-cuisine">{restaurant.cuisine}</p>
                   
                   <div className="card-footer-meta">
-                    <span className="meta-time">🕒 {restaurant.deliveryTime}</span>
-                    <span className="meta-divider">•</span>
-                    <span className="meta-delivery">{restaurant.deliveryFee}</span>
+                    {restaurant.deliveryTime && (
+                      <span className="meta-time">🕒 {restaurant.deliveryTime}</span>
+                    )}
+                    {restaurant.deliveryTime && restaurant.deliveryFee && (
+                      <span className="meta-divider">•</span>
+                    )}
+                    {restaurant.deliveryFee && (
+                      <span className="meta-delivery">🛵 {restaurant.deliveryFee}</span>
+                    )}
                   </div>
                 </div>
               </div>

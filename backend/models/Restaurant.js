@@ -24,7 +24,8 @@ const restaurantSchema = new mongoose.Schema({
   deal: { type: String },
   menu: [menuItemSchema],
   managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  status: { type: String, enum: ['pending', 'approved', 'suspended', 'rejected'], default: 'approved' }
+  isOpen: { type: Boolean, default: true },
+  status: { type: String, enum: ['pending', 'approved', 'suspended', 'rejected', 'revoked'], default: 'approved' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Restaurant', restaurantSchema);

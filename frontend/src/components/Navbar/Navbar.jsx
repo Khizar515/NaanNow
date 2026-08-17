@@ -260,6 +260,20 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
               {isProfileOpen && (
                 <div className="profile-dropdown">
                   <ul>
+                    {currentUser && currentUser.role !== 'customer' && (
+                      <li 
+                        style={{ fontWeight: 'bold', color: 'var(--color-tandoori)', borderBottom: '1px solid #f3f4f6' }}
+                        onClick={() => {
+                          const target = currentUser.role === 'admin' ? '/admin-dashboard' :
+                                         currentUser.role === 'rider' ? '/rider-dashboard' :
+                                         currentUser.role === 'manager' ? '/restaurant-dashboard' : '/';
+                          navigate(target);
+                          setIsProfileOpen(false);
+                        }}
+                      >
+                        Go to My Portal
+                      </li>
+                    )}
                     <li onClick={() => { navigate('/profile'); setIsProfileOpen(false); }}>Profile</li>
                     <li onClick={() => setIsProfileOpen(false)}>Help Center</li>
                     <li className="logout-item" onClick={handleLogout}>Logout</li>
