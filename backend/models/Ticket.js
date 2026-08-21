@@ -1,14 +1,26 @@
 const mongoose = require('mongoose');
 
 const chatMessageSchema = new mongoose.Schema({
-  sender: { type: String, enum: ['customer', 'support'], required: true },
+  sender: { type: String, enum: ['customer', 'manager', 'rider', 'support'], required: true },
   text: { type: String, required: true },
+  attachments: [{ type: String }],
   time: { type: Date, default: Date.now }
 });
 
 const ticketSchema = new mongoose.Schema({
   ticketNumber: { type: String, required: true, unique: true },
-  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Alias for backward compatibility
+  userRole: {
+    type: String,
+    enum: ['customer', 'manager', 'rider'],
+    default: 'customer'
+  },
+  ticketType: {
+    type: String,
+    enum: ['general', 'unban'],
+    default: 'general'
+  },
   subject: { type: String, required: true },
   status: {
     type: String,
@@ -21,7 +33,11 @@ const ticketSchema = new mongoose.Schema({
     default: 'medium'
   },
   assignedTo: { type: String },
+  adminAction: { type: String, default: '' },
+  closedAt: { type: Date },
+  closedBy: { type: String },
   chat: [chatMessageSchema]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Ticket', ticketSchema);
+

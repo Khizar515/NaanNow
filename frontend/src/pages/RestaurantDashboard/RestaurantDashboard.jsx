@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import BlockedTicketWidget from '../../components/BlockedTicketWidget/BlockedTicketWidget';
 import './RestaurantDashboard.css';
 
 // Quick selection templates for menu items to avoid manual URL input frustration
@@ -792,11 +793,22 @@ function RestaurantDashboard() {
             </button>
           </div>
         ) : (
-          <div className="status-card" style={{ maxWidth: '600px' }}>
-            <div className="status-icon">⏳</div>
-            <h2>Status: {currentUser.status}</h2>
-            <p className="status-message">Your account status is currently <strong>{currentUser.status}</strong>. Please contact admin for assistance.</p>
-            <button className="btn-logout" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }}>Log Out</button>
+          <div className="status-card" style={{ maxWidth: '680px', textAlign: 'center' }}>
+            <div className="status-icon">🔒</div>
+            <h2 style={{ color: '#991b1b', marginBottom: '8px' }}>Restaurant Manager Account Suspended</h2>
+            <p className="status-message" style={{ fontSize: '15px', color: '#4b5563', lineHeight: '1.6', marginBottom: '20px' }}>
+              Your restaurant manager account has been suspended by system administration.
+            </p>
+            <div className="submitted-details-box" style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px', textAlign: 'left', marginBottom: '20px', fontSize: '14px', color: '#7f1d1d' }}>
+              <strong style={{ display: 'block', marginBottom: '4px', color: '#991b1b', textTransform: 'uppercase', fontSize: '12px' }}>Reason for Suspension:</strong>
+              "{currentUser.blockReason || 'Violation of platform terms or merchant guidelines.'}"
+            </div>
+
+            <BlockedTicketWidget user={currentUser} />
+
+            <button className="btn-logout" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }} style={{ marginTop: '24px' }}>
+              Sign Out & Return to Login
+            </button>
           </div>
         )}
       </div>
@@ -1231,10 +1243,13 @@ function RestaurantDashboard() {
       {/* CRUD Add/Edit Dialog Modal Popup */}
       {isModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content-card">
-            <div className="modal-header">
-              <h2>{modalMode === 'add' ? '➕ Add New Menu Item' : '✏️ Edit Menu Item'}</h2>
-              <button className="close-modal-x" onClick={() => setIsModalOpen(false)}>×</button>
+          <div className="modal-content-card menu-config-modal">
+            <div className="modal-header menu-modal-header">
+              <div className="modal-title-wrap">
+                <span className="modal-title-badge">Menu Configurator</span>
+                <h2>{modalMode === 'add' ? '✨ Add New Menu Item' : '✏️ Edit Menu Item'}</h2>
+              </div>
+              <button className="close-modal-x" onClick={() => setIsModalOpen(false)} aria-label="Close modal">×</button>
             </div>
 
             <form onSubmit={handleSaveMenuItem} className="modal-form">
@@ -1247,7 +1262,7 @@ function RestaurantDashboard() {
                   id="item-name"
                   value={menuForm.name}
                   onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })}
-                  placeholder="e.g. Garlic Cheese Naan"
+                  placeholder="e.g. Special Garlic Cheese Naan"
                   required
                 />
               </div>
@@ -1260,7 +1275,7 @@ function RestaurantDashboard() {
                     id="item-price"
                     value={menuForm.price}
                     onChange={(e) => setMenuForm({ ...menuForm, price: e.target.value })}
-                    placeholder="e.g. 180"
+                    placeholder="e.g. 250"
                     min="1"
                     required
                   />
@@ -1270,18 +1285,10 @@ function RestaurantDashboard() {
                   <label htmlFor="item-category">Category *</label>
                   <select
                     id="item-category"
+                    className="menu-category-select"
                     value={menuForm.category}
                     onChange={(e) => setMenuForm({ ...menuForm, category: e.target.value })}
                     required
-                    style={{
-                      width: '100%',
-                      padding: '12px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #d1d5db',
-                      backgroundColor: '#ffffff',
-                      fontSize: '14px',
-                      color: '#1f2937'
-                    }}
                   >
                     {dbCategories.length > 0 ? (
                       dbCategories.map(c => (
@@ -1306,49 +1313,52 @@ function RestaurantDashboard() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="item-desc">Description *</label>
+                <label htmlFor="item-desc">Item Description *</label>
                 <textarea
                   id="item-desc"
                   value={menuForm.description}
                   onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })}
-                  placeholder="Describe details, sizes, spices or ingredients..."
+                  placeholder="Describe delicious details, fresh ingredients, or portion size..."
                   rows="3"
                   required
                 ></textarea>
               </div>
 
               <div className="form-group">
-                <label htmlFor="item-file">Upload Item Image (From Local Device) *</label>
-                <input
-                  type="file"
-                  id="item-file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      setMenuForm(prev => ({
-                        ...prev,
-                        imageFile: file,
-                        imagePreview: URL.createObjectURL(file)
-                      }));
-                    }
-                  }}
-                  style={{
-                    padding: '8px',
-                    borderRadius: '8px',
-                    border: '1px solid #d1d5db',
-                    backgroundColor: '#ffffff',
-                    width: '100%'
-                  }}
-                />
+                <label htmlFor="item-file">Item Image (Upload From Device) *</label>
+                <div className="file-upload-zone">
+                  <input
+                    type="file"
+                    id="item-file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setMenuForm(prev => ({
+                          ...prev,
+                          imageFile: file,
+                          imagePreview: URL.createObjectURL(file)
+                        }));
+                      }
+                    }}
+                  />
+                  <div className="upload-prompt">
+                    <span className="upload-icon">📸</span>
+                    <span className="upload-text">Click or drag image file here</span>
+                    <span className="upload-subtext">Supports PNG, JPG, WEBP (Max 5MB)</span>
+                  </div>
+                </div>
                 {(menuForm.imagePreview || menuForm.image) && (
-                  <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="image-preview-container">
                     <img
                       src={menuForm.imagePreview || menuForm.image}
-                      alt="Preview"
-                      style={{ width: '80px', height: '80px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e5e7eb' }}
+                      alt="Menu Item Preview"
+                      className="preview-img"
                     />
-                    <span style={{ fontSize: '12px', color: '#6b7280' }}>Current Image Preview</span>
+                    <div className="preview-label">
+                      <strong>Image Selected</strong>
+                      <span>Ready to display on menu</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1362,7 +1372,7 @@ function RestaurantDashboard() {
                   Cancel
                 </button>
                 <button type="submit" className="btn-save">
-                  {modalMode === 'add' ? 'Add to Menu' : 'Save Changes'}
+                  {modalMode === 'add' ? '➕ Add to Menu' : '💾 Save Changes'}
                 </button>
               </div>
             </form>

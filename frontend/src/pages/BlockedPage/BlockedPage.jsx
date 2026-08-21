@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import BlockedTicketWidget from '../../components/BlockedTicketWidget/BlockedTicketWidget';
 import './BlockedPage.css';
 
 function BlockedPage() {
@@ -18,7 +19,7 @@ function BlockedPage() {
         <div className="blocked-icon">🔒</div>
         <h2>Account Suspended</h2>
         <p className="blocked-subheading">
-          Your NaanNow customer account has been blocked by the system administrator.
+          Your NaanNow customer account has been suspended by the system administrator.
         </p>
 
         <div className="blocked-reason-box">
@@ -28,16 +29,10 @@ function BlockedPage() {
           </p>
         </div>
 
-        <div className="blocked-instructions">
-          <h4>How to Resolve & Reactivate Your Account:</h4>
-          <ul>
-            <li>Please contact support at <strong>support@naannow.com</strong> or call <strong>+92 51 111-622-666</strong>.</li>
-            <li>Provide your registered account email: <code>{user?.email}</code>.</li>
-            <li>Our administrative team will review your appeal and reactivate your account once resolved.</li>
-          </ul>
-        </div>
+        {/* IN-APP TICKET SYSTEM WIDGET */}
+        <BlockedTicketWidget user={user} />
 
-        <button className="blocked-logout-btn" onClick={handleLogout}>
+        <button className="blocked-logout-btn" onClick={handleLogout} style={{ marginTop: '24px' }}>
           Sign Out & Return to Login
         </button>
       </div>
@@ -46,3 +41,4 @@ function BlockedPage() {
 }
 
 export default BlockedPage;
+

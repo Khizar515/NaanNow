@@ -207,6 +207,10 @@ function AdminDashboard() {
   const [zoomedDoc, setZoomedDoc] = useState(null);
   const [activeTicket, setActiveTicket] = useState(null);
 
+  // Support Desk Filter & Action States
+  const [ticketFilterTab, setTicketFilterTab] = useState('all'); // 'all', 'unban', 'general'
+  const [ticketAdminAction, setTicketAdminAction] = useState(''); // '', 'unban', 'pending_docs', 'keep_blocked'
+
   // Dialog confirmations / inputs
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, text, actionType, payload, onConfirm }
   const [rejectionModal, setRejectionModal] = useState(null); // { type: 'rider'|'restaurant', email, name }
@@ -517,9 +521,9 @@ function AdminDashboard() {
     setRejectionInput('');
   };
 
-  const handleOpenBlockCustomer = (identifier, name) => {
+  const handleOpenBlockUser = (identifier, name, role = 'customer') => {
     const userId = resolveUserId(identifier);
-    setRejectionModal({ type: 'customer', action: 'block', userId, name });
+    setRejectionModal({ type: role, action: 'block', userId, name });
     setRejectionInput('');
   };
 
@@ -533,21 +537,21 @@ function AdminDashboard() {
     try {
       if (action === 'revoke') {
         await api.revokeUser(userId, rejectionInput.trim());
-        triggerToast(`${type.toUpperCase()} approval revoked.`);
+        triggerToast(`${(type || 'User').toUpperCase()} approval revoked.`);
       } else if (action === 'block') {
         await api.updateUserStatusWithReason(userId, 'blocked', rejectionInput.trim());
-        triggerToast(`Customer account blocked.`);
+        triggerToast(`${(type || 'User').toUpperCase()} account blocked with reason saved.`);
       } else {
         await api.rejectUser(userId, rejectionInput.trim());
-        triggerToast(`${type.toUpperCase()} rejected. Notes saved.`);
+        triggerToast(`${(type || 'User').toUpperCase()} rejected. Notes saved.`);
       }
       await reloadAdminData();
       setRejectionModal(null);
 
       // Sync modal
       const newStatus = action === 'revoke' ? 'revoked' : action === 'block' ? 'blocked' : 'rejected';
-      if (selectedRider && (selectedRider._id === userId || selectedRider.email === rawId)) setSelectedRider(prev => ({ ...prev, status: newStatus, rejectionReason: rejectionInput }));
-      if (selectedRestaurant && (selectedRestaurant._id === userId || selectedRestaurant.email === rawId)) setSelectedRestaurant(prev => ({ ...prev, status: newStatus, rejectionReason: rejectionInput }));
+      if (selectedRider && (selectedRider._id === userId || selectedRider.email === rawId)) setSelectedRider(prev => ({ ...prev, status: newStatus, blockReason: rejectionInput, rejectionReason: rejectionInput }));
+      if (selectedRestaurant && (selectedRestaurant._id === userId || selectedRestaurant.email === rawId)) setSelectedRestaurant(prev => ({ ...prev, status: newStatus, blockReason: rejectionInput, rejectionReason: rejectionInput }));
       if (selectedCustomer && (selectedCustomer._id === userId || selectedCustomer.email === rawId)) setSelectedCustomer(prev => ({ ...prev, status: newStatus, blockReason: rejectionInput }));
     } catch (err) {
       console.error(err);
@@ -636,17 +640,32 @@ function AdminDashboard() {
 
   // Support Reply Send
   const handleSendSupportReply = async (ticketId) => {
-    if (!supportReplyText.trim()) return;
+    if (!supportReplyText.trim() && !ticketAdminAction) return;
 
     try {
-      const updatedTicket = await api.replyToTicket(ticketId, supportReplyText.trim());
+      const updatedTicket = await api.replyToTicket(ticketId, supportReplyText.trim(), ticketAdminAction);
       await reloadAdminData();
       setSupportReplyText('');
-      triggerToast("Reply sent to customer ticket!");
+      setTicketAdminAction('');
+      triggerToast("Reply sent & ticket updated!");
       setActiveTicket(updatedTicket);
     } catch (err) {
       console.error(err);
-      triggerToast('Failed to send reply', 'error');
+      triggerToast(err.message || 'Failed to send reply', 'error');
+    }
+  };
+
+  const handleCloseTicket = async (ticketId) => {
+    try {
+      const updatedTicket = await api.closeTicket(ticketId, ticketAdminAction);
+      await reloadAdminData();
+      setSupportReplyText('');
+      setTicketAdminAction('');
+      triggerToast("Ticket closed successfully.");
+      setActiveTicket(updatedTicket);
+    } catch (err) {
+      console.error(err);
+      triggerToast(err.message || 'Failed to close ticket', 'error');
     }
   };
 
@@ -814,7 +833,7 @@ function AdminDashboard() {
     e.preventDefault();
     if (!newCatName.trim()) return;
     try {
-      const added = await api.createCategory(newCatName.trim(), newCatIcon.trim() || '🍽️');
+      const added = await api.createCategory(newCatName.trim());
       setCategories(prev => [...prev, added]);
       setNewCatName('');
       triggerToast(`Category "${added.name}" added to database!`);
@@ -828,7 +847,7 @@ function AdminDashboard() {
     e.preventDefault();
     if (!editingCat || !editingCat.name.trim()) return;
     try {
-      const updated = await api.updateCategory(editingCat._id, { name: editingCat.name.trim(), icon: editingCat.icon });
+      const updated = await api.updateCategory(editingCat._id, { name: editingCat.name.trim() });
       setCategories(prev => prev.map(c => c._id === editingCat._id ? updated : c));
       setEditingCat(null);
       triggerToast(`Category updated successfully!`);
@@ -2459,56 +2478,116 @@ function AdminDashboard() {
                 <div>
                   <div className="page-header">
                     <div className="page-title-desc">
-                      <h1>Customer Support Desk</h1>
-                      <p>Resolve complaint issues, respond to customer inquiries, and assign tickets.</p>
+                      <h1>Customer & Partner Support Desk</h1>
+                      <p>Resolve tickets, process account unban requests, send replies, and close completed tickets.</p>
                     </div>
                   </div>
 
-                  <div className="activity-grid" style={{ gridTemplateColumns: '320px 1fr' }}>
+                  {/* Filter chips for ticket type */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                    <button
+                      className={`filter-chip ${ticketFilterTab === 'all' ? 'active' : ''}`}
+                      onClick={() => setTicketFilterTab('all')}
+                    >
+                      All Tickets ({tickets.length})
+                    </button>
+                    <button
+                      className={`filter-chip ${ticketFilterTab === 'unban' ? 'active' : ''}`}
+                      onClick={() => setTicketFilterTab('unban')}
+                    >
+                      Unban Appeals ({tickets.filter(t => t.ticketType === 'unban').length})
+                    </button>
+                    <button
+                      className={`filter-chip ${ticketFilterTab === 'general' ? 'active' : ''}`}
+                      onClick={() => setTicketFilterTab('general')}
+                    >
+                      General Inquiries ({tickets.filter(t => t.ticketType !== 'unban').length})
+                    </button>
+                  </div>
+
+                  <div className="activity-grid" style={{ gridTemplateColumns: '360px 1fr' }}>
                     {/* Tickets List */}
-                    <div className="chart-card" style={{ padding: '16px', height: '500px' }}>
-                      <strong>Active Tickets ({tickets.length})</strong>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px', overflowY: 'auto', flex: 1 }}>
-                        {tickets.map(t => (
-                          <div
-                            key={t.id}
-                            style={{
-                              padding: '12px',
-                              borderRadius: '10px',
-                              backgroundColor: activeTicket?.id === t.id ? 'var(--accent-light)' : 'var(--bg-primary)',
-                              border: activeTicket?.id === t.id ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
-                              cursor: 'pointer'
-                            }}
-                            onClick={() => {
-                              setActiveTicket(t);
-                              setSupportReplyText('');
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <strong style={{ fontSize: '13px' }}>{t.id}</strong>
-                              <span className={`status-pill ${t.status === 'Open' ? 'cancelled' : 'approved'}`} style={{ padding: '2px 6px', fontSize: '9px' }}>{t.status}</span>
-                            </div>
-                            <span style={{ fontSize: '12px', fontWeight: '600', display: 'block', margin: '4px 0' }}>{t.subject}</span>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.customerName}</span>
-                          </div>
-                        ))}
+                    <div className="chart-card" style={{ padding: '16px', height: '560px', display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '14px', marginBottom: '8px' }}>Support Tickets Queue</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+                        {tickets
+                          .filter(t => {
+                            if (ticketFilterTab === 'unban') return t.ticketType === 'unban';
+                            if (ticketFilterTab === 'general') return t.ticketType !== 'unban';
+                            return true;
+                          })
+                          .map(t => {
+                            const userObj = t.userId || t.customerId;
+                            const userName = userObj?.name || t.customerName || 'User';
+                            const userRole = t.userRole || userObj?.role || 'customer';
+                            const isUnban = t.ticketType === 'unban';
+
+                            return (
+                              <div
+                                key={t._id || t.id}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '10px',
+                                  backgroundColor: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? 'var(--accent-light)' : 'var(--bg-primary)',
+                                  border: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  setActiveTicket(t);
+                                  setSupportReplyText('');
+                                  setTicketAdminAction(t.adminAction || '');
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                  <strong style={{ fontSize: '13px', color: 'var(--accent-color)' }}>{t.ticketNumber || t.id}</strong>
+                                  <span className={`status-pill ${t.status === 'closed' ? 'cancelled' : t.status === 'open' ? 'warning' : 'approved'}`} style={{ padding: '2px 6px', fontSize: '9px' }}>
+                                    {t.status.toUpperCase()}
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: '13px', fontWeight: '600', display: 'block', margin: '2px 0' }}>{t.subject}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  <span>{userName} ({userRole})</span>
+                                  {isUnban && (
+                                    <span style={{ backgroundColor: '#fef2f2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: '600', fontSize: '10px' }}>
+                                      UNBAN APPEAL
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        {tickets.length === 0 && (
+                          <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>
+                            No support tickets found.
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    {/* Chat Logs Window */}
-                    <div className="chart-card" style={{ height: '500px' }}>
+                    {/* Chat Logs & Resolution Window */}
+                    <div className="chart-card" style={{ height: '560px', display: 'flex', flexDirection: 'column' }}>
                       {activeTicket ? (
                         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '12px' }}>
+                          {/* Header Bar */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '12px' }}>
                             <div>
-                              <h4>Subject: {activeTicket.subject}</h4>
-                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>From: {activeTicket.customerName} ({activeTicket.customerEmail})</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--accent-color)' }}>{activeTicket.ticketNumber || activeTicket.id}</span>
+                                <span className={`status-pill ${activeTicket.status === 'closed' ? 'cancelled' : 'approved'}`} style={{ fontSize: '10px' }}>
+                                  {activeTicket.status.toUpperCase()}
+                                </span>
+                              </div>
+                              <h4 style={{ fontSize: '15px', margin: '2px 0' }}>{activeTicket.subject}</h4>
+                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                Requester: <strong>{(activeTicket.userId || activeTicket.customerId)?.name || activeTicket.customerName}</strong> ({(activeTicket.userId || activeTicket.customerId)?.email || activeTicket.customerEmail}) • Role: <strong style={{ textTransform: 'capitalize' }}>{activeTicket.userRole || 'customer'}</strong>
+                              </span>
                             </div>
-                            <div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                               <select
                                 className="select-filter-box"
                                 value={activeTicket.assignedTo || ""}
-                                onChange={(e) => handleAssignTicket(activeTicket.id, e.target.value)}
+                                onChange={(e) => handleAssignTicket(activeTicket._id || activeTicket.id, e.target.value)}
                               >
                                 <option value="">Assign Specialist...</option>
                                 <option value="Specialist Ali">Specialist Ali</option>
@@ -2517,33 +2596,75 @@ function AdminDashboard() {
                             </div>
                           </div>
 
-                          <div className="support-chat-container">
-                            <div className="chat-messages-area">
-                              {activeTicket.chat.map((msg, i) => (
-                                <div key={i} className={`chat-bubble ${msg.sender}`}>
-                                  <span className="chat-sender-lbl">{msg.sender.toUpperCase()} • {msg.time}</span>
-                                  {msg.text}
-                                </div>
-                              ))}
+                          {/* Admin Action Control Row */}
+                          {activeTicket.status !== 'closed' && (
+                            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                                🛠 Admin Decision / Resolution Action:
+                              </label>
+                              <select
+                                className="select-filter-box"
+                                style={{ fontSize: '12px', padding: '6px 10px' }}
+                                value={ticketAdminAction}
+                                onChange={(e) => setTicketAdminAction(e.target.value)}
+                              >
+                                <option value="">Select Action (Optional)...</option>
+                                <option value="unban">🔓 Unban Account Immediately</option>
+                                <option value="pending_docs">📝 Request Additional Documents</option>
+                                <option value="keep_blocked">🚫 Keep Account Suspended</option>
+                              </select>
                             </div>
-                            <div className="chat-input-row">
-                              <input
-                                type="text"
-                                className="chat-input-box"
-                                placeholder="Type support reply or refund instructions..."
-                                value={supportReplyText}
-                                onChange={(e) => setSupportReplyText(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendSupportReply(activeTicket.id)}
-                              />
-                              <button className="btn-primary" onClick={() => handleSendSupportReply(activeTicket.id)}>
-                                Send Reply <Icon name="plane" size={14} />
-                              </button>
+                          )}
+
+                          {/* Chat Messages */}
+                          <div className="support-chat-container" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <div className="chat-messages-area" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                              {activeTicket.chat && activeTicket.chat.length > 0 ? (
+                                activeTicket.chat.map((msg, i) => (
+                                  <div key={i} className={`chat-bubble ${msg.sender === 'support' ? 'support' : 'customer'}`}>
+                                    <span className="chat-sender-lbl">
+                                      {msg.sender.toUpperCase()} • {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {msg.text}
+                                  </div>
+                                ))
+                              ) : (
+                                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginTop: '20px' }}>No chat messages in this ticket.</p>
+                              )}
                             </div>
+
+                            {/* CHAT INPUT OR STRICT CLOSED BANNER */}
+                            {activeTicket.status === 'closed' ? (
+                              <div style={{ marginTop: '12px', padding: '14px', backgroundColor: '#f1f5f9', border: '1.5px dashed #cbd5e1', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: '#475569', fontWeight: '600' }}>
+                                🔒 This ticket has been closed by {activeTicket.closedBy || 'Admin'}. No further messages can be sent by anyone.
+                              </div>
+                            ) : (
+                              <div className="chat-input-row" style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                                <input
+                                  type="text"
+                                  className="chat-input-box"
+                                  placeholder="Type support reply or instructions..."
+                                  value={supportReplyText}
+                                  onChange={(e) => setSupportReplyText(e.target.value)}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleSendSupportReply(activeTicket._id || activeTicket.id)}
+                                />
+                                <button className="btn-primary" onClick={() => handleSendSupportReply(activeTicket._id || activeTicket.id)}>
+                                  Send Reply
+                                </button>
+                                <button
+                                  className="btn-secondary"
+                                  style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#ef4444', fontWeight: '700' }}
+                                  onClick={() => handleCloseTicket(activeTicket._id || activeTicket.id)}
+                                >
+                                  🔒 Close Ticket
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
-                          👈 Select a support ticket complaint to open chat logs & assign specialist.
+                          👈 Select a support ticket to view chat thread & manage appeal decisions.
                         </div>
                       )}
                     </div>
@@ -2956,7 +3077,7 @@ function AdminDashboard() {
               {selectedRestaurant.status === 'approved' && (
                 <>
                   <button className="btn-secondary" style={{ color: '#d97706', borderColor: '#d97706' }} onClick={() => handleOpenRevoke(selectedRestaurant._id || selectedRestaurant.email, selectedRestaurant.restaurantName, 'manager')}>Revoke Approval Status</button>
-                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRestaurant._id || selectedRestaurant.email, 'manager')}>Suspend Account</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenBlockUser(selectedRestaurant._id || selectedRestaurant.email, selectedRestaurant.restaurantName, 'manager')}>Suspend Account</button>
                 </>
               )}
               {(selectedRestaurant.status === 'blocked' || selectedRestaurant.status === 'suspended' || selectedRestaurant.status === 'revoked') && (
@@ -3054,7 +3175,7 @@ function AdminDashboard() {
               {selectedRider.status === 'approved' && (
                 <>
                   <button className="btn-secondary" style={{ color: '#d97706', borderColor: '#d97706' }} onClick={() => handleOpenRevoke(selectedRider._id || selectedRider.email, selectedRider.name, 'rider')}>Revoke Approval Status</button>
-                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRider._id || selectedRider.email, 'rider')}>Suspend Rider</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenBlockUser(selectedRider._id || selectedRider.email, selectedRider.name, 'rider')}>Suspend Rider</button>
                 </>
               )}
               {(selectedRider.status === 'blocked' || selectedRider.status === 'revoked' || selectedRider.status === 'rejected') && (
@@ -3108,7 +3229,7 @@ function AdminDashboard() {
               {selectedCustomer.status === 'blocked' ? (
                 <button className="btn-primary" onClick={() => handleUnblockUser(selectedCustomer.email || selectedCustomer._id, 'customer')}>Activate Account</button>
               ) : (
-                <button className="btn-secondary" style={{ color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenBlockCustomer(selectedCustomer.email || selectedCustomer._id, selectedCustomer.name)}>Block Customer Account</button>
+                <button className="btn-secondary" style={{ color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenBlockUser(selectedCustomer.email || selectedCustomer._id, selectedCustomer.name, 'customer')}>Block Customer Account</button>
               )}
               <button className="btn-secondary" onClick={() => setSelectedCustomer(null)}>Close</button>
             </div>

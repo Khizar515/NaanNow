@@ -1,0 +1,338 @@
+.blocked-ticket-widget {
+  background-color: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  padding: 24px;
+  margin-top: 20px;
+  text-align: left;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.widget-header {
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 12px;
+}
+
+.widget-header h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-roasted, #4F2E1D);
+  margin-bottom: 4px;
+}
+
+.widget-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.widget-error-banner {
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.blocked-widget-loading {
+  padding: 20px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Form section */
+.create-ticket-box {
+  background-color: #fafafa;
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.create-ticket-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 6px;
+}
+
+.create-ticket-desc {
+  font-size: 13px;
+  color: #4b5563;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.widget-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.widget-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.widget-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.widget-form-group input,
+.widget-form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+  background-color: #ffffff;
+}
+
+.widget-form-group input:focus,
+.widget-form-group textarea:focus {
+  border-color: var(--color-tandoori, #E57919);
+}
+
+.widget-submit-btn {
+  background-color: var(--color-tandoori, #E57919);
+  color: #ffffff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background-color 0.2s ease;
+}
+
+.widget-submit-btn:hover {
+  background-color: #c96510;
+}
+
+.widget-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Active Thread Box */
+.ticket-thread-box {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ticket-summary-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.ticket-id-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticket-id-tag {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+
+}
+
+.ticket-subject-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ticket-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.ticket-status-pill.open {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.ticket-status-pill.in_progress {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.ticket-status-pill.resolved {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.ticket-status-pill.closed {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.admin-action-banner {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.admin-action-banner.unban {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+/* Chat Messages */
+.widget-chat-messages {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+}
+
+.empty-chat-note {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 20px;
+}
+
+.widget-message-bubble {
+  max-width: 82%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.widget-message-bubble.user-bubble {
+  align-self: flex-end;
+  background-color: var(--color-tandoori, #E57919);
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.widget-message-bubble.support-bubble {
+  align-self: flex-start;
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.bubble-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.user-bubble .sender-name {
+  color: #ffedd5;
+  font-weight: 600;
+}
+
+.support-bubble .sender-name {
+  color: #0369a1;
+  font-weight: 700;
+}
+
+.user-bubble .message-time {
+  color: #fed7aa;
+}
+
+.support-bubble .message-time {
+  color: #94a3b8;
+}
+
+.bubble-text {
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Chat Input */
+.widget-chat-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.widget-chat-input-row input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.widget-chat-input-row input:focus {
+  border-color: var(--color-tandoori, #E57919);
+}
+
+.widget-chat-input-row button {
+  padding: 12px 20px;
+  background-color: var(--color-tandoori, #E57919);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.widget-chat-input-row button:hover {
+  background-color: #c96510;
+}
+
+.widget-chat-input-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Ticket Closed Banner */
+.ticket-closed-locked-banner {
+  background-color: #f1f5f9;
+  border: 1.5px dashed #cbd5e1;
+  color: #475569;
+  padding: 14px 18px;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+}

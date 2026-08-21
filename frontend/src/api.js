@@ -318,20 +318,29 @@ export const api = {
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
-  createTicket: async (subject, initialMessage) => {
+  createTicket: async (subject, initialMessage, ticketType = 'general') => {
     const res = await fetch(`${API_URL}/tickets`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ subject, initialMessage })
+      body: JSON.stringify({ subject, initialMessage, ticketType })
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
-  replyToTicket: async (id, text) => {
+  replyToTicket: async (id, text, adminAction = '') => {
     const res = await fetch(`${API_URL}/tickets/${id}/reply`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text, adminAction })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  closeTicket: async (id, adminAction = '') => {
+    const res = await fetch(`${API_URL}/tickets/${id}/close`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ adminAction })
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
@@ -466,11 +475,11 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch categories');
     return res.json();
   },
-  createCategory: async (name, icon) => {
+  createCategory: async (name) => {
     const res = await fetch(`${API_URL}/categories`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ name, icon })
+      body: JSON.stringify({ name })
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();

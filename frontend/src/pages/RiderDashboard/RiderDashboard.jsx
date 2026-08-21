@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import BlockedTicketWidget from '../../components/BlockedTicketWidget/BlockedTicketWidget';
 import './RiderDashboard.css';
 
 // Load Leaflet dynamically to avoid React 19 dependency peer resolution issues
@@ -842,11 +843,22 @@ function RiderDashboard() {
             </button>
           </div>
         ) : (
-          <div className="status-card" style={{ maxWidth: '600px' }}>
-            <div className="status-icon">⏳</div>
-            <h2>Status: {currentUser.status}</h2>
-            <p className="status-message">Your account status is currently <strong>{currentUser.status}</strong>. Please contact admin for assistance.</p>
-            <button className="btn-logout" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }}>Log Out</button>
+          <div className="status-card" style={{ maxWidth: '680px', textAlign: 'center' }}>
+            <div className="status-icon">🔒</div>
+            <h2 style={{ color: '#991b1b', marginBottom: '8px' }}>Rider Account Suspended</h2>
+            <p className="status-message" style={{ fontSize: '15px', color: '#4b5563', lineHeight: '1.6', marginBottom: '20px' }}>
+              Your rider account has been suspended by system administration.
+            </p>
+            <div className="submitted-details-box" style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px', textAlign: 'left', marginBottom: '20px', fontSize: '14px', color: '#7f1d1d' }}>
+              <strong style={{ display: 'block', marginBottom: '4px', color: '#991b1b', textTransform: 'uppercase', fontSize: '12px' }}>Reason for Suspension:</strong>
+              "{currentUser.blockReason || 'Violation of platform terms or rider safety guidelines.'}"
+            </div>
+
+            <BlockedTicketWidget user={currentUser} />
+
+            <button className="btn-logout" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }} style={{ marginTop: '24px' }}>
+              Sign Out & Return to Login
+            </button>
           </div>
         )}
       </div>

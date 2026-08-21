@@ -5,16 +5,16 @@ const { auth, restrictTo } = require('../middleware/auth');
 
 // Default initial categories
 const DEFAULT_CATEGORIES = [
-  { name: 'Naan', icon: '🫓' },
-  { name: 'Breads', icon: '🍞' },
-  { name: 'Burgers', icon: '🍔' },
-  { name: 'BBQ', icon: '🍢' },
-  { name: 'Curries', icon: '🍲' },
-  { name: 'Rice', icon: '🍚' },
-  { name: 'Pasta', icon: '🍝' },
-  { name: 'Beverages', icon: '🥤' },
-  { name: 'Desserts', icon: '🍰' },
-  { name: 'Starters', icon: '🥗' }
+  { name: 'Naan' },
+  { name: 'Breads' },
+  { name: 'Burgers' },
+  { name: 'BBQ' },
+  { name: 'Curries' },
+  { name: 'Rice' },
+  { name: 'Pasta' },
+  { name: 'Beverages' },
+  { name: 'Desserts' },
+  { name: 'Starters' }
 ];
 
 // Helper to seed categories if empty
@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
 // @desc    Add a category (Admin only)
 router.post('/', auth, restrictTo('admin'), async (req, res) => {
   try {
-    const { name, icon } = req.body;
+    const { name } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Category name is required' });
     }
@@ -53,8 +53,7 @@ router.post('/', auth, restrictTo('admin'), async (req, res) => {
     }
 
     category = new Category({
-      name: name.trim(),
-      icon: icon || '🍽️'
+      name: name.trim()
     });
 
     await category.save();
@@ -69,12 +68,11 @@ router.post('/', auth, restrictTo('admin'), async (req, res) => {
 // @desc    Update a category (Admin only)
 router.put('/:id', auth, restrictTo('admin'), async (req, res) => {
   try {
-    const { name, icon, isActive } = req.body;
+    const { name, isActive } = req.body;
     let category = await Category.findById(req.params.id);
     if (!category) return res.status(404).json({ message: 'Category not found' });
 
     if (name) category.name = name.trim();
-    if (icon) category.icon = icon;
     if (isActive !== undefined) category.isActive = isActive;
 
     await category.save();
