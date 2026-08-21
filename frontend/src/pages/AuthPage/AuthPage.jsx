@@ -13,12 +13,23 @@ function AuthPage() {
 
   // If user is already logged in, redirect immediately with replace: true so back button won't return to login
   useEffect(() => {
-    if (user) {
-      const target = user.role === 'admin' ? '/admin-dashboard' :
-                     user.role === 'rider' ? '/rider-dashboard' :
-                     user.role === 'manager' ? '/restaurant-dashboard' : '/';
-      navigate(target, { replace: true });
-    }
+    const checkRedirect = async () => {
+      if (user) {
+        let isStaffMember = false;
+        try {
+          const staffInfo = await api.getStaffMe();
+          if (staffInfo && (staffInfo.isStaff || staffInfo.isAdmin)) {
+            isStaffMember = true;
+          }
+        } catch (e) {}
+
+        const target = (user.role === 'admin' || isStaffMember) ? '/admin-dashboard' :
+                       user.role === 'rider' ? '/rider-dashboard' :
+                       user.role === 'manager' ? '/restaurant-dashboard' : '/';
+        navigate(target, { replace: true });
+      }
+    };
+    checkRedirect();
   }, [user, navigate]);
 
   const [formData, setFormData] = useState({
@@ -85,12 +96,20 @@ function AuthPage() {
         setSuccess('Registration successful! Redirecting...');
       }
 
-      setTimeout(() => {
-        const target = userData.role === 'admin' ? '/admin-dashboard' :
+      setTimeout(async () => {
+        let isStaffMember = false;
+        try {
+          const staffInfo = await api.getStaffMe();
+          if (staffInfo && (staffInfo.isStaff || staffInfo.isAdmin)) {
+            isStaffMember = true;
+          }
+        } catch (e) {}
+
+        const target = (userData.role === 'admin' || isStaffMember) ? '/admin-dashboard' :
                        userData.role === 'rider' ? '/rider-dashboard' :
                        userData.role === 'manager' ? '/restaurant-dashboard' : '/';
         navigate(target, { replace: true });
-      }, 1200);
+      }, 1000);
 
     } catch (err) {
       setError(err.message || 'Authentication failed');

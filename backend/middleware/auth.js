@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const StaffAssignment = require('../models/StaffAssignment');
 
 const auth = (req, res, next) => {
   const token = req.header('Authorization');
@@ -19,11 +20,34 @@ const auth = (req, res, next) => {
 };
 
 const restrictTo = (...roles) => {
-  return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+  return async (req, res, next) => {
+    if (!req.user) {
       return res.status(403).json({ message: 'Access denied: insufficient permissions' });
     }
-    next();
+
+    if (roles.includes(req.user.role)) {
+      return next();
+    }
+
+    // If endpoint requires admin role, check if user is an active staff member
+    if (roles.includes('admin')) {
+      try {
+        const activeAssignment = await StaffAssignment.findOne({
+          userId: req.user._id,
+          revokedAt: null
+        }).populate('roleId');
+
+        if (activeAssignment && activeAssignment.roleId) {
+          req.isStaff = true;
+          req.staffPermissions = activeAssignment.roleId.permissions || [];
+          return next();
+        }
+      } catch (err) {
+        console.error("Error checking staff assignment in auth middleware:", err);
+      }
+    }
+
+    return res.status(403).json({ message: 'Access denied: insufficient permissions' });
   };
 };
 

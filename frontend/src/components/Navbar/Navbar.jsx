@@ -32,6 +32,23 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
   const [addressInput, setAddressInput] = useState('');
   const [recentAddresses, setRecentAddresses] = useState([]);
   const [detectingLocation, setDetectingLocation] = useState(false);
+  const [isStaffUser, setIsStaffUser] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      api.getStaffMe()
+        .then(staff => {
+          if (staff && (staff.isAdmin || staff.isStaff)) {
+            setIsStaffUser(true);
+          } else {
+            setIsStaffUser(false);
+          }
+        })
+        .catch(() => setIsStaffUser(false));
+    } else {
+      setIsStaffUser(false);
+    }
+  }, [currentUser]);
 
   const handleSaveAddress = async () => {
     if (addressInput.trim()) {
@@ -260,18 +277,18 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
               {isProfileOpen && (
                 <div className="profile-dropdown">
                   <ul>
-                    {currentUser && currentUser.role !== 'customer' && (
+                    {(isStaffUser || (currentUser && currentUser.role !== 'customer')) && (
                       <li 
-                        style={{ fontWeight: 'bold', color: 'var(--color-tandoori)', borderBottom: '1px solid #f3f4f6' }}
+                        style={{ fontWeight: 'bold', color: 'var(--color-tandoori)', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
                         onClick={() => {
-                          const target = currentUser.role === 'admin' ? '/admin-dashboard' :
+                          const target = (isStaffUser || currentUser.role === 'admin') ? '/admin-dashboard' :
                                          currentUser.role === 'rider' ? '/rider-dashboard' :
                                          currentUser.role === 'manager' ? '/restaurant-dashboard' : '/';
                           navigate(target);
                           setIsProfileOpen(false);
                         }}
                       >
-                        Go to My Portal
+                        🧑‍💼 Go to Staff Portal
                       </li>
                     )}
                     <li onClick={() => { navigate('/profile'); setIsProfileOpen(false); }}>Profile</li>

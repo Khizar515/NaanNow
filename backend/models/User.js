@@ -59,7 +59,14 @@ const userSchema = new mongoose.Schema({
   rejectionReason: { type: String },
   blockReason: { type: String },
   rating: { type: Number, default: 0 },
-  walletBalance: { type: Number, default: 0 }
+  walletBalance: { type: Number, default: 0 },
+
+  // Unban appeal ticket restriction settings set by admin
+  unbanRestriction: {
+    canOpen: { type: Boolean, default: true },
+    blockedUntil: { type: Date, default: null },
+    adminRemarks: { type: String, default: '' }
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

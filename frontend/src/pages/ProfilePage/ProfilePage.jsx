@@ -35,6 +35,21 @@ function ProfilePage() {
 
   // Alerts
   const [notification, setNotification] = useState(null);
+  const [isStaffUser, setIsStaffUser] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      api.getStaffMe()
+        .then(staff => {
+          if (staff && (staff.isAdmin || staff.isStaff)) {
+            setIsStaffUser(true);
+          } else {
+            setIsStaffUser(false);
+          }
+        })
+        .catch(() => setIsStaffUser(false));
+    }
+  }, [user]);
 
   // Top up modal states
   const [topUpModalCard, setTopUpModalCard] = useState(null);
@@ -327,6 +342,15 @@ function ProfilePage() {
             <h2>{user.name}</h2>
             <p className="sidebar-email">{user.email}</p>
             <span className="member-tag">Member since {new Date(user.createdAt || Date.now()).toLocaleDateString('en-US', {month: 'short', year:'numeric'})}</span>
+            {(isStaffUser || user?.role === 'admin') && (
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/admin-dashboard')}
+                style={{ marginTop: '12px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '13px', background: 'var(--color-tandoori, #E57919)', border: 'none', padding: '10px 14px', borderRadius: '8px', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                🧑‍💼 Go to Staff Portal
+              </button>
+            )}
           </div>
 
           <nav className="sidebar-tabs">

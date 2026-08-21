@@ -313,34 +313,71 @@ export const api = {
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
+  getTicketById: async (id) => {
+    const res = await fetch(`${API_URL}/tickets/${id}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
   getMyTickets: async () => {
     const res = await fetch(`${API_URL}/tickets/my`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
-  createTicket: async (subject, initialMessage, ticketType = 'general') => {
+  getUnbanStatus: async () => {
+    const res = await fetch(`${API_URL}/tickets/unban-status`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  createTicket: async (subject, initialMessage, ticketType = 'general', files = []) => {
+    let body;
+    let headers;
+    if (files && files.length > 0) {
+      const formData = new FormData();
+      formData.append('subject', subject);
+      formData.append('initialMessage', initialMessage);
+      formData.append('ticketType', ticketType);
+      files.forEach(file => formData.append('attachments', file));
+      body = formData;
+      headers = getUploadHeaders();
+    } else {
+      body = JSON.stringify({ subject, initialMessage, ticketType });
+      headers = getAuthHeaders();
+    }
     const res = await fetch(`${API_URL}/tickets`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ subject, initialMessage, ticketType })
+      headers,
+      body
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
-  replyToTicket: async (id, text, adminAction = '') => {
+  replyToTicket: async (id, text, adminAction = '', files = []) => {
+    let body;
+    let headers;
+    if (files && files.length > 0) {
+      const formData = new FormData();
+      if (text) formData.append('text', text);
+      if (adminAction) formData.append('adminAction', adminAction);
+      files.forEach(file => formData.append('attachments', file));
+      body = formData;
+      headers = getUploadHeaders();
+    } else {
+      body = JSON.stringify({ text, adminAction });
+      headers = getAuthHeaders();
+    }
     const res = await fetch(`${API_URL}/tickets/${id}/reply`, {
       method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ text, adminAction })
+      headers,
+      body
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
-  closeTicket: async (id, adminAction = '') => {
+  closeTicket: async (id, adminAction = '', unbanRestriction = null) => {
     const res = await fetch(`${API_URL}/tickets/${id}/close`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ adminAction })
+      body: JSON.stringify({ adminAction, unbanRestriction })
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
@@ -498,6 +535,71 @@ export const api = {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+
+  // Staff Management
+  getStaffMe: async () => {
+    const res = await fetch(`${API_URL}/staff/me`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  getStaffRoles: async () => {
+    const res = await fetch(`${API_URL}/staff/roles`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  createStaffRole: async (roleData) => {
+    const res = await fetch(`${API_URL}/staff/roles`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(roleData)
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  updateStaffRole: async (id, roleData) => {
+    const res = await fetch(`${API_URL}/staff/roles/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(roleData)
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  deleteStaffRole: async (id) => {
+    const res = await fetch(`${API_URL}/staff/roles/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  getStaffMembers: async () => {
+    const res = await fetch(`${API_URL}/staff/members`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  assignStaffMember: async (userId, roleId, notes = '') => {
+    const res = await fetch(`${API_URL}/staff/members`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ userId, roleId, notes })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  revokeStaffMember: async (userId) => {
+    const res = await fetch(`${API_URL}/staff/members/${userId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  getStaffHistory: async () => {
+    const res = await fetch(`${API_URL}/staff/history`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   }

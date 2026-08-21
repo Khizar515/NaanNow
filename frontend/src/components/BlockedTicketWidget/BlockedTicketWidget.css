@@ -325,6 +325,16 @@
   cursor: not-allowed;
 }
 
+.widget-attach-btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.widget-attach-btn:hover {
+  background-color: #fff7ed !important;
+  border-color: var(--color-tandoori, #E57919) !important;
+  transform: translateY(-1px);
+}
+
 /* Ticket Closed Banner */
 .ticket-closed-locked-banner {
   background-color: #f1f5f9;

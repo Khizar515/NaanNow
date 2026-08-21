@@ -209,6 +209,7 @@ function AdminDashboard() {
 
   // Support Desk Filter & Action States
   const [ticketFilterTab, setTicketFilterTab] = useState('all'); // 'all', 'unban', 'general'
+  const [ticketStatusFilter, setTicketStatusFilter] = useState('all'); // 'all', 'open', 'in_progress', 'closed'
   const [ticketAdminAction, setTicketAdminAction] = useState(''); // '', 'unban', 'pending_docs', 'keep_blocked'
 
   // Dialog confirmations / inputs
@@ -243,6 +244,71 @@ function AdminDashboard() {
   // Notifications template builder states
   const [notifForm, setNotifForm] = useState({ title: '', body: '', image: '', target: 'All' });
 
+  // Staff Role & Permission States
+  const [staffInfo, setStaffInfo] = useState(null); // { isAdmin, isStaff, roleName, permissions }
+  const [staffRoles, setStaffRoles] = useState([]);
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [staffHistory, setStaffHistory] = useState([]);
+  const [staffActiveTab, setStaffActiveTab] = useState('members'); // 'roles', 'members', 'history'
+
+  // Staff Role Form / Modal State
+  const [staffRoleModal, setStaffRoleModal] = useState(null); // null or { _id?, name, description, permissions }
+  const [assignStaffModal, setAssignStaffModal] = useState(null); // null or { userId, roleId, notes }
+
+  // Admin Reply File Attachment state
+  const [adminReplyFiles, setAdminReplyFiles] = useState([]);
+  const adminReplyFileInputRef = useRef(null);
+
+  // Unban Restriction Close Modal State
+  const [unbanModalTicket, setUnbanModalTicket] = useState(null); // ticket object to close
+  const [unbanRestrictionChoice, setUnbanRestrictionChoice] = useState('allow'); // 'allow', 'timed', 'lifetime'
+  const [unbanBlockedUntilDate, setUnbanBlockedUntilDate] = useState('');
+  const [unbanAdminRemarks, setUnbanAdminRemarks] = useState('');
+
+  const isImageFile = (filename) => {
+    return /\.(jpg|jpeg|png|webp|gif)$/i.test(filename);
+  };
+
+  const renderAdminAttachments = (attachments) => {
+    if (!attachments || attachments.length === 0) return null;
+    return (
+      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {attachments.map((att, idx) => {
+          const fullUrl = att.startsWith('http') ? att : `http://localhost:5000${att}`;
+          const isImg = isImageFile(att);
+          const fileName = att.split('/').pop();
+          return (
+            <div key={idx} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.06)', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)' }}>
+              {isImg && (
+                <div style={{ marginBottom: '4px' }}>
+                  <a href={fullUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={fullUrl}
+                      alt="Attachment Preview"
+                      style={{ maxWidth: '240px', maxHeight: '160px', borderRadius: '6px', objectFit: 'cover', display: 'block' }}
+                    />
+                  </a>
+                </div>
+              )}
+              <div style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📄 {fileName}</span>
+                <a
+                  href={fullUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline', fontWeight: '600' }}
+                >
+                  Download File
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // References for keyboard search trigger
   const searchInputRef = useRef(null);
 
@@ -270,11 +336,13 @@ function AdminDashboard() {
     const initAdmin = async () => {
       try {
         const user = await api.getMe();
-        if (user.role !== 'admin') {
+        const meStaff = await api.getStaffMe().catch(() => null);
+        if (user.role !== 'admin' && (!meStaff || !meStaff.isStaff)) {
           navigate('/login');
           return;
         }
         setCurrentUser(user);
+        if (meStaff) setStaffInfo(meStaff);
         await loadAdminData();
       } catch (err) {
         console.error("Auth failed:", err);
@@ -292,16 +360,22 @@ function AdminDashboard() {
           promotionsData,
           withdrawalsData,
           settingsData,
-          categoriesData
+          categoriesData,
+          rolesData,
+          membersData,
+          historyData
         ] = await Promise.all([
-          api.getAllUsers(),
-          api.getOrders(),
-          api.getRestaurants(),
+          api.getAllUsers().catch(() => []),
+          api.getOrders().catch(() => []),
+          api.getRestaurants().catch(() => []),
           api.getTickets().catch(() => []),
           api.getPromotions().catch(() => []),
           api.getWithdrawals().catch(() => []),
           api.getSettings().catch(() => platformSettings),
-          api.getCategories().catch(() => [])
+          api.getCategories().catch(() => []),
+          api.getStaffRoles().catch(() => []),
+          api.getStaffMembers().catch(() => []),
+          api.getStaffHistory().catch(() => [])
         ]);
 
         setUsers(usersData);
@@ -312,6 +386,9 @@ function AdminDashboard() {
         setWithdrawals(withdrawalsData);
         setPlatformSettings(settingsData);
         setCategories(categoriesData);
+        setStaffRoles(rolesData);
+        setStaffMembers(membersData);
+        setStaffHistory(historyData);
       } catch (err) {
         console.error("Failed to load admin data:", err);
       }
@@ -405,6 +482,30 @@ function AdminDashboard() {
   }, []);
 
   // ------------------------------------------------------------------------
+  // Asynchronous Live Ticket Polling Hook (6s Interval)
+  // ------------------------------------------------------------------------
+  useEffect(() => {
+    const pollTickets = async () => {
+      try {
+        const freshTickets = await api.getTickets();
+        setTickets(freshTickets);
+
+        // Sync activeTicket if open
+        setActiveTicket(prev => {
+          if (!prev) return null;
+          const fresh = freshTickets.find(t => (t._id === prev._id || t.id === prev.id || t.ticketNumber === prev.ticketNumber));
+          return fresh || prev;
+        });
+      } catch (err) {
+        // Silent catch for live poll
+      }
+    };
+
+    const interval = setInterval(pollTickets, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ------------------------------------------------------------------------
   // Global Keyboard Shortcuts Hook
   // ------------------------------------------------------------------------
   useEffect(() => {
@@ -462,15 +563,23 @@ function AdminDashboard() {
         ticketsData,
         promotionsData,
         withdrawalsData,
-        settingsData
+        settingsData,
+        categoriesData,
+        rolesData,
+        membersData,
+        historyData
       ] = await Promise.all([
-        api.getAllUsers(),
-        api.getOrders(),
-        api.getRestaurants(),
+        api.getAllUsers().catch(() => []),
+        api.getOrders().catch(() => []),
+        api.getRestaurants().catch(() => []),
         api.getTickets().catch(() => []),
         api.getPromotions().catch(() => []),
         api.getWithdrawals().catch(() => []),
-        api.getSettings().catch(() => platformSettings)
+        api.getSettings().catch(() => platformSettings),
+        api.getCategories().catch(() => []),
+        api.getStaffRoles().catch(() => []),
+        api.getStaffMembers().catch(() => []),
+        api.getStaffHistory().catch(() => [])
       ]);
 
       setUsers(usersData);
@@ -480,6 +589,10 @@ function AdminDashboard() {
       setPromotions(promotionsData);
       setWithdrawals(withdrawalsData);
       setPlatformSettings(settingsData);
+      setCategories(categoriesData);
+      setStaffRoles(rolesData);
+      setStaffMembers(membersData);
+      setStaffHistory(historyData);
     } catch (err) {
       console.error("Failed to reload admin data:", err);
     }
@@ -638,15 +751,17 @@ function AdminDashboard() {
     }
   };
 
-  // Support Reply Send
+  // Support Reply Send (with optional file attachments)
   const handleSendSupportReply = async (ticketId) => {
-    if (!supportReplyText.trim() && !ticketAdminAction) return;
+    if (!supportReplyText.trim() && !ticketAdminAction && adminReplyFiles.length === 0) return;
 
     try {
-      const updatedTicket = await api.replyToTicket(ticketId, supportReplyText.trim(), ticketAdminAction);
+      const updatedTicket = await api.replyToTicket(ticketId, supportReplyText.trim(), ticketAdminAction, adminReplyFiles);
       await reloadAdminData();
       setSupportReplyText('');
       setTicketAdminAction('');
+      setAdminReplyFiles([]);
+      if (adminReplyFileInputRef.current) adminReplyFileInputRef.current.value = '';
       triggerToast("Reply sent & ticket updated!");
       setActiveTicket(updatedTicket);
     } catch (err) {
@@ -655,12 +770,24 @@ function AdminDashboard() {
     }
   };
 
-  const handleCloseTicket = async (ticketId) => {
+  const handleCloseTicketClick = (ticket) => {
+    if (ticket.ticketType === 'unban') {
+      setUnbanModalTicket(ticket);
+      setUnbanRestrictionChoice('allow');
+      setUnbanBlockedUntilDate('');
+      setUnbanAdminRemarks('');
+    } else {
+      executeCloseTicket(ticket._id || ticket.id, null);
+    }
+  };
+
+  const executeCloseTicket = async (ticketId, unbanRestrictionData) => {
     try {
-      const updatedTicket = await api.closeTicket(ticketId, ticketAdminAction);
+      const updatedTicket = await api.closeTicket(ticketId, ticketAdminAction, unbanRestrictionData);
       await reloadAdminData();
       setSupportReplyText('');
       setTicketAdminAction('');
+      setUnbanModalTicket(null);
       triggerToast("Ticket closed successfully.");
       setActiveTicket(updatedTicket);
     } catch (err) {
@@ -669,17 +796,77 @@ function AdminDashboard() {
     }
   };
 
-  const handleAssignTicket = (ticketId, staffName) => {
-    // Note: No API endpoint for assignment yet, keeping as local state update
-    const updated = tickets.map(t => {
-      if (t._id === ticketId) {
-        return { ...t, assignedTo: staffName };
+  const handleAssignTicket = async (ticketId, staffName) => {
+    try {
+      const updated = tickets.map(t => (t._id === ticketId || t.id === ticketId) ? { ...t, assignedTo: staffName } : t);
+      setTickets(updated);
+      triggerToast(`Ticket assigned to: ${staffName}`);
+      setActiveTicket(prev => ({ ...prev, assignedTo: staffName }));
+    } catch (err) {
+      triggerToast('Failed to assign ticket', 'error');
+    }
+  };
+
+  // Staff Role Handlers
+  const handleSaveStaffRole = async (e) => {
+    e.preventDefault();
+    if (!staffRoleModal || !staffRoleModal.name.trim()) return;
+    try {
+      if (staffRoleModal._id) {
+        await api.updateStaffRole(staffRoleModal._id, {
+          name: staffRoleModal.name.trim(),
+          description: staffRoleModal.description,
+          permissions: staffRoleModal.permissions
+        });
+        triggerToast("Staff role updated!");
+      } else {
+        await api.createStaffRole({
+          name: staffRoleModal.name.trim(),
+          description: staffRoleModal.description,
+          permissions: staffRoleModal.permissions
+        });
+        triggerToast("New staff role created!");
       }
-      return t;
-    });
-    setTickets(updated);
-    triggerToast(`Ticket assigned to support specialist: ${staffName}`);
-    setActiveTicket(prev => ({ ...prev, assignedTo: staffName }));
+      setStaffRoleModal(null);
+      await reloadAdminData();
+    } catch (err) {
+      triggerToast(err.message || 'Failed to save staff role', 'error');
+    }
+  };
+
+  const handleDeleteStaffRole = async (roleId) => {
+    if (!window.confirm("Are you sure you want to delete this staff role?")) return;
+    try {
+      await api.deleteStaffRole(roleId);
+      triggerToast("Staff role deleted.");
+      await reloadAdminData();
+    } catch (err) {
+      triggerToast(err.message || 'Failed to delete staff role', 'error');
+    }
+  };
+
+  const handleAssignStaffSubmit = async (e) => {
+    e.preventDefault();
+    if (!assignStaffModal || !assignStaffModal.userId || !assignStaffModal.roleId) return;
+    try {
+      await api.assignStaffMember(assignStaffModal.userId, assignStaffModal.roleId, assignStaffModal.notes);
+      triggerToast("User assigned to staff role successfully!");
+      setAssignStaffModal(null);
+      await reloadAdminData();
+    } catch (err) {
+      triggerToast(err.message || 'Failed to assign staff member', 'error');
+    }
+  };
+
+  const handleRevokeStaffMember = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to revoke staff privileges from ${userName}? They will be demoted back to regular user status.`)) return;
+    try {
+      await api.revokeStaffMember(userId);
+      triggerToast(`Staff privileges revoked from ${userName}.`);
+      await reloadAdminData();
+    } catch (err) {
+      triggerToast(err.message || 'Failed to revoke staff member', 'error');
+    }
   };
 
   // Promotions Creators
@@ -1045,6 +1232,70 @@ function AdminDashboard() {
     return list;
   };
 
+  // 6. Support Tickets Filtering (Global Search + Type + Status)
+  const getFilteredTickets = () => {
+    let list = [...tickets];
+
+    // Global Search matching
+    if (globalSearch.trim()) {
+      const q = globalSearch.toLowerCase();
+      list = list.filter(t => {
+        const uName = (t.userId || t.customerId)?.name || t.customerName || '';
+        const uEmail = (t.userId || t.customerId)?.email || t.customerEmail || '';
+        return (
+          (t.ticketNumber && t.ticketNumber.toLowerCase().includes(q)) ||
+          (t.subject && t.subject.toLowerCase().includes(q)) ||
+          uName.toLowerCase().includes(q) ||
+          uEmail.toLowerCase().includes(q) ||
+          (t.assignedTo && t.assignedTo.toLowerCase().includes(q))
+        );
+      });
+    }
+
+    // Type filter
+    if (ticketFilterTab === 'unban') {
+      list = list.filter(t => t.ticketType === 'unban');
+    } else if (ticketFilterTab === 'general') {
+      list = list.filter(t => t.ticketType !== 'unban');
+    }
+
+    // Status filter
+    if (ticketStatusFilter !== 'all') {
+      list = list.filter(t => t.status.toLowerCase() === ticketStatusFilter.toLowerCase());
+    }
+
+    return list;
+  };
+
+  // 7. Staff Members Filtering (Global Search)
+  const getFilteredStaffMembers = () => {
+    let list = [...staffMembers];
+    if (globalSearch.trim()) {
+      const q = globalSearch.toLowerCase();
+      list = list.filter(m => {
+        const name = m.userId?.name || '';
+        const email = m.userId?.email || '';
+        const roleName = m.roleId?.name || '';
+        return name.toLowerCase().includes(q) || email.toLowerCase().includes(q) || roleName.toLowerCase().includes(q);
+      });
+    }
+    return list;
+  };
+
+  // 8. Staff Roles Filtering (Global Search)
+  const getFilteredStaffRoles = () => {
+    let list = [...staffRoles];
+    if (globalSearch.trim()) {
+      const q = globalSearch.toLowerCase();
+      list = list.filter(r => {
+        const name = r.name || '';
+        const desc = r.description || '';
+        return name.toLowerCase().includes(q) || desc.toLowerCase().includes(q);
+      });
+    }
+    return list;
+  };
+
   // Helpers for pagination computations
   const getPaginatedList = (fullList) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1177,6 +1428,13 @@ function AdminDashboard() {
           <div className="menu-section-label">System</div>
 
           <li className="menu-item">
+            <button className={`menu-link ${activeMenuTab === 'staff' ? 'active' : ''}`} onClick={() => setActiveMenuTab('staff')}>
+              <span className="menu-link-icon">🧑‍💼</span>
+              <span className="menu-text">Staff & Roles</span>
+            </button>
+          </li>
+
+          <li className="menu-item">
             <button className={`menu-link ${activeMenuTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveMenuTab('settings')}>
               <span className="menu-link-icon"><Icon name="settings" /></span>
               <span className="menu-text">Settings</span>
@@ -1237,14 +1495,33 @@ function AdminDashboard() {
               <Icon name="notifications" />
             </button>
 
-            {/* Profile actions dropdown */}
-            <div className="user-profile-menu" onClick={handleLogout} title="Click to log out safely">
-              <div className="user-avatar">SA</div>
-              <div className="user-meta-desktop">
-                <span className="user-name-txt">Super Admin</span>
-                <span className="user-role-txt">Governance Panel</span>
+            {/* Profile actions section */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {(currentUser?.role !== 'admin' || staffInfo?.isStaff) && (
+                <button
+                  className="btn-secondary"
+                  style={{ fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => {
+                    const target = currentUser?.role === 'manager' ? '/restaurant-dashboard' :
+                                   currentUser?.role === 'rider' ? '/rider-dashboard' : '/';
+                    navigate(target);
+                  }}
+                  title="Switch back to your user portal"
+                >
+                  ← Exit to My Portal
+                </button>
+              )}
+
+              <div className="user-profile-menu" onClick={handleLogout} title="Click to log out safely">
+                <div className="user-avatar">
+                  {currentUser?.name ? currentUser.name[0].toUpperCase() : 'AD'}
+                </div>
+                <div className="user-meta-desktop">
+                  <span className="user-name-txt">{currentUser?.name || 'System Administrator'}</span>
+                  <span className="user-role-txt">{staffInfo?.roleName || (currentUser?.role === 'admin' ? 'Super Admin' : 'Staff Specialist')}</span>
+                </div>
+                <Icon name="logout" size={14} className="logout-icon" />
               </div>
-              <Icon name="logout" size={14} className="logout-icon" />
             </div>
           </div>
         </nav>
@@ -2146,14 +2423,6 @@ function AdminDashboard() {
                     <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap' }}>
                       <input
                         type="text"
-                        placeholder="Category Icon Emoji (e.g. 🍕, 🍔, 🥤)"
-                        value={newCatIcon}
-                        onChange={(e) => setNewCatIcon(e.target.value)}
-                        className="form-control-input"
-                        style={{ width: '80px', textAlign: 'center', fontSize: '18px' }}
-                      />
-                      <input
-                        type="text"
                         placeholder="Category Title (e.g. Pizza, Shakes, Rolls)"
                         value={newCatName}
                         onChange={(e) => setNewCatName(e.target.value)}
@@ -2173,16 +2442,6 @@ function AdminDashboard() {
                       <div className="modal-content-card" style={{ maxWidth: '450px', padding: '24px' }}>
                         <h3 style={{ marginBottom: '16px' }}>✏️ Edit Category: {editingCat.name}</h3>
                         <form onSubmit={handleSaveEditCategory} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                          <div>
-                            <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Emoji Icon</label>
-                            <input
-                              type="text"
-                              value={editingCat.icon}
-                              onChange={(e) => setEditingCat({ ...editingCat, icon: e.target.value })}
-                              className="form-control-input"
-                              style={{ width: '100%', fontSize: '16px' }}
-                            />
-                          </div>
                           <div>
                             <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Category Name</label>
                             <input
@@ -2216,7 +2475,7 @@ function AdminDashboard() {
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            justify: 'space-between',
+                            justifyContent: 'space-between',
                             padding: '12px 16px',
                             borderRadius: '12px',
                             backgroundColor: 'var(--bg-secondary)',
@@ -2224,12 +2483,11 @@ function AdminDashboard() {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '20px' }}>{cat.icon || '🍽️'}</span>
                             <span style={{ fontWeight: '600', fontSize: '14px' }}>{cat.name}</span>
                           </div>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button
-                              onClick={() => setEditingCat({ _id: cat._id, name: cat.name, icon: cat.icon || '🍽️' })}
+                              onClick={() => setEditingCat({ _id: cat._id, name: cat.name })}
                               style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
                               title="Edit Category"
                             >
@@ -2483,82 +2741,93 @@ function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Filter chips for ticket type */}
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                    <button
-                      className={`filter-chip ${ticketFilterTab === 'all' ? 'active' : ''}`}
-                      onClick={() => setTicketFilterTab('all')}
-                    >
-                      All Tickets ({tickets.length})
-                    </button>
-                    <button
-                      className={`filter-chip ${ticketFilterTab === 'unban' ? 'active' : ''}`}
-                      onClick={() => setTicketFilterTab('unban')}
-                    >
-                      Unban Appeals ({tickets.filter(t => t.ticketType === 'unban').length})
-                    </button>
-                    <button
-                      className={`filter-chip ${ticketFilterTab === 'general' ? 'active' : ''}`}
-                      onClick={() => setTicketFilterTab('general')}
-                    >
-                      General Inquiries ({tickets.filter(t => t.ticketType !== 'unban').length})
-                    </button>
+                  {/* Filter chips for ticket type and status */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Type:</span>
+                      <button
+                        className={`filter-chip ${ticketFilterTab === 'all' ? 'active' : ''}`}
+                        onClick={() => setTicketFilterTab('all')}
+                      >
+                        All Tickets ({tickets.length})
+                      </button>
+                      <button
+                        className={`filter-chip ${ticketFilterTab === 'unban' ? 'active' : ''}`}
+                        onClick={() => setTicketFilterTab('unban')}
+                      >
+                        Unban Appeals ({tickets.filter(t => t.ticketType === 'unban').length})
+                      </button>
+                      <button
+                        className={`filter-chip ${ticketFilterTab === 'general' ? 'active' : ''}`}
+                        onClick={() => setTicketFilterTab('general')}
+                      >
+                        General Inquiries ({tickets.filter(t => t.ticketType !== 'unban').length})
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Status:</span>
+                      {['all', 'open', 'in_progress', 'closed'].map(st => (
+                        <button
+                          key={st}
+                          className={`filter-chip ${ticketStatusFilter === st ? 'active' : ''}`}
+                          onClick={() => setTicketStatusFilter(st)}
+                          style={{ textTransform: 'capitalize' }}
+                        >
+                          {st === 'all' ? 'All Statuses' : st.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="activity-grid" style={{ gridTemplateColumns: '360px 1fr' }}>
                     {/* Tickets List */}
                     <div className="chart-card" style={{ padding: '16px', height: '560px', display: 'flex', flexDirection: 'column' }}>
-                      <strong style={{ fontSize: '14px', marginBottom: '8px' }}>Support Tickets Queue</strong>
+                      <strong style={{ fontSize: '14px', marginBottom: '8px' }}>Support Tickets Queue ({getFilteredTickets().length})</strong>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
-                        {tickets
-                          .filter(t => {
-                            if (ticketFilterTab === 'unban') return t.ticketType === 'unban';
-                            if (ticketFilterTab === 'general') return t.ticketType !== 'unban';
-                            return true;
-                          })
-                          .map(t => {
-                            const userObj = t.userId || t.customerId;
-                            const userName = userObj?.name || t.customerName || 'User';
-                            const userRole = t.userRole || userObj?.role || 'customer';
-                            const isUnban = t.ticketType === 'unban';
+                        {getFilteredTickets().map(t => {
+                          const userObj = t.userId || t.customerId;
+                          const userName = userObj?.name || t.customerName || 'User';
+                          const userRole = t.userRole || userObj?.role || 'customer';
+                          const isUnban = t.ticketType === 'unban';
 
-                            return (
-                              <div
-                                key={t._id || t.id}
-                                style={{
-                                  padding: '12px',
-                                  borderRadius: '10px',
-                                  backgroundColor: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? 'var(--accent-light)' : 'var(--bg-primary)',
-                                  border: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
-                                  cursor: 'pointer'
-                                }}
-                                onClick={() => {
-                                  setActiveTicket(t);
-                                  setSupportReplyText('');
-                                  setTicketAdminAction(t.adminAction || '');
-                                }}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                  <strong style={{ fontSize: '13px', color: 'var(--accent-color)' }}>{t.ticketNumber || t.id}</strong>
-                                  <span className={`status-pill ${t.status === 'closed' ? 'cancelled' : t.status === 'open' ? 'warning' : 'approved'}`} style={{ padding: '2px 6px', fontSize: '9px' }}>
-                                    {t.status.toUpperCase()}
-                                  </span>
-                                </div>
-                                <span style={{ fontSize: '13px', fontWeight: '600', display: 'block', margin: '2px 0' }}>{t.subject}</span>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                                  <span>{userName} ({userRole})</span>
-                                  {isUnban && (
-                                    <span style={{ backgroundColor: '#fef2f2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: '600', fontSize: '10px' }}>
-                                      UNBAN APPEAL
-                                    </span>
-                                  )}
-                                </div>
+                          return (
+                            <div
+                              key={t._id || t.id}
+                              style={{
+                                padding: '12px',
+                                borderRadius: '10px',
+                                backgroundColor: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? 'var(--accent-light)' : 'var(--bg-primary)',
+                                border: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                setActiveTicket(t);
+                                setSupportReplyText('');
+                                setTicketAdminAction(t.adminAction || '');
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <strong style={{ fontSize: '13px', color: 'var(--accent-color)' }}>{t.ticketNumber || t.id}</strong>
+                                <span className={`status-pill ${t.status === 'closed' ? 'cancelled' : t.status === 'open' ? 'warning' : 'approved'}`} style={{ padding: '2px 6px', fontSize: '9px' }}>
+                                  {t.status.toUpperCase()}
+                                </span>
                               </div>
-                            );
-                          })}
-                        {tickets.length === 0 && (
+                              <span style={{ fontSize: '13px', fontWeight: '600', display: 'block', margin: '2px 0' }}>{t.subject}</span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                <span>{userName} ({userRole})</span>
+                                {isUnban && (
+                                  <span style={{ backgroundColor: '#fef2f2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: '600', fontSize: '10px' }}>
+                                    UNBAN APPEAL
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {getFilteredTickets().length === 0 && (
                           <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>
-                            No support tickets found.
+                            No matching support tickets found.
                           </p>
                         )}
                       </div>
@@ -2582,7 +2851,7 @@ function AdminDashboard() {
                                 Requester: <strong>{(activeTicket.userId || activeTicket.customerId)?.name || activeTicket.customerName}</strong> ({(activeTicket.userId || activeTicket.customerId)?.email || activeTicket.customerEmail}) • Role: <strong style={{ textTransform: 'capitalize' }}>{activeTicket.userRole || 'customer'}</strong>
                               </span>
                             </div>
-                            
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                               <select
                                 className="select-filter-box"
@@ -2590,8 +2859,13 @@ function AdminDashboard() {
                                 onChange={(e) => handleAssignTicket(activeTicket._id || activeTicket.id, e.target.value)}
                               >
                                 <option value="">Assign Specialist...</option>
-                                <option value="Specialist Ali">Specialist Ali</option>
-                                <option value="Manager Fatima">Manager Fatima</option>
+                                {staffMembers
+                                  .filter(m => (m.roleId?.permissions || []).includes('support'))
+                                  .map(m => (
+                                    <option key={m._id} value={m.userId?.name || 'Staff Member'}>
+                                      {m.userId?.name || 'Staff'} ({m.roleId?.name || 'Specialist'})
+                                    </option>
+                                  ))}
                               </select>
                             </div>
                           </div>
@@ -2625,7 +2899,8 @@ function AdminDashboard() {
                                     <span className="chat-sender-lbl">
                                       {msg.sender.toUpperCase()} • {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
-                                    {msg.text}
+                                    {msg.text && <div>{msg.text}</div>}
+                                    {renderAdminAttachments(msg.attachments)}
                                   </div>
                                 ))
                               ) : (
@@ -2633,31 +2908,94 @@ function AdminDashboard() {
                               )}
                             </div>
 
-                            {/* CHAT INPUT OR STRICT CLOSED BANNER */}
+                            {/* CHAT INPUT OR DETAILED CLOSED SUMMARY */}
                             {activeTicket.status === 'closed' ? (
-                              <div style={{ marginTop: '12px', padding: '14px', backgroundColor: '#f1f5f9', border: '1.5px dashed #cbd5e1', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: '#475569', fontWeight: '600' }}>
-                                🔒 This ticket has been closed by {activeTicket.closedBy || 'Admin'}. No further messages can be sent by anyone.
+                              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ padding: '12px', backgroundColor: '#f1f5f9', border: '1.5px dashed #cbd5e1', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: '#475569', fontWeight: '600' }}>
+                                  🔒 This ticket was closed by <strong>{activeTicket.closedBy || 'Admin'}</strong> on {activeTicket.closedAt ? new Date(activeTicket.closedAt).toLocaleString() : 'Record'}.
+                                </div>
+
+                                <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }}>
+                                  <h5 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    📋 Closing Resolution & Appeal Restrictions Record:
+                                  </h5>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    <div>
+                                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>Resolution Action:</span>
+                                      <strong style={{ textTransform: 'capitalize', color: 'var(--accent-color)' }}>
+                                        {activeTicket.adminAction === 'unban' ? '🔓 Unbanned Account' : activeTicket.adminAction === 'keep_blocked' ? '🚫 Maintained Suspension' : activeTicket.adminAction === 'pending_docs' ? '📝 Requested Documents' : (activeTicket.adminAction || 'Closed Ticket')}
+                                      </strong>
+                                    </div>
+
+                                    <div>
+                                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>User Appeal Permission:</span>
+                                      {(() => {
+                                        const res = activeTicket.closingUnbanRestriction || activeTicket.userId?.unbanRestriction;
+                                        if (!res) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
+                                        if (res.canOpen) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
+                                        if (res.blockedUntil) return <span style={{ color: '#d97706', fontWeight: '700' }}>⏳ Restricted Until {new Date(res.blockedUntil).toLocaleDateString()}</span>;
+                                        return <span style={{ color: '#dc2626', fontWeight: '700' }}>🚫 Lifetime Block (Permanent)</span>;
+                                      })()}
+                                    </div>
+                                  </div>
+
+                                  {(activeTicket.closingUnbanRestriction?.adminRemarks || activeTicket.userId?.unbanRestriction?.adminRemarks) && (
+                                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #cbd5e1', fontSize: '12px', color: '#475569' }}>
+                                      <strong>Admin Remarks:</strong> {activeTicket.closingUnbanRestriction?.adminRemarks || activeTicket.userId?.unbanRestriction?.adminRemarks}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ) : (
-                              <div className="chat-input-row" style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                                <input
-                                  type="text"
-                                  className="chat-input-box"
-                                  placeholder="Type support reply or instructions..."
-                                  value={supportReplyText}
-                                  onChange={(e) => setSupportReplyText(e.target.value)}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleSendSupportReply(activeTicket._id || activeTicket.id)}
-                                />
-                                <button className="btn-primary" onClick={() => handleSendSupportReply(activeTicket._id || activeTicket.id)}>
-                                  Send Reply
-                                </button>
-                                <button
-                                  className="btn-secondary"
-                                  style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#ef4444', fontWeight: '700' }}
-                                  onClick={() => handleCloseTicket(activeTicket._id || activeTicket.id)}
-                                >
-                                  🔒 Close Ticket
-                                </button>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                                {adminReplyFiles.length > 0 && (
+                                  <div style={{ fontSize: '11px', color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                                    📎 Selected {adminReplyFiles.length} file(s): {adminReplyFiles.map(f => f.name).join(', ')}
+                                  </div>
+                                )}
+                                <div className="chat-input-row" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <input
+                                    type="text"
+                                    className="chat-input-box"
+                                    placeholder="Type support reply or instructions..."
+                                    value={supportReplyText}
+                                    onChange={(e) => setSupportReplyText(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSendSupportReply(activeTicket._id || activeTicket.id)}
+                                    style={{ flex: 1 }}
+                                  />
+                                  <label
+                                    style={{
+                                      cursor: 'pointer',
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      background: 'var(--bg-secondary)',
+                                      border: '1px solid var(--border-color)',
+                                      fontSize: '13px',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                    title="Attach documents/files"
+                                  >
+                                    📎 Attach
+                                    <input
+                                      type="file"
+                                      multiple
+                                      ref={adminReplyFileInputRef}
+                                      onChange={(e) => setAdminReplyFiles(Array.from(e.target.files))}
+                                      accept="image/*,.pdf,.doc,.docx,.txt"
+                                      style={{ display: 'none' }}
+                                    />
+                                  </label>
+                                  <button className="btn-primary" onClick={() => handleSendSupportReply(activeTicket._id || activeTicket.id)}>
+                                    Send Reply
+                                  </button>
+                                  <button
+                                    className="btn-secondary"
+                                    style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#ef4444', fontWeight: '700' }}
+                                    onClick={() => handleCloseTicketClick(activeTicket)}
+                                  >
+                                    🔒 Close Ticket
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -2669,6 +3007,215 @@ function AdminDashboard() {
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* ====================================================================
+                 VIEW 13: STAFF ROLE & PERMISSION MANAGEMENT SYSTEM
+                 ==================================================================== */}
+              {activeMenuTab === 'staff' && (
+                <div>
+                  <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="page-title-desc">
+                      <h1>🧑‍💼 Staff Role & Permission Management</h1>
+                      <p>Define custom staff roles, assign sub-page access permissions, promote users to staff, and track role histories.</p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        className="btn-primary"
+                        onClick={() => setStaffRoleModal({ name: '', description: '', permissions: [] })}
+                      >
+                        ➕ Create Staff Role
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => setAssignStaffModal({ userId: '', roleId: '', notes: '' })}
+                      >
+                        👤 Assign Staff to User
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sub-navigation tabs */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                    <button
+                      className={`filter-chip ${staffActiveTab === 'members' ? 'active' : ''}`}
+                      onClick={() => setStaffActiveTab('members')}
+                    >
+                      Active Staff Members ({staffMembers.length})
+                    </button>
+                    <button
+                      className={`filter-chip ${staffActiveTab === 'roles' ? 'active' : ''}`}
+                      onClick={() => setStaffActiveTab('roles')}
+                    >
+                      Staff Roles ({staffRoles.length})
+                    </button>
+                    <button
+                      className={`filter-chip ${staffActiveTab === 'history' ? 'active' : ''}`}
+                      onClick={() => setStaffActiveTab('history')}
+                    >
+                      Assignment History ({staffHistory.length})
+                    </button>
+                  </div>
+
+                  {/* TAB 1: ACTIVE STAFF MEMBERS */}
+                  {staffActiveTab === 'members' && (
+                    <div className="chart-card">
+                      <h3>Active Staff Assignments</h3>
+                      <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
+                        <table className="admin-data-table">
+                          <thead>
+                            <tr>
+                              <th>Staff Member</th>
+                              <th>Assigned Role</th>
+                              <th>Assigned On</th>
+                              <th>Assigned By</th>
+                              <th>Sub-Page Access</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {getFilteredStaffMembers().length > 0 ? (
+                              getFilteredStaffMembers().map(m => (
+                                <tr key={m._id}>
+                                  <td>
+                                    <strong>{m.userId?.name || 'User'}</strong>
+                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{m.userId?.email}</span>
+                                  </td>
+                                  <td>
+                                    <span className="status-pill approved" style={{ fontWeight: '600' }}>
+                                      {m.roleId?.name || 'Staff Role'}
+                                    </span>
+                                  </td>
+                                  <td>{new Date(m.assignedAt).toLocaleDateString()}</td>
+                                  <td>{m.assignedBy || 'Admin'}</td>
+                                  <td>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                      {(m.roleId?.permissions || []).map(p => (
+                                        <span key={p} style={{ fontSize: '10px', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                                          {p}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <button
+                                      className="btn-secondary"
+                                      style={{ color: '#ef4444', borderColor: '#ef4444', padding: '4px 10px', fontSize: '12px' }}
+                                      onClick={() => handleRevokeStaffMember(m.userId?._id, m.userId?.name)}
+                                    >
+                                      Revoke Role
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>
+                                  No active staff members assigned yet. Click "Assign Staff to User" above to promote a user to staff.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: STAFF ROLES & PERMISSION MATRIX */}
+                  {staffActiveTab === 'roles' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                      {getFilteredStaffRoles().map(r => (
+                        <div key={r._id} className="chart-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                              <h3 style={{ fontSize: '16px', margin: 0 }}>{r.name}</h3>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                {staffMembers.filter(m => m.roleId?._id === r._id).length} Active Member(s)
+                              </span>
+                            </div>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                              {r.description || 'No description provided.'}
+                            </p>
+
+                            <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                              Allowed Sub-Pages ({r.permissions?.length || 0}):
+                            </label>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
+                              {(r.permissions || []).map(p => (
+                                <span key={p} style={{ fontSize: '11px', background: 'var(--accent-light)', color: 'var(--accent-color)', padding: '3px 8px', borderRadius: '6px', fontWeight: '600' }}>
+                                  {p}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                            <button
+                              className="btn-secondary"
+                              style={{ flex: 1, padding: '6px' }}
+                              onClick={() => setStaffRoleModal(r)}
+                            >
+                              ✏️ Edit Permissions
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              style={{ color: '#ef4444', borderColor: '#ef4444', padding: '6px 12px' }}
+                              onClick={() => handleDeleteStaffRole(r._id)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* TAB 3: ROLE ASSIGNMENT HISTORY */}
+                  {staffActiveTab === 'history' && (
+                    <div className="chart-card">
+                      <h3>Role Assignment Audit Logs</h3>
+                      <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
+                        <table className="admin-data-table">
+                          <thead>
+                            <tr>
+                              <th>User Name</th>
+                              <th>Staff Role</th>
+                              <th>Status</th>
+                              <th>Assigned On</th>
+                              <th>Revoked On</th>
+                              <th>Assigned By</th>
+                              <th>Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {staffHistory.length > 0 ? (
+                              staffHistory.map(h => (
+                                <tr key={h._id}>
+                                  <td>{h.userId?.name || 'User'}</td>
+                                  <td>{h.roleId?.name || 'Staff Role'}</td>
+                                  <td>
+                                    <span className={`status-pill ${h.revokedAt ? 'cancelled' : 'approved'}`}>
+                                      {h.revokedAt ? 'REVOKED' : 'ACTIVE'}
+                                    </span>
+                                  </td>
+                                  <td>{new Date(h.assignedAt).toLocaleString()}</td>
+                                  <td>{h.revokedAt ? new Date(h.revokedAt).toLocaleString() : '—'}</td>
+                                  <td>{h.assignedBy}</td>
+                                  <td>{h.notes || '—'}</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>No role assignment history recorded yet.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3269,13 +3816,253 @@ function AdminDashboard() {
       )}
 
       {/* ====================================================================
-         ZOOM FILE OVERLAY VIEWER (ZOOM DOCUMENTS WITHOUT LEAVING PANEL)
+         STAFF ROLE MODAL
          ==================================================================== */}
-      {zoomedDoc && (
-        <div className="zoom-image-overlay" onClick={() => setZoomedDoc(null)}>
-          <div className="zoom-image-content" onClick={(e) => e.stopPropagation()}>
-            <button className="zoom-close-btn" onClick={() => setZoomedDoc(null)}>&times;</button>
-            <img src={zoomedDoc} alt="Zoomed Verification File" />
+      {staffRoleModal && (
+        <div className="modal-overlay" style={{ zIndex: 3000 }}>
+          <div className="modal-content-card" style={{ maxWidth: '520px', padding: '24px' }}>
+            <div className="modal-header-section" style={{ marginBottom: '16px' }}>
+              <h3>{staffRoleModal._id ? '✏️ Edit Staff Role' : '➕ Create New Staff Role'}</h3>
+              <button className="modal-close-icon" onClick={() => setStaffRoleModal(null)}>&times;</button>
+            </div>
+            <form onSubmit={handleSaveStaffRole} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Role Name *</label>
+                <input
+                  type="text"
+                  className="form-control-input"
+                  style={{ width: '100%' }}
+                  placeholder="e.g. Customer Support Specialist"
+                  value={staffRoleModal.name}
+                  onChange={(e) => setStaffRoleModal({ ...staffRoleModal, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Description</label>
+                <textarea
+                  rows="2"
+                  className="form-control-input"
+                  style={{ width: '100%' }}
+                  placeholder="Describe duties and authority..."
+                  value={staffRoleModal.description || ''}
+                  onChange={(e) => setStaffRoleModal({ ...staffRoleModal, description: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
+                  Select Allowed Sub-Page Permissions:
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', maxHeight: '200px', overflowY: 'auto', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  {[
+                    { key: 'dashboard', label: '📊 Dashboard Overview' },
+                    { key: 'orders', label: '📦 Orders Management' },
+                    { key: 'restaurants', label: '🏪 Restaurants Management' },
+                    { key: 'riders', label: '🛵 Riders Management' },
+                    { key: 'users', label: '👥 Customers & Users' },
+                    { key: 'support', label: '🎫 Support Desk & Unban' },
+                    { key: 'promotions', label: '🏷️ Promotions & Vouchers' },
+                    { key: 'categories', label: '🍽️ Menu Categories' },
+                    { key: 'settings', label: '⚙️ Settings & System' },
+                    { key: 'withdrawals', label: '💳 Withdrawals & Ledger' },
+                    { key: 'staff', label: '🧑‍💼 Staff Management' }
+                  ].map(p => {
+                    const isChecked = (staffRoleModal.permissions || []).includes(p.key);
+                    return (
+                      <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const cur = staffRoleModal.permissions || [];
+                            const next = e.target.checked
+                              ? [...cur, p.key]
+                              : cur.filter(x => x !== p.key);
+                            setStaffRoleModal({ ...staffRoleModal, permissions: next });
+                          }}
+                        />
+                        {p.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="modal-footer-section" style={{ marginTop: '12px', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn-secondary" onClick={() => setStaffRoleModal(null)}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Role</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+         ASSIGN STAFF MODAL
+         ==================================================================== */}
+      {assignStaffModal && (
+        <div className="modal-overlay" style={{ zIndex: 3000 }}>
+          <div className="modal-content-card" style={{ maxWidth: '480px', padding: '24px' }}>
+            <div className="modal-header-section" style={{ marginBottom: '16px' }}>
+              <h3>👤 Assign Staff Role to User</h3>
+              <button className="modal-close-icon" onClick={() => setAssignStaffModal(null)}>&times;</button>
+            </div>
+            <form onSubmit={handleAssignStaffSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Select User *</label>
+                <select
+                  className="select-filter-box"
+                  style={{ width: '100%', padding: '10px' }}
+                  value={assignStaffModal.userId}
+                  onChange={(e) => setAssignStaffModal({ ...assignStaffModal, userId: e.target.value })}
+                  required
+                >
+                  <option value="">Choose User Account...</option>
+                  {users.map(u => (
+                    <option key={u._id} value={u._id}>
+                      {u.name} ({u.email}) — Role: {u.role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Select Staff Role *</label>
+                <select
+                  className="select-filter-box"
+                  style={{ width: '100%', padding: '10px' }}
+                  value={assignStaffModal.roleId}
+                  onChange={(e) => setAssignStaffModal({ ...assignStaffModal, roleId: e.target.value })}
+                  required
+                >
+                  <option value="">Choose Staff Role...</option>
+                  {staffRoles.map(r => (
+                    <option key={r._id} value={r._id}>
+                      {r.name} ({r.permissions?.length || 0} permissions)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Assignment Notes</label>
+                <textarea
+                  rows="2"
+                  className="form-control-input"
+                  style={{ width: '100%' }}
+                  placeholder="e.g. Assigned to morning shift support team"
+                  value={assignStaffModal.notes}
+                  onChange={(e) => setAssignStaffModal({ ...assignStaffModal, notes: e.target.value })}
+                />
+              </div>
+
+              <div className="modal-footer-section" style={{ marginTop: '12px', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn-secondary" onClick={() => setAssignStaffModal(null)}>Cancel</button>
+                <button type="submit" className="btn-primary">Confirm Staff Assignment</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+         UNBAN RESTRICTION MODAL ON CLOSE
+         ==================================================================== */}
+      {unbanModalTicket && (
+        <div className="modal-overlay" style={{ zIndex: 3000 }}>
+          <div className="modal-content-card" style={{ maxWidth: '500px', padding: '24px' }}>
+            <div className="modal-header-section" style={{ marginBottom: '16px' }}>
+              <h3>🔒 Close Ticket & Set Appeal Permissions</h3>
+              <button className="modal-close-icon" onClick={() => setUnbanModalTicket(null)}>&times;</button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Closing unban appeal ticket <strong>{unbanModalTicket.ticketNumber}</strong> for user{' '}
+              <strong>{(unbanModalTicket.userId || unbanModalTicket.customerId)?.name}</strong>. Choose whether the user is allowed to open future unban appeal tickets:
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', backgroundColor: unbanRestrictionChoice === 'allow' ? 'var(--accent-light)' : 'transparent' }}>
+                <input
+                  type="radio"
+                  name="unbanChoice"
+                  checked={unbanRestrictionChoice === 'allow'}
+                  onChange={() => setUnbanRestrictionChoice('allow')}
+                />
+                <div>
+                  <strong>🟢 Always Allowed</strong>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>User can submit a new appeal ticket anytime.</div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', backgroundColor: unbanRestrictionChoice === 'timed' ? 'var(--accent-light)' : 'transparent' }}>
+                <input
+                  type="radio"
+                  name="unbanChoice"
+                  checked={unbanRestrictionChoice === 'timed'}
+                  onChange={() => setUnbanRestrictionChoice('timed')}
+                />
+                <div style={{ width: '100%' }}>
+                  <strong>⏳ Restricted Until Date</strong>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>User cannot open another appeal until the date expires.</div>
+                  {unbanRestrictionChoice === 'timed' && (
+                    <input
+                      type="datetime-local"
+                      className="form-control-input"
+                      style={{ marginTop: '8px', width: '100%', fontSize: '12px' }}
+                      value={unbanBlockedUntilDate}
+                      onChange={(e) => setUnbanBlockedUntilDate(e.target.value)}
+                      required
+                    />
+                  )}
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', backgroundColor: unbanRestrictionChoice === 'lifetime' ? 'rgba(239,68,68,0.1)' : 'transparent' }}>
+                <input
+                  type="radio"
+                  name="unbanChoice"
+                  checked={unbanRestrictionChoice === 'lifetime'}
+                  onChange={() => setUnbanRestrictionChoice('lifetime')}
+                />
+                <div>
+                  <strong style={{ color: '#ef4444' }}>🚫 Lifetime Block (Permanent)</strong>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>User will NEVER be allowed to open another unban ticket on this account.</div>
+                </div>
+              </label>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Admin Remarks / Instructions for User (Optional)</label>
+              <textarea
+                rows="3"
+                className="form-control-input"
+                style={{ width: '100%' }}
+                placeholder="e.g. You can open another ticket for unban in 7 days or submit requested CNIC documents..."
+                value={unbanAdminRemarks}
+                onChange={(e) => setUnbanAdminRemarks(e.target.value)}
+              />
+            </div>
+
+            <div className="modal-footer-section" style={{ gap: '10px', justifyContent: 'flex-end' }}>
+              <button className="btn-secondary" onClick={() => setUnbanModalTicket(null)}>Cancel</button>
+              <button
+                className="btn-primary"
+                style={{ backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+                onClick={() => {
+                  const data = {
+                    canOpen: unbanRestrictionChoice === 'allow',
+                    blockedUntil: unbanRestrictionChoice === 'timed' ? (unbanBlockedUntilDate ? new Date(unbanBlockedUntilDate) : null) : null,
+                    adminRemarks: unbanAdminRemarks.trim()
+                  };
+                  executeCloseTicket(unbanModalTicket._id || unbanModalTicket.id, data);
+                }}
+              >
+                🔒 Confirm Close & Apply Restrictions
+              </button>
+            </div>
           </div>
         </div>
       )}
