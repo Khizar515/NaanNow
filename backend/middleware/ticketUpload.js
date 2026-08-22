@@ -10,7 +10,8 @@ const ensureDir = (dir) => {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const ticketId = req.params.id || 'general';
+    // Use friendlyTicketId (e.g. TKT-1001) set by pre-middleware, fallback to params.id, then 'general'
+    const ticketId = req.friendlyTicketId || req.params.id || 'general';
     const folder = `uploads/tickets/${ticketId}/`;
     ensureDir(folder);
     cb(null, folder);

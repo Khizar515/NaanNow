@@ -206,6 +206,8 @@ function AdminDashboard() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [zoomedDoc, setZoomedDoc] = useState(null);
   const [activeTicket, setActiveTicket] = useState(null);
+  // Ref always mirrors the selected ticket's ID — polling uses this to never switch tickets
+  const selectedTicketIdRef = useRef(null);
 
   // Support Desk Filter & Action States
   const [ticketFilterTab, setTicketFilterTab] = useState('all'); // 'all', 'unban', 'general'
@@ -490,18 +492,42 @@ function AdminDashboard() {
         const freshTickets = await api.getTickets();
         setTickets(freshTickets);
 
-        // Sync activeTicket if open
-        setActiveTicket(prev => {
-          if (!prev) return null;
-          const fresh = freshTickets.find(t => (t._id === prev._id || t.id === prev.id || t.ticketNumber === prev.ticketNumber));
-          return fresh || prev;
-        });
+        // Use ref to find the exact selected ticket — never switches to a different ticket
+        const currentId = selectedTicketIdRef.current;
+        if (currentId) {
+          const fresh = freshTickets.find(t => t._id === currentId || t.id === currentId);
+          if (fresh) setActiveTicket(fresh);
+        }
       } catch (err) {
         // Silent catch for live poll
       }
     };
 
     const interval = setInterval(pollTickets, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ------------------------------------------------------------------------
+  // Live Users & Staff Polling (10s) — keeps Assign Staff dropdown fresh
+  // ------------------------------------------------------------------------
+  useEffect(() => {
+    const pollUsersAndStaff = async () => {
+      try {
+        const [freshUsers, freshMembers, freshRoles, freshHistory] = await Promise.all([
+          api.getAllUsers().catch(() => null),
+          api.getStaffMembers().catch(() => null),
+          api.getStaffRoles().catch(() => null),
+          api.getStaffHistory().catch(() => null)
+        ]);
+        if (freshUsers) setUsers(freshUsers);
+        if (freshMembers) setStaffMembers(freshMembers);
+        if (freshRoles) setStaffRoles(freshRoles);
+        if (freshHistory) setStaffHistory(freshHistory);
+      } catch (err) {
+        // Silent — live poll
+      }
+    };
+    const interval = setInterval(pollUsersAndStaff, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1335,111 +1361,133 @@ function AdminDashboard() {
         </div>
 
         <ul className="admin-sidebar-menu">
-          <div className="menu-section-label">General</div>
+          {(() => {
+            const isAdmin = currentUser?.role === 'admin';
+            const staffPerms = staffInfo?.permissions || [];
+            // Admins can access all; staff need explicit permission
+            const can = (perm) => isAdmin || staffPerms.includes(perm);
+            return (
+              <>
+                <div className="menu-section-label">General</div>
+                <li className="menu-item">
+                  <button className={`menu-link ${activeMenuTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveMenuTab('dashboard')}>
+                    <span className="menu-link-icon"><Icon name="dashboard" /></span>
+                    <span className="menu-text">Dashboard</span>
+                  </button>
+                </li>
+                {can('orders') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveMenuTab('orders')}>
+                      <span className="menu-link-icon"><Icon name="orders" /></span>
+                      <span className="menu-text">Orders ({orders.length})</span>
+                    </button>
+                  </li>
+                )}
 
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveMenuTab('dashboard')}>
-              <span className="menu-link-icon"><Icon name="dashboard" /></span>
-              <span className="menu-text">Dashboard</span>
-            </button>
-          </li>
+                <div className="menu-section-label">Partners</div>
+                {can('restaurants') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'restaurants' ? 'active' : ''}`} onClick={() => setActiveMenuTab('restaurants')}>
+                      <span className="menu-link-icon"><Icon name="restaurants" /></span>
+                      <span className="menu-text">Restaurants ({managersCount})</span>
+                    </button>
+                  </li>
+                )}
+                {can('riders') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'riders' ? 'active' : ''}`} onClick={() => setActiveMenuTab('riders')}>
+                      <span className="menu-link-icon"><Icon name="riders" /></span>
+                      <span className="menu-text">Riders ({ridersCount})</span>
+                    </button>
+                  </li>
+                )}
+                {can('users') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveMenuTab('customers')}>
+                      <span className="menu-link-icon"><Icon name="customers" /></span>
+                      <span className="menu-text">Customers</span>
+                    </button>
+                  </li>
+                )}
 
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveMenuTab('orders')}>
-              <span className="menu-link-icon"><Icon name="orders" /></span>
-              <span className="menu-text">Orders ({orders.length})</span>
-            </button>
-          </li>
+                <div className="menu-section-label">Platform Control</div>
+                {can('users') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'verification' ? 'active' : ''}`} onClick={() => setActiveMenuTab('verification')}>
+                      <span className="menu-link-icon"><Icon name="verification" /></span>
+                      <span className="menu-text">Verification Center {pendingApprovalsCount > 0 && <span className="status-pill cancelled" style={{ padding: '2px 6px', fontSize: '9px', marginLeft: '6px' }}>{pendingApprovalsCount}</span>}</span>
+                    </button>
+                  </li>
+                )}
+                {can('categories') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'menu_categories' ? 'active' : ''}`} onClick={() => setActiveMenuTab('menu_categories')}>
+                      <span className="menu-link-icon"><Icon name="menu" /></span>
+                      <span className="menu-text">Categories</span>
+                    </button>
+                  </li>
+                )}
+                {can('withdrawals') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveMenuTab('payments')}>
+                      <span className="menu-link-icon"><Icon name="payments" /></span>
+                      <span className="menu-text">Payments & Ledger</span>
+                    </button>
+                  </li>
+                )}
+                {can('promotions') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'promotions' ? 'active' : ''}`} onClick={() => setActiveMenuTab('promotions')}>
+                      <span className="menu-link-icon"><Icon name="promotions" /></span>
+                      <span className="menu-text">Promotions</span>
+                    </button>
+                  </li>
+                )}
+                {can('dashboard') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveMenuTab('analytics')}>
+                      <span className="menu-link-icon"><Icon name="analytics" /></span>
+                      <span className="menu-text">Analytics</span>
+                    </button>
+                  </li>
+                )}
+                {can('support') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'support' ? 'active' : ''}`} onClick={() => setActiveMenuTab('support')}>
+                      <span className="menu-link-icon"><Icon name="support" /></span>
+                      <span className="menu-text">Customer Support {tickets.filter(t => t.status === 'Open').length > 0 && <span className="status-pill cancelled" style={{ padding: '2px 6px', fontSize: '9px', marginLeft: '6px' }}>{tickets.filter(t => t.status === 'Open').length}</span>}</span>
+                    </button>
+                  </li>
+                )}
+                {can('dashboard') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveMenuTab('notifications')}>
+                      <span className="menu-link-icon"><Icon name="notifications" /></span>
+                      <span className="menu-text">Rich Alerts</span>
+                    </button>
+                  </li>
+                )}
 
-          <div className="menu-section-label">Partners</div>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'restaurants' ? 'active' : ''}`} onClick={() => setActiveMenuTab('restaurants')}>
-              <span className="menu-link-icon"><Icon name="restaurants" /></span>
-              <span className="menu-text">Restaurants ({managersCount})</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'riders' ? 'active' : ''}`} onClick={() => setActiveMenuTab('riders')}>
-              <span className="menu-link-icon"><Icon name="riders" /></span>
-              <span className="menu-text">Riders ({ridersCount})</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveMenuTab('customers')}>
-              <span className="menu-link-icon"><Icon name="customers" /></span>
-              <span className="menu-text">Customers</span>
-            </button>
-          </li>
-
-          <div className="menu-section-label">Platform Control</div>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'verification' ? 'active' : ''}`} onClick={() => setActiveMenuTab('verification')}>
-              <span className="menu-link-icon"><Icon name="verification" /></span>
-              <span className="menu-text">Verification Center {pendingApprovalsCount > 0 && <span className="status-pill cancelled" style={{ padding: '2px 6px', fontSize: '9px', marginLeft: '6px' }}>{pendingApprovalsCount}</span>}</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'menu_categories' ? 'active' : ''}`} onClick={() => setActiveMenuTab('menu_categories')}>
-              <span className="menu-link-icon"><Icon name="menu" /></span>
-              <span className="menu-text">Categories</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveMenuTab('payments')}>
-              <span className="menu-link-icon"><Icon name="payments" /></span>
-              <span className="menu-text">Payments & Ledger</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'promotions' ? 'active' : ''}`} onClick={() => setActiveMenuTab('promotions')}>
-              <span className="menu-link-icon"><Icon name="promotions" /></span>
-              <span className="menu-text">Promotions</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveMenuTab('analytics')}>
-              <span className="menu-link-icon"><Icon name="analytics" /></span>
-              <span className="menu-text">Analytics</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'support' ? 'active' : ''}`} onClick={() => setActiveMenuTab('support')}>
-              <span className="menu-link-icon"><Icon name="support" /></span>
-              <span className="menu-text">Customer Support {tickets.filter(t => t.status === 'Open').length > 0 && <span className="status-pill cancelled" style={{ padding: '2px 6px', fontSize: '9px', marginLeft: '6px' }}>{tickets.filter(t => t.status === 'Open').length}</span>}</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveMenuTab('notifications')}>
-              <span className="menu-link-icon"><Icon name="notifications" /></span>
-              <span className="menu-text">Rich Alerts</span>
-            </button>
-          </li>
-
-          <div className="menu-section-label">System</div>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'staff' ? 'active' : ''}`} onClick={() => setActiveMenuTab('staff')}>
-              <span className="menu-link-icon">🧑‍💼</span>
-              <span className="menu-text">Staff & Roles</span>
-            </button>
-          </li>
-
-          <li className="menu-item">
-            <button className={`menu-link ${activeMenuTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveMenuTab('settings')}>
-              <span className="menu-link-icon"><Icon name="settings" /></span>
-              <span className="menu-text">Settings</span>
-            </button>
-          </li>
+                <div className="menu-section-label">System</div>
+                {can('staff') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'staff' ? 'active' : ''}`} onClick={() => setActiveMenuTab('staff')}>
+                      <span className="menu-link-icon">🧑‍💼</span>
+                      <span className="menu-text">Staff & Roles</span>
+                    </button>
+                  </li>
+                )}
+                {can('settings') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveMenuTab('settings')}>
+                      <span className="menu-link-icon"><Icon name="settings" /></span>
+                      <span className="menu-text">Settings</span>
+                    </button>
+                  </li>
+                )}
+              </>
+            );
+          })()}
         </ul>
 
         <div className="admin-sidebar-footer">
@@ -1503,7 +1551,7 @@ function AdminDashboard() {
                   style={{ fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                   onClick={() => {
                     const target = currentUser?.role === 'manager' ? '/restaurant-dashboard' :
-                                   currentUser?.role === 'rider' ? '/rider-dashboard' : '/';
+                      currentUser?.role === 'rider' ? '/rider-dashboard' : '/';
                     navigate(target);
                   }}
                   title="Switch back to your user portal"
@@ -1543,12 +1591,40 @@ function AdminDashboard() {
               </div>
               <div className="skeleton-box" style={{ height: '350px' }}></div>
             </div>
-          ) : (
-            <>
-              {/* ====================================================================
-                 VIEW 1: EXECUTIVE DASHBOARD
-                 ==================================================================== */}
-              {activeMenuTab === 'dashboard' && (
+          ) : (() => {
+            // Tab-level permission guard
+            const isAdmin = currentUser?.role === 'admin';
+            const staffPerms = staffInfo?.permissions || [];
+            const TAB_PERM = {
+              orders: 'orders', restaurants: 'restaurants', riders: 'riders',
+              customers: 'users', verification: 'users', menu_categories: 'categories',
+              payments: 'withdrawals', promotions: 'promotions', analytics: 'dashboard',
+              support: 'support', notifications: 'dashboard', staff: 'staff',
+              settings: 'settings', dashboard: null
+            };
+            const requiredPerm = TAB_PERM[activeMenuTab];
+            const hasPermission = isAdmin || !requiredPerm || staffPerms.includes(requiredPerm);
+
+            if (!hasPermission) {
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '56px' }}>🔒</div>
+                  <h2 style={{ margin: 0, fontWeight: '800' }}>Access Denied</h2>
+                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '400px', lineHeight: 1.6 }}>
+                    You don't have permission to view the <strong>{activeMenuTab.replace('_', ' ').toUpperCase()}</strong> section.
+                    Contact your system administrator to request access.
+                  </p>
+                  <button className="btn-secondary" onClick={() => setActiveMenuTab('dashboard')}>← Back to Dashboard</button>
+                </div>
+              );
+            }
+
+            return (
+              <>
+                {/* ====================================================================
+                   VIEW 1: EXECUTIVE DASHBOARD
+                   ==================================================================== */}
+                {activeMenuTab === 'dashboard' && (
                 <div>
                   <div className="page-header">
                     <div className="page-title-desc">
@@ -2803,6 +2879,7 @@ function AdminDashboard() {
                               }}
                               onClick={() => {
                                 setActiveTicket(t);
+                                selectedTicketIdRef.current = t._id || t.id; // lock polling to this ticket
                                 setSupportReplyText('');
                                 setTicketAdminAction(t.adminAction || '');
                               }}
@@ -2933,7 +3010,7 @@ function AdminDashboard() {
                                         const res = activeTicket.closingUnbanRestriction || activeTicket.userId?.unbanRestriction;
                                         if (!res) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
                                         if (res.canOpen) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
-                                        if (res.blockedUntil) return <span style={{ color: '#d97706', fontWeight: '700' }}>⏳ Restricted Until {new Date(res.blockedUntil).toLocaleDateString()}</span>;
+                                        if (res.blockedUntil) return <span style={{ color: '#d97706', fontWeight: '700' }}>⏳ Restricted Until {new Date(res.blockedUntil).toLocaleString()}</span>;
                                         return <span style={{ color: '#dc2626', fontWeight: '700' }}>🚫 Lifetime Block (Permanent)</span>;
                                       })()}
                                     </div>
@@ -3354,8 +3431,9 @@ function AdminDashboard() {
                   </div>
                 </div>
               )}
-            </>
-          )}
+              </>
+            );
+          })()}
 
         </main>
       </div>

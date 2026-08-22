@@ -21,6 +21,19 @@ function BlockedTicketWidget({ user }) {
 
   const fileInputRef = useRef(null);
   const replyFileInputRef = useRef(null);
+  const chatScrollRef = useRef(null);    // scroll-into-view for chat container
+  const activeTicketRef = useRef(null); // mirrors activeTicket — avoids stale closure in interval
+
+  // Keep ref in sync so the polling interval always has the latest activeTicket
+  useEffect(() => {
+    activeTicketRef.current = activeTicket;
+  }, [activeTicket]);
+
+  const scrollChatToBottom = () => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  };
 
   const fetchMyTickets = async (isPoll = false) => {
     try {
@@ -36,9 +49,19 @@ function BlockedTicketWidget({ user }) {
         // Auto-select open/in_progress ticket if available, else newest ticket
         const activeOrNewest = data.find(t => t.status !== 'closed') || data[0];
         setActiveTicket(activeOrNewest || null);
-      } else if (activeTicket) {
-        const freshActive = data.find(t => t._id === activeTicket._id);
-        if (freshActive) setActiveTicket(freshActive);
+      } else {
+        // Use ref to get the TRUE current activeTicket (avoids stale closure)
+        const currentActive = activeTicketRef.current;
+        if (currentActive) {
+          const freshActive = data.find(t => t._id === currentActive._id);
+          if (freshActive) {
+            setActiveTicket(freshActive);
+            // If new messages arrived, scroll chat to bottom
+            if (freshActive.chat?.length !== currentActive.chat?.length) {
+              setTimeout(scrollChatToBottom, 50);
+            }
+          }
+        }
       }
     } catch (err) {
       console.error("Error fetching tickets:", err);
@@ -94,6 +117,8 @@ function BlockedTicketWidget({ user }) {
       if (replyFileInputRef.current) replyFileInputRef.current.value = '';
       await fetchMyTickets();
       setReplyText('');
+      // Scroll the chat container (not the page) to show the new message
+      setTimeout(scrollChatToBottom, 80);
     } catch (err) {
       console.error("Error sending reply:", err);
       setError(err.message || 'Failed to send reply.');
@@ -164,7 +189,7 @@ function BlockedTicketWidget({ user }) {
             <button
               onClick={() => setActiveTicket(null)}
               className="widget-submit-btn"
-              style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--color-roasted, #4F2E1D)' }}
+              style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--color-tandoori, #e57919)' }}
             >
               ➕ Create New Ticket
             </button>
@@ -311,13 +336,13 @@ function BlockedTicketWidget({ user }) {
               {activeTicket.adminAction === 'unban'
                 ? 'Account has been unblocked! You may now sign out and log back in.'
                 : activeTicket.adminAction === 'pending_docs'
-                ? 'Admin requested additional document clarification in chat.'
-                : 'Admin maintained suspension status.'}
+                  ? 'Admin requested additional document clarification in chat.'
+                  : 'Admin maintained suspension status.'}
             </div>
           )}
 
           {/* CHAT MESSAGES */}
-          <div className="widget-chat-messages">
+          <div className="widget-chat-messages" ref={chatScrollRef}>
             {activeTicket.chat && activeTicket.chat.length > 0 ? (
               activeTicket.chat.map((msg, index) => {
                 const isUser = msg.sender !== 'support';

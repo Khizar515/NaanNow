@@ -219,10 +219,10 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
         {/* Mobile Profile Icon (Visible only on mobile, Left side) */}
         <button className="icon-btn mobile-only" onClick={() => navigate('/profile')}>
           {currentUser && (currentUser.profilePic || currentUser.avatar) ? (
-            <img 
-              src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`} 
-              alt={currentUser.name} 
-              style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} 
+            <img
+              src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`}
+              alt={currentUser.name}
+              style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
             />
           ) : (
             <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--color-tandoori)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>
@@ -258,10 +258,10 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
             <div className="profile-menu-container desktop-only">
               <button className="action-btn" onClick={() => setIsProfileOpen(!isProfileOpen)} style={{ gap: '8px' }}>
                 {(currentUser.profilePic || currentUser.avatar) ? (
-                  <img 
-                    src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`} 
-                    alt={currentUser.name} 
-                    style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} 
+                  <img
+                    src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`}
+                    alt={currentUser.name}
+                    style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
                   />
                 ) : (
                   <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: 'var(--color-tandoori)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' }}>
@@ -277,16 +277,42 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
               {isProfileOpen && (
                 <div className="profile-dropdown">
                   <ul>
-                    {(isStaffUser || (currentUser && currentUser.role !== 'customer')) && (
-                      <li 
+                    {/* Manager always sees their restaurant portal link */}
+                    {currentUser.role === 'manager' && (
+                      <li
                         style={{ fontWeight: 'bold', color: 'var(--color-tandoori)', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
-                        onClick={() => {
-                          const target = (isStaffUser || currentUser.role === 'admin') ? '/admin-dashboard' :
-                                         currentUser.role === 'rider' ? '/rider-dashboard' :
-                                         currentUser.role === 'manager' ? '/restaurant-dashboard' : '/';
-                          navigate(target);
-                          setIsProfileOpen(false);
-                        }}
+                        onClick={() => { navigate('/restaurant-dashboard'); setIsProfileOpen(false); }}
+                      >
+                        🏪 Go to Restaurant Portal
+                      </li>
+                    )}
+
+                    {/* Rider always sees their rider portal link */}
+                    {currentUser.role === 'rider' && (
+                      <li
+                        style={{ fontWeight: 'bold', color: 'var(--color-tandoori)', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
+                        onClick={() => { navigate('/rider-dashboard'); setIsProfileOpen(false); }}
+                      >
+                        🛵 Go to Rider Portal
+                      </li>
+                    )}
+
+                    {/* Admin sees admin panel link */}
+                    {currentUser.role === 'admin' && (
+                      <li
+                        style={{ fontWeight: 'bold', color: 'var(--color-tandoori)', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
+                        onClick={() => { navigate('/admin-dashboard'); setIsProfileOpen(false); }}
+                      >
+                        🧑‍💼 Go to Admin Panel
+                      </li>
+                    )}
+
+                    {/* Staff portal — only if user has an active staff assignment
+                        (manager/rider who are also staff see BOTH their portal + this) */}
+                    {isStaffUser && currentUser.role !== 'admin' && (
+                      <li
+                        style={{ fontWeight: 'bold', color: 'var(--color-tandoori)', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
+                        onClick={() => { navigate('/admin-dashboard'); setIsProfileOpen(false); }}
                       >
                         🧑‍💼 Go to Staff Portal
                       </li>

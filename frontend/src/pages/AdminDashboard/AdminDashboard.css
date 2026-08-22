@@ -1722,7 +1722,7 @@
 
 .chat-sender-lbl {
   font-size: 10px;
-  color: var(--text-muted);
+  color: rgb(220, 220, 220);
   margin-bottom: 2px;
   display: block;
 }

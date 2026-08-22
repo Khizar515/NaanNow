@@ -36,6 +36,11 @@ const ticketSchema = new mongoose.Schema({
   adminAction: { type: String, default: '' },
   closedAt: { type: Date },
   closedBy: { type: String },
+  closingUnbanRestriction: {
+    canOpen: { type: Boolean, default: true },
+    blockedUntil: { type: Date, default: null },
+    adminRemarks: { type: String, default: '' }
+  },
   chat: [chatMessageSchema]
 }, { timestamps: true });
 
