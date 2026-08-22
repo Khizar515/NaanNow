@@ -3222,10 +3222,15 @@ function AdminDashboard() {
 
                     {/* TAB 1: ACTIVE STAFF MEMBERS */}
                     {staffActiveTab === 'members' && (
-                      <div className="chart-card">
-                        <h3>Active Staff Assignments</h3>
-                        <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
-                          <table className="admin-data-table">
+                      <div className="chart-card" style={{ padding: '0', overflow: 'hidden' }}>
+                        <div style={{ padding: '20px 24px 12px 24px', borderBottom: '1px solid var(--border-color)' }}>
+                          <h3 style={{ margin: 0, fontSize: '16px' }}>Active Staff Assignments</h3>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Currently active system staff members and their granted sub-page access permissions.
+                          </p>
+                        </div>
+                        <div className="premium-table-wrapper" style={{ border: 'none', borderRadius: '0', boxShadow: 'none', marginBottom: '0' }}>
+                          <table className="premium-table">
                             <thead>
                               <tr>
                                 <th>Staff Member</th>
@@ -3246,7 +3251,7 @@ function AdminDashboard() {
                                     </td>
                                     <td>
                                       <span className="status-pill approved" style={{ fontWeight: '600' }}>
-                                        {m.roleId?.name || 'Staff Role'}
+                                        {m.roleId?.name || m.roleName || 'Staff Role'}
                                       </span>
                                     </td>
                                     <td>{new Date(m.assignedAt).toLocaleDateString()}</td>
@@ -3335,10 +3340,15 @@ function AdminDashboard() {
 
                     {/* TAB 3: ROLE ASSIGNMENT HISTORY */}
                     {staffActiveTab === 'history' && (
-                      <div className="chart-card">
-                        <h3>Role Assignment Audit Logs</h3>
-                        <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
-                          <table className="admin-data-table">
+                      <div className="chart-card" style={{ padding: '0', overflow: 'hidden' }}>
+                        <div style={{ padding: '20px 24px 12px 24px', borderBottom: '1px solid var(--border-color)' }}>
+                          <h3 style={{ margin: 0, fontSize: '16px' }}>Role Assignment Audit Logs</h3>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Historical record of all staff assignments, role changes, and revocations over time.
+                          </p>
+                        </div>
+                        <div className="premium-table-wrapper" style={{ border: 'none', borderRadius: '0', boxShadow: 'none', marginBottom: '0' }}>
+                          <table className="premium-table">
                             <thead>
                               <tr>
                                 <th>User Name</th>
@@ -3352,24 +3362,34 @@ function AdminDashboard() {
                             </thead>
                             <tbody>
                               {staffHistory.length > 0 ? (
-                                staffHistory.map(h => (
-                                  <tr key={h._id}>
-                                    <td style={{ textAlign: 'center' }}>{h.userId?.name || 'User'}</td>
-                                    <td style={{ textAlign: 'center' }}>{h.roleId?.name || 'Staff Role'}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                      <span className={`status-pill ${h.revokedAt ? 'cancelled' : 'approved'}`}>
-                                        {h.revokedAt ? 'REVOKED' : 'ACTIVE'}
-                                      </span>
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>{new Date(h.assignedAt).toLocaleString()}</td>
-                                    <td style={{ textAlign: 'center' }}>{h.revokedAt ? new Date(h.revokedAt).toLocaleString() : '—'}</td>
-                                    <td style={{ textAlign: 'center' }}>{h.assignedBy}</td>
-                                    <td style={{ textAlign: 'center' }}>{h.notes || '—'}</td>
-                                  </tr>
-                                ))
+                                staffHistory.map(h => {
+                                  const roleDisplayName = h.roleId?.name || h.roleName || 'Deleted Role';
+                                  return (
+                                    <tr key={h._id}>
+                                      <td>
+                                        <strong>{h.userId?.name || 'User'}</strong>
+                                        <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{h.userId?.email || ''}</span>
+                                      </td>
+                                      <td>
+                                        <span className="status-pill approved" style={{ fontWeight: '600' }}>
+                                          {roleDisplayName}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <span className={`status-pill ${h.revokedAt ? 'cancelled' : 'approved'}`}>
+                                          {h.revokedAt ? 'REVOKED' : 'ACTIVE'}
+                                        </span>
+                                      </td>
+                                      <td>{new Date(h.assignedAt).toLocaleString()}</td>
+                                      <td>{h.revokedAt ? new Date(h.revokedAt).toLocaleString() : '—'}</td>
+                                      <td>{h.assignedBy || 'Admin'}</td>
+                                      <td>{h.notes || '—'}</td>
+                                    </tr>
+                                  );
+                                })
                               ) : (
                                 <tr>
-                                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>No role assignment history recorded yet.</td>
+                                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>No role assignment history recorded yet.</td>
                                 </tr>
                               )}
                             </tbody>

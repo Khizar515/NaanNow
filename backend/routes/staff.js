@@ -145,6 +145,12 @@ router.delete('/roles/:id', auth, restrictTo('admin'), async (req, res) => {
       });
     }
 
+    // Back up role name snapshot on all historical assignments before deleting role document
+    await StaffAssignment.updateMany(
+      { roleId: role._id },
+      { $set: { roleName: role.name } }
+    );
+
     await role.deleteOne();
     res.json({ message: 'Staff role deleted successfully' });
   } catch (err) {
@@ -200,6 +206,7 @@ router.post('/members', auth, restrictTo('admin'), async (req, res) => {
     const assignment = new StaffAssignment({
       userId,
       roleId,
+      roleName: role.name,
       assignedBy: req.user.name || 'Admin',
       notes: notes ? notes.trim() : ''
     });

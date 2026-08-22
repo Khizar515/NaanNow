@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const staffAssignmentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   roleId: { type: mongoose.Schema.Types.ObjectId, ref: 'StaffRole', required: true },
+  roleName: { type: String, default: '' },
   assignedAt: { type: Date, default: Date.now },
   assignedBy: { type: String, default: 'Admin' },
   revokedAt: { type: Date, default: null },
