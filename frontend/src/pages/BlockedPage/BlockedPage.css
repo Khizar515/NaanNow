@@ -4,12 +4,12 @@
   justify-content: center;
   align-items: center;
   background-color: var(--color-warm-beige, #f9f6f0);
-  padding: 24px;
+  padding: 80px;
 }
 
 .blocked-card {
   background-color: #ffffff;
-  max-width: 580px;
+  /* max-width: 580px; */
   width: 100%;
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);

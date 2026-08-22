@@ -208,6 +208,58 @@ function AdminDashboard() {
   const [activeTicket, setActiveTicket] = useState(null);
   // Ref always mirrors the selected ticket's ID — polling uses this to never switch tickets
   const selectedTicketIdRef = useRef(null);
+  const adminChatScrollRef = useRef(null);
+
+  // Admin Unread Tracking State: { [ticketId]: timestampMs }
+  const [adminLastReadMap, setAdminLastReadMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem('naannow_admin_ticket_last_read');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const markAdminTicketRead = (ticketId, chat = []) => {
+    const latestTime = chat.length > 0
+      ? new Date(chat[chat.length - 1].time).getTime()
+      : Date.now();
+    setAdminLastReadMap(prev => {
+      const updated = { ...prev, [ticketId]: Math.max(prev[ticketId] || 0, latestTime) };
+      try { localStorage.setItem('naannow_admin_ticket_last_read', JSON.stringify(updated)); } catch { }
+      return updated;
+    });
+  };
+
+  const getAdminUnreadCount = (t) => {
+    if (!t || !t.chat) return 0;
+    const tId = t._id || t.id;
+    const lastRead = adminLastReadMap[tId] || 0;
+    const unreadMsgs = t.chat.filter(m => m.sender !== 'support' && new Date(m.time).getTime() > lastRead);
+    return unreadMsgs.length;
+  };
+
+  const scrollToAdminFirstUnreadOrBottom = (ticket) => {
+    setTimeout(() => {
+      if (!adminChatScrollRef.current || !ticket || !ticket.chat) return;
+
+      const tId = ticket._id || ticket.id;
+      const lastRead = adminLastReadMap[tId] || 0;
+      const firstUnreadIdx = ticket.chat.findIndex(m => m.sender !== 'support' && new Date(m.time).getTime() > lastRead);
+
+      if (firstUnreadIdx !== -1) {
+        const messageElements = adminChatScrollRef.current.querySelectorAll('.chat-bubble');
+        if (messageElements && messageElements[firstUnreadIdx]) {
+          messageElements[firstUnreadIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+      if (adminChatScrollRef.current) {
+        adminChatScrollRef.current.scrollTop = adminChatScrollRef.current.scrollHeight;
+      }
+    }, 100);
+  };
+
 
   // Support Desk Filter & Action States
   const [ticketFilterTab, setTicketFilterTab] = useState('all'); // 'all', 'unban', 'general'
@@ -790,6 +842,12 @@ function AdminDashboard() {
       if (adminReplyFileInputRef.current) adminReplyFileInputRef.current.value = '';
       triggerToast("Reply sent & ticket updated!");
       setActiveTicket(updatedTicket);
+      markAdminTicketRead(ticketId, updatedTicket.chat);
+      setTimeout(() => {
+        if (adminChatScrollRef.current) {
+          adminChatScrollRef.current.scrollTop = adminChatScrollRef.current.scrollHeight;
+        }
+      }, 80);
     } catch (err) {
       console.error(err);
       triggerToast(err.message || 'Failed to send reply', 'error');
@@ -1401,7 +1459,7 @@ function AdminDashboard() {
                     </button>
                   </li>
                 )}
-                {can('users') && (
+                {can('customers') && (
                   <li className="menu-item">
                     <button className={`menu-link ${activeMenuTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveMenuTab('customers')}>
                       <span className="menu-link-icon"><Icon name="customers" /></span>
@@ -1411,7 +1469,7 @@ function AdminDashboard() {
                 )}
 
                 <div className="menu-section-label">Platform Control</div>
-                {can('users') && (
+                {can('verification') && (
                   <li className="menu-item">
                     <button className={`menu-link ${activeMenuTab === 'verification' ? 'active' : ''}`} onClick={() => setActiveMenuTab('verification')}>
                       <span className="menu-link-icon"><Icon name="verification" /></span>
@@ -1419,7 +1477,7 @@ function AdminDashboard() {
                     </button>
                   </li>
                 )}
-                {can('categories') && (
+                {can('menu_categories') && (
                   <li className="menu-item">
                     <button className={`menu-link ${activeMenuTab === 'menu_categories' ? 'active' : ''}`} onClick={() => setActiveMenuTab('menu_categories')}>
                       <span className="menu-link-icon"><Icon name="menu" /></span>
@@ -1427,7 +1485,7 @@ function AdminDashboard() {
                     </button>
                   </li>
                 )}
-                {can('withdrawals') && (
+                {can('payments') && (
                   <li className="menu-item">
                     <button className={`menu-link ${activeMenuTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveMenuTab('payments')}>
                       <span className="menu-link-icon"><Icon name="payments" /></span>
@@ -1443,7 +1501,7 @@ function AdminDashboard() {
                     </button>
                   </li>
                 )}
-                {can('dashboard') && (
+                {can('analytics') && (
                   <li className="menu-item">
                     <button className={`menu-link ${activeMenuTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveMenuTab('analytics')}>
                       <span className="menu-link-icon"><Icon name="analytics" /></span>
@@ -1459,7 +1517,7 @@ function AdminDashboard() {
                     </button>
                   </li>
                 )}
-                {can('dashboard') && (
+                {can('notifications') && (
                   <li className="menu-item">
                     <button className={`menu-link ${activeMenuTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveMenuTab('notifications')}>
                       <span className="menu-link-icon"><Icon name="notifications" /></span>
@@ -1532,16 +1590,20 @@ function AdminDashboard() {
               {darkMode ? <Icon name="sun" /> : <Icon name="moon" />}
             </button>
 
-            {/* Support Messages shortcut */}
-            <button className="topnav-action-btn" onClick={() => setActiveMenuTab('support')} title="View support desk">
-              <Icon name="support" />
-              {tickets.filter(t => t.status === 'Open').length > 0 && <span className="badge-dot" />}
-            </button>
+            {/* Support Messages shortcut — only if staff has support permission */}
+            {(currentUser?.role === 'admin' || (staffInfo?.permissions || []).includes('support')) && (
+              <button className="topnav-action-btn" onClick={() => setActiveMenuTab('support')} title="View support desk">
+                <Icon name="support" />
+                {tickets.filter(t => t.status === 'Open').length > 0 && <span className="badge-dot" />}
+              </button>
+            )}
 
-            {/* Notifications panel toggle */}
-            <button className="topnav-action-btn" onClick={() => setActiveMenuTab('notifications')} title="Rich push campaigns">
-              <Icon name="notifications" />
-            </button>
+            {/* Notifications panel toggle — only if staff has notifications permission */}
+            {(currentUser?.role === 'admin' || (staffInfo?.permissions || []).includes('notifications')) && (
+              <button className="topnav-action-btn" onClick={() => setActiveMenuTab('notifications')} title="Rich push campaigns">
+                <Icon name="notifications" />
+              </button>
+            )}
 
             {/* Profile actions section */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1596,11 +1658,20 @@ function AdminDashboard() {
             const isAdmin = currentUser?.role === 'admin';
             const staffPerms = staffInfo?.permissions || [];
             const TAB_PERM = {
-              orders: 'orders', restaurants: 'restaurants', riders: 'riders',
-              customers: 'users', verification: 'users', menu_categories: 'categories',
-              payments: 'withdrawals', promotions: 'promotions', analytics: 'dashboard',
-              support: 'support', notifications: 'dashboard', staff: 'staff',
-              settings: 'settings', dashboard: null
+              dashboard: 'dashboard',
+              orders: 'orders',
+              restaurants: 'restaurants',
+              riders: 'riders',
+              customers: 'customers',
+              verification: 'verification',
+              menu_categories: 'menu_categories',
+              payments: 'payments',
+              promotions: 'promotions',
+              analytics: 'analytics',
+              support: 'support',
+              notifications: 'notifications',
+              staff: 'staff',
+              settings: 'settings'
             };
             const requiredPerm = TAB_PERM[activeMenuTab];
             const hasPermission = isAdmin || !requiredPerm || staffPerms.includes(requiredPerm);
@@ -1625,1812 +1696,1825 @@ function AdminDashboard() {
                    VIEW 1: EXECUTIVE DASHBOARD
                    ==================================================================== */}
                 {activeMenuTab === 'dashboard' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Business Overview Dashboard</h1>
-                      <p>Complete executive review of the NaanNow ecosystem metrics & performance charts.</p>
-                    </div>
-                    <div className="header-actions-row">
-                      <button className="btn-secondary" onClick={() => handlePrintPDF('Dashboard Summary')}>
-                        <Icon name="export" size={14} /> Print Summary
-                      </button>
-                      <button className="btn-primary" onClick={() => setActiveMenuTab('orders')}>
-                        Manage Operations <Icon name="arrowRight" size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Top Stats Cards */}
-                  <div className="stats-grid">
-                    {(() => {
-                      const todayStr = new Date().toDateString();
-                      const yest = new Date(); yest.setDate(yest.getDate() - 1); const yestStr = yest.toDateString();
-                      const todayRevenue = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).toDateString() === todayStr).reduce((s, o) => s + (o.totalAmount || 0), 0);
-                      const yestRevenue = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).toDateString() === yestStr).reduce((s, o) => s + (o.totalAmount || 0), 0);
-                      const revPct = yestRevenue > 0 ? (((todayRevenue - yestRevenue) / yestRevenue) * 100).toFixed(1) : (todayRevenue > 0 ? '100' : '0');
-
-                      const todayOrdersCount = orders.filter(o => new Date(o.createdAt).toDateString() === todayStr).length;
-                      const yestOrdersCount = orders.filter(o => new Date(o.createdAt).toDateString() === yestStr).length;
-                      const ordersPct = yestOrdersCount > 0 ? (((todayOrdersCount - yestOrdersCount) / yestOrdersCount) * 100).toFixed(1) : (todayOrdersCount > 0 ? '100' : '0');
-
-                      const newManagersCount = users.filter(u => u.role === 'manager' && (new Date().getTime() - new Date(u.createdAt || Date.now()).getTime()) < 7 * 24 * 3600 * 1000).length;
-
-                      const now = new Date();
-                      const thisMonthSales = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).getMonth() === now.getMonth() && new Date(o.createdAt).getFullYear() === now.getFullYear()).reduce((s, o) => s + (o.totalAmount || 0), 0);
-                      const lastMonthSales = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).getMonth() === (now.getMonth() === 0 ? 11 : now.getMonth() - 1)).reduce((s, o) => s + (o.totalAmount || 0), 0);
-                      const monthGrowthPct = lastMonthSales > 0 ? (((thisMonthSales - lastMonthSales) / lastMonthSales) * 100).toFixed(1) : (thisMonthSales > 0 ? '100' : '0');
-
-                      return (
-                        <>
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Today's Revenue</span>
-                              <div className="metric-icon-box"><Icon name="payments" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">Rs. {todayRevenue.toLocaleString()}</span>
-                              <span className={`metric-trend ${Number(revPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
-                                {Number(revPct) >= 0 ? '▲' : '▼'} {Math.abs(revPct)}%
-                              </span>
-                            </div>
-                            <span className="metric-card-footer">Yesterday: Rs. {yestRevenue.toLocaleString()}</span>
-                          </div>
-
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Today's Orders</span>
-                              <div className="metric-icon-box"><Icon name="orders" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">{todayOrdersCount}</span>
-                              <span className={`metric-trend ${Number(ordersPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
-                                {Number(ordersPct) >= 0 ? '▲' : '▼'} {Math.abs(ordersPct)}%
-                              </span>
-                            </div>
-                            <span className="metric-card-footer">{activeOrdersCount} active deliveries stream</span>
-                          </div>
-
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Online Riders</span>
-                              <div className="metric-icon-box"><Icon name="riders" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">{onlineRidersCount}</span>
-                              <span className="metric-trend trend-up">● Active Now</span>
-                            </div>
-                            <span className="metric-card-footer">{ridersCount} total registered riders</span>
-                          </div>
-
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Total Restaurants</span>
-                              <div className="metric-icon-box"><Icon name="restaurants" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">{managersCount}</span>
-                              <span className="metric-trend trend-up">▲ +{newManagersCount} new</span>
-                            </div>
-                            <span className="metric-card-footer">Registered partner venues</span>
-                          </div>
-
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Active Customers</span>
-                              <div className="metric-icon-box"><Icon name="customers" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">{customersCount}</span>
-                              <span className="metric-trend trend-up">● Active</span>
-                            </div>
-                            <span className="metric-card-footer">Registered customer profiles</span>
-                          </div>
-
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Pending Approvals</span>
-                              <div className="metric-icon-box"><Icon name="verification" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">{pendingApprovalsCount}</span>
-                              <span className={`metric-trend ${pendingApprovalsCount > 0 ? 'trend-down' : 'trend-up'}`}>
-                                {pendingApprovalsCount > 0 ? 'Action Needed' : 'All Clear'}
-                              </span>
-                            </div>
-                            <span className="metric-card-footer">Riders & managers verification</span>
-                          </div>
-
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Cancelled Orders</span>
-                              <div className="metric-icon-box"><Icon name="ban" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">{cancelledOrdersCount}</span>
-                              <span className="metric-trend trend-down">
-                                {orders.length > 0 ? ((cancelledOrdersCount / orders.length) * 100).toFixed(1) : 0}% rate
-                              </span>
-                            </div>
-                            <span className="metric-card-footer">Total cancelled orders</span>
-                          </div>
-
-                          <div className="metric-card">
-                            <div className="metric-card-header">
-                              <span className="metric-card-title">Monthly Growth</span>
-                              <div className="metric-icon-box"><Icon name="analytics" /></div>
-                            </div>
-                            <div className="metric-card-body">
-                              <span className="metric-num">{monthGrowthPct}%</span>
-                              <span className={`metric-trend ${Number(monthGrowthPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
-                                {Number(monthGrowthPct) >= 0 ? '▲' : '▼'} MoM
-                              </span>
-                            </div>
-                            <span className="metric-card-footer">Calculated sales vs previous month</span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Interactive SVG Charts Section */}
-                  <div className="charts-grid">
-                    {/* Revenue Trend Area Chart */}
-                    <div className="chart-card">
-                      <div className="chart-header" style={{ marginBottom: '12px' }}>
-                        <div className="chart-title">
-                          <h3>Daily Revenue Trend</h3>
-                          <p>Aggregated sales trends. Click any data point to audit transactions.</p>
-                        </div>
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Business Overview Dashboard</h1>
+                        <p>Complete executive review of the NaanNow ecosystem metrics & performance charts.</p>
                       </div>
+                      <div className="header-actions-row">
+                        <button className="btn-secondary" onClick={() => handlePrintPDF('Dashboard Summary')}>
+                          <Icon name="export" size={14} /> Print Summary
+                        </button>
+                        <button className="btn-primary" onClick={() => setActiveMenuTab('orders')}>
+                          Manage Operations <Icon name="arrowRight" size={14} />
+                        </button>
+                      </div>
+                    </div>
 
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'stretch' }}>
-                        {/* SVG Graph View */}
-                        <div className="chart-container-box" style={{ flex: '1 1 300px', height: '220px', margin: 0 }}>
-                          <svg viewBox="0 0 500 220" width="100%" height="100%">
-                            <defs>
-                              <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="var(--accent-color)" stopOpacity="0.4" />
-                                <stop offset="100%" stopColor="var(--accent-color)" stopOpacity="0.0" />
-                              </linearGradient>
-                            </defs>
-                            {/* Grid Lines */}
-                            <line x1="40" y1="20" x2="480" y2="20" className="svg-chart-grid-line" />
-                            <line x1="40" y1="70" x2="480" y2="70" className="svg-chart-grid-line" />
-                            <line x1="40" y1="120" x2="480" y2="120" className="svg-chart-grid-line" />
-                            <line x1="40" y1="170" x2="480" y2="170" className="svg-chart-grid-line" />
+                    {/* Top Stats Cards */}
+                    <div className="stats-grid">
+                      {(() => {
+                        const todayStr = new Date().toDateString();
+                        const yest = new Date(); yest.setDate(yest.getDate() - 1); const yestStr = yest.toDateString();
+                        const todayRevenue = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).toDateString() === todayStr).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                        const yestRevenue = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).toDateString() === yestStr).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                        const revPct = yestRevenue > 0 ? (((todayRevenue - yestRevenue) / yestRevenue) * 100).toFixed(1) : (todayRevenue > 0 ? '100' : '0');
 
-                            {/* Area & Line */}
-                            <path d={dailyRevenue.areaPath} className="svg-chart-area" />
-                            <path d={dailyRevenue.linePath} className="svg-chart-line" />
+                        const todayOrdersCount = orders.filter(o => new Date(o.createdAt).toDateString() === todayStr).length;
+                        const yestOrdersCount = orders.filter(o => new Date(o.createdAt).toDateString() === yestStr).length;
+                        const ordersPct = yestOrdersCount > 0 ? (((todayOrdersCount - yestOrdersCount) / yestOrdersCount) * 100).toFixed(1) : (todayOrdersCount > 0 ? '100' : '0');
 
-                            {/* Data points */}
-                            {dailyRevenue.points.map((p, idx) => {
-                              const isSelected = selectedChartPoint && selectedChartPoint.dateStr === p.dateStr;
-                              return (
-                                <circle
-                                  key={idx}
-                                  cx={p.x}
-                                  cy={p.y}
-                                  r={isSelected ? 7 : 5}
-                                  fill={isSelected ? 'var(--accent-color)' : 'var(--accent-color)'}
-                                  stroke={isSelected ? 'var(--success-color)' : 'white'}
-                                  strokeWidth={isSelected ? 3 : 1.5}
-                                  className="chart-dot"
-                                  style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
-                                  onClick={() => setSelectedChartPoint(p)}
-                                  title={`${p.dayLabel}: Rs. ${p.revenue.toLocaleString()}`}
-                                />
-                              );
-                            })}
+                        const newManagersCount = users.filter(u => u.role === 'manager' && (new Date().getTime() - new Date(u.createdAt || Date.now()).getTime()) < 7 * 24 * 3600 * 1000).length;
 
-                            {/* Labels */}
-                            {dailyRevenue.points.map((p, idx) => (
-                              <text
-                                key={idx}
-                                x={p.x}
-                                y="195"
-                                fill="var(--text-muted)"
-                                fontSize="10"
-                                textAnchor="middle"
-                              >
-                                {p.dayLabel}
-                              </text>
-                            ))}
+                        const now = new Date();
+                        const thisMonthSales = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).getMonth() === now.getMonth() && new Date(o.createdAt).getFullYear() === now.getFullYear()).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                        const lastMonthSales = orders.filter(o => o.status !== 'cancelled' && new Date(o.createdAt).getMonth() === (now.getMonth() === 0 ? 11 : now.getMonth() - 1)).reduce((s, o) => s + (o.totalAmount || 0), 0);
+                        const monthGrowthPct = lastMonthSales > 0 ? (((thisMonthSales - lastMonthSales) / lastMonthSales) * 100).toFixed(1) : (thisMonthSales > 0 ? '100' : '0');
 
-                            <text x="30" y="110" fill="var(--text-muted)" fontSize="9" textAnchor="end">
-                              {Math.round(dailyRevenue.maxRevenue / 2 / 1000)}k
-                            </text>
-                            <text x="30" y="50" fill="var(--text-muted)" fontSize="9" textAnchor="end">
-                              {Math.round(dailyRevenue.maxRevenue / 1000)}k
-                            </text>
-                          </svg>
-                        </div>
-
-                        {/* Interactive Data inspector side panel */}
-                        <div className="chart-point-details-panel" style={{
-                          flex: '0 1 200px',
-                          padding: '16px',
-                          borderRadius: '16px',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--bg-secondary)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '12px',
-                          justifyContent: 'center',
-                          minWidth: '200px'
-                        }}>
-                          {selectedChartPoint ? (
-                            <div style={{ animation: 'fadeIn 0.25s ease' }}>
-                              <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--accent-color)', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                                📊 {selectedChartPoint.dayLabel} Summary
-                              </h4>
-                              <div style={{ marginBottom: '10px' }}>
-                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Calendar Date</span>
-                                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                                  {new Date(selectedChartPoint.dateStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                        return (
+                          <>
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Today's Revenue</span>
+                                <div className="metric-icon-box"><Icon name="payments" /></div>
+                              </div>
+                              <div className="metric-card-body">
+                                <span className="metric-num">Rs. {todayRevenue.toLocaleString()}</span>
+                                <span className={`metric-trend ${Number(revPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
+                                  {Number(revPct) >= 0 ? '▲' : '▼'} {Math.abs(revPct)}%
                                 </span>
                               </div>
-                              <div style={{ marginBottom: '10px' }}>
-                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Daily Revenue</span>
-                                <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--success-color)' }}>
-                                  Rs. {selectedChartPoint.revenue.toLocaleString()}
+                              <span className="metric-card-footer">Yesterday: Rs. {yestRevenue.toLocaleString()}</span>
+                            </div>
+
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Today's Orders</span>
+                                <div className="metric-icon-box"><Icon name="orders" /></div>
+                              </div>
+                              <div className="metric-card-body">
+                                <span className="metric-num">{todayOrdersCount}</span>
+                                <span className={`metric-trend ${Number(ordersPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
+                                  {Number(ordersPct) >= 0 ? '▲' : '▼'} {Math.abs(ordersPct)}%
                                 </span>
                               </div>
-                              <div style={{ marginBottom: '10px' }}>
-                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Total Orders</span>
-                                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                                  {selectedChartPoint.ordersList.length} deliveries
+                              <span className="metric-card-footer">{activeOrdersCount} active deliveries stream</span>
+                            </div>
+
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Online Riders</span>
+                                <div className="metric-icon-box"><Icon name="riders" /></div>
+                              </div>
+                              <div className="metric-card-body">
+                                <span className="metric-num">{onlineRidersCount}</span>
+                                <span className="metric-trend trend-up">● Active Now</span>
+                              </div>
+                              <span className="metric-card-footer">{ridersCount} total registered riders</span>
+                            </div>
+
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Total Restaurants</span>
+                                <div className="metric-icon-box"><Icon name="restaurants" /></div>
+                              </div>
+                              <div className="metric-card-body">
+                                <span className="metric-num">{managersCount}</span>
+                                <span className="metric-trend trend-up">▲ +{newManagersCount} new</span>
+                              </div>
+                              <span className="metric-card-footer">Registered partner venues</span>
+                            </div>
+
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Active Customers</span>
+                                <div className="metric-icon-box"><Icon name="customers" /></div>
+                              </div>
+                              <div className="metric-card-body">
+                                <span className="metric-num">{customersCount}</span>
+                                <span className="metric-trend trend-up">● Active</span>
+                              </div>
+                              <span className="metric-card-footer">Registered customer profiles</span>
+                            </div>
+
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Pending Approvals</span>
+                                <div className="metric-icon-box"><Icon name="verification" /></div>
+                              </div>
+                              <div className="metric-card-body">
+                                <span className="metric-num">{pendingApprovalsCount}</span>
+                                <span className={`metric-trend ${pendingApprovalsCount > 0 ? 'trend-down' : 'trend-up'}`}>
+                                  {pendingApprovalsCount > 0 ? 'Action Needed' : 'All Clear'}
                                 </span>
                               </div>
-
-                              <div>
-                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: '6px' }}>Contributing Transactions</span>
-                                <div style={{ maxHeight: '72px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '2px' }}>
-                                  {selectedChartPoint.ordersList.length > 0 ? (
-                                    selectedChartPoint.ordersList.map((o, index) => (
-                                      <div
-                                        key={index}
-                                        style={{
-                                          display: 'flex',
-                                          justifyContent: 'space-between',
-                                          fontSize: '11px',
-                                          padding: '4px 6px',
-                                          borderRadius: '6px',
-                                          backgroundColor: 'var(--bg-primary)',
-                                          border: '1px solid var(--border-color)'
-                                        }}
-                                      >
-                                        <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>#{o.id.toString().slice(-5).toUpperCase()}</span>
-                                        <span style={{ fontWeight: '700', color: 'var(--accent-color)' }}>Rs. {o.grandTotal.toLocaleString()}</span>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No active sales.</span>
-                                  )}
-                                </div>
-                              </div>
+                              <span className="metric-card-footer">Riders & managers verification</span>
                             </div>
-                          ) : (
-                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '12px' }}>
-                              <div style={{ fontSize: '28px', marginBottom: '8px' }}>💡</div>
-                              <p style={{ fontSize: '12px', lineHeight: '1.4', margin: 0 }}>Click any graph data point to audit transaction details, daily totals, and invoice items.</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Dynamic Order Status Pie Chart */}
-                    <div className="chart-card">
-                      <div className="chart-header">
-                        <div className="chart-title">
-                          <h3>Operational Breakdowns</h3>
-                          <p>Real-time order status distribution metrics</p>
-                        </div>
-                      </div>
-                      <div className="chart-container-box" style={{ flexDirection: 'column' }}>
-                        {(() => {
-                          const tot = orders.length || 1;
-                          const delCount = orders.filter(o => ['delivered', 'completed'].includes(o.status)).length;
-                          const prepCount = orders.filter(o => ['pending', 'preparing', 'ready_for_pickup'].includes(o.status)).length;
-                          const outCount = orders.filter(o => o.status === 'out_for_delivery').length;
-                          const cancCount = orders.filter(o => o.status === 'cancelled').length;
-
-                          const delP = Math.round((delCount / tot) * 100);
-                          const prepP = Math.round((prepCount / tot) * 100);
-                          const outP = Math.round((outCount / tot) * 100);
-                          const cancP = Math.round((cancCount / tot) * 100);
-
-                          return (
-                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
-                              <svg width="150" height="150" viewBox="0 0 36 36">
-                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--scrollbar-track)" strokeWidth="4" />
-                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--success-color)" strokeWidth="4.2" strokeDasharray={`${delP} ${100 - delP}`} strokeDashoffset="25" className="pie-segment" />
-                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--warning-color)" strokeWidth="4.2" strokeDasharray={`${prepP} ${100 - prepP}`} strokeDashoffset={25 - delP} className="pie-segment" />
-                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--info-color)" strokeWidth="4.2" strokeDasharray={`${outP} ${100 - outP}`} strokeDashoffset={25 - delP - prepP} className="pie-segment" />
-                                <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--error-color)" strokeWidth="4.2" strokeDasharray={`${cancP} ${100 - cancP}`} strokeDashoffset={25 - delP - prepP - outP} className="pie-segment" />
-                              </svg>
-
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--success-color)' }}></span> Delivered: {delP}% ({delCount})</div>
-                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--warning-color)' }}></span> Preparing: {prepP}% ({prepCount})</div>
-                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--info-color)' }}></span> Out for Delivery: {outP}% ({outCount})</div>
-                                <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--error-color)' }}></span> Cancelled: {cancP}% ({cancCount})</div>
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Cancelled Orders</span>
+                                <div className="metric-icon-box"><Icon name="ban" /></div>
                               </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Real-time DB Activity stream */}
-                  <div className="activity-grid">
-                    <div className="activity-card">
-                      <div className="chart-header">
-                        <h3><span className="live-pulse-indicator"></span>Live Activity Stream</h3>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Database activity logs</span>
-                      </div>
-                      <div className="activity-list">
-                        {(() => {
-                          const formatAMPM = (dateObj) => {
-                            if (!dateObj) return 'N/A';
-                            const d = new Date(dateObj);
-                            return d.toLocaleString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              hour12: true
-                            });
-                          };
-
-                          const realStream = [
-                            ...orders.map(o => ({
-                              id: `ord-${o._id}`,
-                              rawDate: new Date(o.createdAt || Date.now()),
-                              type: 'order',
-                              status: o.status === 'delivered' || o.status === 'completed' ? 'approved' : 'pending',
-                              text: `Order ${o.orderNumber || '#' + o._id.toString().slice(-4)} (${o.restaurantId?.name || 'Restaurant'}) - Rs. ${(o.totalAmount || 0).toLocaleString()}`,
-                              time: formatAMPM(o.createdAt)
-                            })),
-                            ...users.map(u => ({
-                              id: `usr-${u._id}`,
-                              rawDate: new Date(u.createdAt || Date.now()),
-                              type: u.role === 'rider' ? 'rider' : u.role === 'manager' ? 'restaurant' : 'customer',
-                              status: u.status || 'approved',
-                              text: `${u.role.toUpperCase()} Account (${u.name}) registered / updated. Status: ${u.status || 'approved'}`,
-                              time: formatAMPM(u.createdAt)
-                            })),
-                            ...tickets.map(t => ({
-                              id: `tkt-${t._id}`,
-                              rawDate: new Date(t.createdAt || Date.now()),
-                              type: 'ticket',
-                              status: t.status === 'Open' ? 'pending' : 'approved',
-                              text: `Support Ticket "${t.subject}" created. Status: ${t.status}`,
-                              time: formatAMPM(t.createdAt)
-                            })),
-                            ...withdrawals.map(w => ({
-                              id: `wth-${w._id}`,
-                              rawDate: new Date(w.createdAt || Date.now()),
-                              type: 'withdrawal',
-                              status: w.status === 'Completed' ? 'approved' : 'pending',
-                              text: `Withdrawal payout request of Rs. ${w.amount.toLocaleString()} (${w.method})`,
-                              time: formatAMPM(w.createdAt)
-                            }))
-                          ]
-                            .sort((a, b) => b.rawDate - a.rawDate)
-                            .slice(0, 15);
-
-                          return realStream.map((act) => (
-                            <div className="activity-item" key={act.id}>
-                              <div className={`activity-badge-icon ${act.status}`}>
-                                {act.type === 'order' && '📦'}
-                                {act.type === 'rider' && '🛵'}
-                                {act.type === 'restaurant' && '🏪'}
-                                {act.type === 'customer' && '👤'}
-                                {act.type === 'ticket' && '🎫'}
-                                {act.type === 'withdrawal' && '💳'}
-                              </div>
-                              <div className="activity-info">
-                                <p className="activity-title-text">{act.text}</p>
-                                <span className="activity-desc-text">Database Event Log</span>
-                              </div>
-                              <span className="activity-time-lbl" style={{ whiteSpace: 'nowrap', fontSize: '11px' }}>{act.time}</span>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 2: ORDERS MANAGEMENT
-                 ==================================================================== */}
-              {activeMenuTab === 'orders' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Orders Management Ledger</h1>
-                      <p>View, track, cancel, refund, and administer details of all food deliveries.</p>
-                    </div>
-                  </div>
-
-                  {/* Table Filter card */}
-                  <div className="table-filter-card">
-                    <div className="filter-left">
-                      <button className={`filter-chip ${orderFilter === 'Today' ? 'active' : ''}`} onClick={() => setOrderFilter('Today')}>Today</button>
-                      <button className={`filter-chip ${orderFilter === 'Yesterday' ? 'active' : ''}`} onClick={() => setOrderFilter('Yesterday')}>Yesterday</button>
-                      <button className={`filter-chip ${orderFilter === 'This Week' ? 'active' : ''}`} onClick={() => setOrderFilter('This Week')}>This Week</button>
-                      <button className={`filter-chip ${orderFilter === 'All' ? 'active' : ''}`} onClick={() => setOrderFilter('All')}>All Time</button>
-
-                      <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)', margin: '0 8px' }}></div>
-
-                      <select className="select-filter-box" value={orderStatusFilter} onChange={(e) => setOrderStatusFilter(e.target.value)}>
-                        <option value="all">All Statuses</option>
-                        <option value="Pending">Pending Approval</option>
-                        <option value="Preparing">Preparing</option>
-                        <option value="Baking">Baking</option>
-                        <option value="Waiting for Rider">Waiting for Rider</option>
-                        <option value="Delivering">Delivering</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                        <option value="Refunded">Refunded</option>
-                      </select>
-                    </div>
-
-                    <button className="btn-secondary" onClick={() => handleExportCSV(orders, "naannow_orders_report")}>
-                      <Icon name="export" size={14} /> Export CSV
-                    </button>
-                  </div>
-
-                  {/* Orders Table */}
-                  <div className="premium-table-wrapper">
-                    <table className="premium-table">
-                      <thead>
-                        <tr>
-                          <th>Order ID</th>
-                          <th>Customer Details</th>
-                          <th>Restaurant</th>
-                          <th>Amount (Rs.)</th>
-                          <th>Payment</th>
-                          <th>Status</th>
-                          <th>Date & Time</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getFilteredOrders().length === 0 ? (
-                          <tr>
-                            <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                              No orders match the specified filters.
-                            </td>
-                          </tr>
-                        ) : (
-                          getPaginatedList(getFilteredOrders()).map(order => (
-                            <tr key={order.id}>
-                              <td style={{ fontWeight: '700' }}>{order.id}</td>
-                              <td>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <span style={{ fontWeight: '600' }}>{order.name || "Guest Customer"}</span>
-                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{order.phone || "N/A"}</span>
-                                </div>
-                              </td>
-                              <td style={{ fontWeight: '500' }}>{order.restaurantName}</td>
-                              <td style={{ fontWeight: '600', color: 'var(--accent-color)' }}>Rs. {order.grandTotal || order.totalPrice || 0}</td>
-                              <td style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 'bold' }}>{order.paymentMethod || "cod"}</td>
-                              <td>
-                                <span className={`status-pill ${order.status.toLowerCase().replace(/ /g, '-')}`}>
-                                  {order.status}
+                              <div className="metric-card-body">
+                                <span className="metric-num">{cancelledOrdersCount}</span>
+                                <span className="metric-trend trend-down">
+                                  {orders.length > 0 ? ((cancelledOrdersCount / orders.length) * 100).toFixed(1) : 0}% rate
                                 </span>
-                              </td>
-                              <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                {new Date(order.date).toLocaleString()}
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedOrder(order)}>
-                                  Details / Control
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination widget */}
-                  <div className="pagination-row-wrapper">
-                    <span className="pagination-text-summary">
-                      Showing page <strong>{currentPage}</strong> of <strong>{Math.ceil(getFilteredOrders().length / itemsPerPage) || 1}</strong> ({getFilteredOrders().length} orders total)
-                    </span>
-                    <div className="pagination-actions-box">
-                      <button className="pagination-nav-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>Previous</button>
-                      <button className="pagination-nav-btn" disabled={currentPage >= Math.ceil(getFilteredOrders().length / itemsPerPage)} onClick={() => setCurrentPage(prev => prev + 1)}>Next</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 3: RESTAURANT PARTNERS MANAGEMENT
-                 ==================================================================== */}
-              {activeMenuTab === 'restaurants' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Restaurant Partners Control</h1>
-                      <p>Supervise restaurant registration requests, verify license credentials, CNICs, and adjust commission rates.</p>
-                    </div>
-                  </div>
-
-                  {/* Table Filter card */}
-                  <div className="table-filter-card">
-                    <div className="filter-left">
-                      <button className={`filter-chip ${restaurantFilter === 'all' ? 'active' : ''}`} onClick={() => setRestaurantFilter('all')}>All Partners</button>
-                      <button className={`filter-chip ${restaurantFilter === 'pending' ? 'active' : ''}`} onClick={() => setRestaurantFilter('pending')}>Pending Approval</button>
-                      <button className={`filter-chip ${restaurantFilter === 'approved' ? 'active' : ''}`} onClick={() => setRestaurantFilter('approved')}>Active / Approved</button>
-                      <button className={`filter-chip ${restaurantFilter === 'blocked' ? 'active' : ''}`} onClick={() => setRestaurantFilter('blocked')}>Suspended</button>
-                    </div>
-                  </div>
-
-                  {/* Restaurant Table */}
-                  <div className="premium-table-wrapper">
-                    <table className="premium-table">
-                      <thead>
-                        <tr>
-                          <th>Restaurant Details</th>
-                          <th>Owner Profile</th>
-                          <th>Location / Contact</th>
-                          <th>Rating</th>
-                          <th>Commission</th>
-                          <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getFilteredRestaurants().length === 0 ? (
-                          <tr>
-                            <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                              No restaurants found matching this criteria.
-                            </td>
-                          </tr>
-                        ) : (
-                          getPaginatedList(getFilteredRestaurants()).map(manager => (
-                            <tr key={manager.email}>
-                              <td>
-                                <div className="avatar-cell">
-                                  {manager.logo ? (
-                                    <img src={manager.logo} alt="Logo" className="user-profile-img" style={{ borderRadius: '8px' }} />
-                                  ) : (
-                                    <div className="avatar-initials" style={{ borderRadius: '8px' }}>R</div>
-                                  )}
-                                  <div>
-                                    <span className="user-fullname">{manager.restaurantName || "Unnamed Eatery"}</span>
-                                    <span className="user-subinfo" style={{ display: 'block' }}>Platform Partner</span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <span style={{ fontWeight: '500' }}>{manager.name}</span>
-                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CNIC: {manager.cnicNumber || "Pending"}</span>
-                                </div>
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <span>{manager.city || "Islamabad"}</span>
-                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{manager.phone || manager.email}</span>
-                                </div>
-                              </td>
-                              <td>⭐ {manager.rating ? Number(manager.rating).toFixed(1) : '0.0 (New)'}</td>
-                              <td style={{ fontWeight: '600' }}>{platformSettings.commission}%</td>
-                              <td>
-                                <span className={`status-pill ${(manager.status || 'approved').toLowerCase()}`}>
-                                  {manager.status || 'approved'}
-                                </span>
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedRestaurant(manager)}>
-                                  Profile & Verification
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 4: RIDER MANAGEMENT
-                 ==================================================================== */}
-              {activeMenuTab === 'riders' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Riders Verification & Logs</h1>
-                      <p>View riders license documents, online statuses, ratings, and track delivery routes.</p>
-                    </div>
-                  </div>
-
-                  {/* Table Filter card */}
-                  <div className="table-filter-card">
-                    <div className="filter-left">
-                      <button className={`filter-chip ${riderFilter === 'all' ? 'active' : ''}`} onClick={() => setRiderFilter('all')}>All Riders</button>
-                      <button className={`filter-chip ${riderFilter === 'pending' ? 'active' : ''}`} onClick={() => setRiderFilter('pending')}>Pending Review</button>
-                      <button className={`filter-chip ${riderFilter === 'approved' ? 'active' : ''}`} onClick={() => setRiderFilter('approved')}>Active / Approved</button>
-                      <button className={`filter-chip ${riderFilter === 'online' ? 'active' : ''}`} onClick={() => setRiderFilter('online')}>Online GPS</button>
-                      <button className={`filter-chip ${riderFilter === 'blocked' ? 'active' : ''}`} onClick={() => setRiderFilter('blocked')}>Blocked / Suspended</button>
-                    </div>
-                  </div>
-
-                  {/* Rider Table */}
-                  <div className="premium-table-wrapper">
-                    <table className="premium-table">
-                      <thead>
-                        <tr>
-                          <th>Rider Profile</th>
-                          <th>Bike Details</th>
-                          <th>License Plate</th>
-                          <th>Online GPS</th>
-                          <th>Deliveries</th>
-                          <th>Rating</th>
-                          <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getFilteredRiders().length === 0 ? (
-                          <tr>
-                            <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                              No riders match these filter configurations.
-                            </td>
-                          </tr>
-                        ) : (
-                          getPaginatedList(getFilteredRiders()).map(rider => {
-                            const isRiderOnline = rider.email === 'hamza@rider.com' || rider.email === 'ali@rider.com';
-                            return (
-                              <tr key={rider.email}>
-                                <td>
-                                  <div className="avatar-cell">
-                                    <div className="avatar-initials">🛵</div>
-                                    <div>
-                                      <span className="user-fullname">{rider.name}</span>
-                                      <span className="user-subinfo" style={{ display: 'block' }}>{rider.email}</span>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td>
-                                  {rider.vehicleDetails || rider.bikeModel || "Honda CD70"}
-                                </td>
-                                <td style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>{rider.licensePlate || "Pending"}</td>
-                                <td>
-                                  <span style={{ display: 'flex', alignItems: 'center' }}>
-                                    {isRiderOnline ? (
-                                      <>
-                                        <span className="live-pulse-indicator"></span> Online Tracking
-                                      </>
-                                    ) : (
-                                      "● Offline"
-                                    )}
-                                  </span>
-                                </td>
-                                <td>{orders.filter(o => (o.riderId?._id === rider._id || o.riderId === rider._id) && ['delivered', 'completed'].includes(o.status)).length} Deliveries</td>
-                                <td>⭐ {rider.rating || 0}</td>
-                                <td>
-                                  <span className={`status-pill ${(rider.status || 'approved').toLowerCase()}`}>
-                                    {rider.status || 'approved'}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedRider(rider)}>
-                                    Documents & Profile
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 5: CUSTOMER MANAGEMENT
-                 ==================================================================== */}
-              {activeMenuTab === 'customers' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Customer Accounts Matrix</h1>
-                      <p>View customer profiles, ordering history, account statuses, and manage account blocks with reasons.</p>
-                    </div>
-                  </div>
-
-                  <div className="table-filter-card">
-                    <div className="filter-left">
-                      <button className={`filter-chip ${customerFilter === 'all' ? 'active' : ''}`} onClick={() => setCustomerFilter('all')}>All Accounts</button>
-                      <button className={`filter-chip ${customerFilter === 'approved' ? 'active' : ''}`} onClick={() => setCustomerFilter('approved')}>Active / Normal</button>
-                      <button className={`filter-chip ${customerFilter === 'blocked' ? 'active' : ''}`} onClick={() => setCustomerFilter('blocked')}>Suspended / Blocked</button>
-                    </div>
-                  </div>
-
-                  <div className="premium-table-wrapper">
-                    <table className="premium-table">
-                      <thead>
-                        <tr>
-                          <th>Customer Info</th>
-                          <th>Total Orders</th>
-                          <th>Spending Ledger</th>
-                          <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getFilteredCustomers().length === 0 ? (
-                          <tr>
-                            <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                              No customer accounts match criteria.
-                            </td>
-                          </tr>
-                        ) : (
-                          getPaginatedList(getFilteredCustomers()).map(customer => (
-                            <tr key={customer.email}>
-                              <td>
-                                <div className="avatar-cell">
-                                  <div className="avatar-initials" style={{ backgroundColor: 'var(--accent-color)' }}>C</div>
-                                  <div>
-                                    <span className="user-fullname">{customer.name}</span>
-                                    <span className="user-subinfo" style={{ display: 'block' }}>{customer.email}</span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ fontWeight: '500' }}>{orders.filter(o => o.phone === customer.phone || o.name === customer.name || (o.customerId && o.customerId._id === customer._id)).length} Orders</td>
-                              <td style={{ fontWeight: '600', color: 'var(--accent-color)' }}>
-                                Rs. {(orders.filter(o => o.phone === customer.phone || o.name === customer.name || (o.customerId && o.customerId._id === customer._id)).reduce((s, o) => s + (o.grandTotal || o.totalAmount || 0), 0)).toLocaleString()}
-                              </td>
-                              <td>
-                                <span className={`status-pill ${(customer.status || 'approved').toLowerCase()}`}>
-                                  {customer.status || 'approved'}
-                                </span>
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedCustomer(customer)}>
-                                  Logs & Control
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 6: VERIFICATION CENTER
-                 ==================================================================== */}
-              {activeMenuTab === 'verification' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Verification Center Inbox</h1>
-                      <p>Review documents submitted by partner restaurants and riders trying to join the platform.</p>
-                    </div>
-                  </div>
-
-                  {/* Tabs within center */}
-                  <div className="table-filter-card">
-                    <div className="filter-left">
-                      <button className={`filter-chip ${riderFilter === 'pending' ? 'active' : ''}`} onClick={() => { setRiderFilter('pending'); setActiveMenuTab('riders'); }}>
-                        Rider Applications ({users.filter(u => u.status === 'pending' && u.role === 'rider').length})
-                      </button>
-                      <button className={`filter-chip ${restaurantFilter === 'pending' ? 'active' : ''}`} onClick={() => { setRestaurantFilter('pending'); setActiveMenuTab('restaurants'); }}>
-                        Restaurant Applications ({users.filter(u => u.status === 'pending' && u.role === 'manager').length})
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="activity-grid">
-                    {users.filter(u => u.status === 'pending').map(pending => (
-                      <div className="chart-card" key={pending.email}>
-                        <div className="chart-header">
-                          <div>
-                            <strong style={{ fontSize: '16px' }}>{pending.name}</strong>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Role: {pending.role.toUpperCase()} | CNIC: {pending.cnicNumber || "Pending"}</p>
-                          </div>
-                          <span className="status-pill pending">Pending Checks</span>
-                        </div>
-                        <div style={{ flex: 1, padding: '10px 0' }}>
-                          <p style={{ fontSize: '13px', margin: '0 0 10px 0' }}>
-                            {pending.role === 'manager' ? `Eatery: ${pending.restaurantName}` : `Vehicle details: ${pending.vehicleDetails}`}
-                          </p>
-                          <div className="document-previews-grid">
-                            <div className="document-preview-box" onClick={() => setZoomedDoc(pending.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500")}>
-                              <img src={pending.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500"} alt="CNIC Front" />
-                              <span className="document-label">CNIC Front View</span>
+                              </div>
+                              <span className="metric-card-footer">Total cancelled orders</span>
                             </div>
-                            <div className="document-preview-box" onClick={() => setZoomedDoc(pending.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500")}>
-                              <img src={pending.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500"} alt="CNIC Back" />
-                              <span className="document-label">CNIC Back View</span>
+
+                            <div className="metric-card">
+                              <div className="metric-card-header">
+                                <span className="metric-card-title">Monthly Growth</span>
+                                <div className="metric-icon-box"><Icon name="analytics" /></div>
+                              </div>
+                              <div className="metric-card-body">
+                                <span className="metric-num">{monthGrowthPct}%</span>
+                                <span className={`metric-trend ${Number(monthGrowthPct) >= 0 ? 'trend-up' : 'trend-down'}`}>
+                                  {Number(monthGrowthPct) >= 0 ? '▲' : '▼'} MoM
+                                </span>
+                              </div>
+                              <span className="metric-card-footer">Calculated sales vs previous month</span>
                             </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Interactive SVG Charts Section */}
+                    <div className="charts-grid">
+                      {/* Revenue Trend Area Chart */}
+                      <div className="chart-card">
+                        <div className="chart-header" style={{ marginBottom: '12px' }}>
+                          <div className="chart-title">
+                            <h3>Daily Revenue Trend</h3>
+                            <p>Aggregated sales trends. Click any data point to audit transactions.</p>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                          <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleApproveUser(pending._id || pending.email, pending.role)}>Approve</button>
-                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenReject(pending._id || pending.email, pending.name, pending.role)}>Reject Checks</button>
-                        </div>
-                      </div>
-                    ))}
-                    {users.filter(u => u.status === 'pending').length === 0 && (
-                      <div className="chart-card" style={{ gridColumn: 'span 2', textAlign: 'center', padding: '40px' }}>
-                        🎉 No pending rider or restaurant verification files currently in inbox queue!
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
-              {/* ====================================================================
-                 VIEW 7: MENU CATEGORIES MANAGEMENT
-                 ==================================================================== */}
-              {activeMenuTab === 'menu_categories' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Menu Categorization Matrix</h1>
-                      <p>Create, edit, and structure universal categories allowed for restaurant partner menus across NaanNow.</p>
-                    </div>
-                  </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'stretch' }}>
+                          {/* SVG Graph View */}
+                          <div className="chart-container-box" style={{ flex: '1 1 300px', height: '220px', margin: 0 }}>
+                            <svg viewBox="0 0 500 220" width="100%" height="100%">
+                              <defs>
+                                <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="var(--accent-color)" stopOpacity="0.4" />
+                                  <stop offset="100%" stopColor="var(--accent-color)" stopOpacity="0.0" />
+                                </linearGradient>
+                              </defs>
+                              {/* Grid Lines */}
+                              <line x1="40" y1="20" x2="480" y2="20" className="svg-chart-grid-line" />
+                              <line x1="40" y1="70" x2="480" y2="70" className="svg-chart-grid-line" />
+                              <line x1="40" y1="120" x2="480" y2="120" className="svg-chart-grid-line" />
+                              <line x1="40" y1="170" x2="480" y2="170" className="svg-chart-grid-line" />
 
-                  {/* Add New Category Form */}
-                  <div className="chart-card" style={{ marginBottom: '24px' }}>
-                    <h3>➕ Add New Platform Category</h3>
-                    <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap' }}>
-                      <input
-                        type="text"
-                        placeholder="Category Title (e.g. Pizza, Shakes, Rolls)"
-                        value={newCatName}
-                        onChange={(e) => setNewCatName(e.target.value)}
-                        className="form-control-input"
-                        style={{ flex: 1, minWidth: '200px' }}
-                        required
-                      />
-                      <button type="submit" className="btn-primary" style={{ padding: '10px 20px' }}>
-                        Add Category to DB
-                      </button>
-                    </form>
-                  </div>
+                              {/* Area & Line */}
+                              <path d={dailyRevenue.areaPath} className="svg-chart-area" />
+                              <path d={dailyRevenue.linePath} className="svg-chart-line" />
 
-                  {/* Edit Category Modal / Overlay */}
-                  {editingCat && (
-                    <div className="modal-overlay" style={{ zIndex: 3000 }}>
-                      <div className="modal-content-card" style={{ maxWidth: '450px', padding: '24px' }}>
-                        <h3 style={{ marginBottom: '16px' }}>✏️ Edit Category: {editingCat.name}</h3>
-                        <form onSubmit={handleSaveEditCategory} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                          <div>
-                            <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Category Name</label>
-                            <input
-                              type="text"
-                              value={editingCat.name}
-                              onChange={(e) => setEditingCat({ ...editingCat, name: e.target.value })}
-                              className="form-control-input"
-                              style={{ width: '100%' }}
-                              required
-                            />
-                          </div>
-                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
-                            <button type="button" className="btn-secondary" onClick={() => setEditingCat(null)}>Cancel</button>
-                            <button type="submit" className="btn-primary">Save Changes</button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="chart-card">
-                    <h3>Active Database Menu Categories ({categories.length})</h3>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                      Restaurant managers select from these database categories when creating or editing menu items.
-                    </p>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
-                      {categories.map(cat => (
-                        <div
-                          key={cat._id || cat.name}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '12px 16px',
-                            borderRadius: '12px',
-                            backgroundColor: 'var(--bg-secondary)',
-                            border: '1px solid var(--border-color)'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontWeight: '600', fontSize: '14px' }}>{cat.name}</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              onClick={() => setEditingCat({ _id: cat._id, name: cat.name })}
-                              style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
-                              title="Edit Category"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCategory(cat._id)}
-                              style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
-                              title="Delete Category"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 8: PAYMENTS & FINANCIAL LEDGER
-                 ==================================================================== */}
-              {activeMenuTab === 'payments' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Financial Ledger & Settlements</h1>
-                      <p>View splits of gross sales, process payouts for riders/restaurants, and export financial records.</p>
-                    </div>
-                  </div>
-
-                  <div className="ledger-header-box">
-                    <div className="ledger-stat-card">
-                      <strong>Gross Platform Sales</strong>
-                      <p className="ledger-num">Rs. {totalSales.toLocaleString()}</p>
-                    </div>
-                    <div className="ledger-stat-card">
-                      <strong>Net Platform Commission</strong>
-                      <p className="ledger-num">Rs. {Math.round(totalSales * 0.15).toLocaleString()}</p>
-                    </div>
-                    <div className="ledger-stat-card">
-                      <strong>Pending Withdrawals</strong>
-                      <p className="ledger-num" style={{ color: 'var(--warning-color)' }}>
-                        Rs. {withdrawals.filter(w => w.status === 'Pending').reduce((s, w) => s + w.amount, 0).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="premium-table-wrapper">
-                    <table className="premium-table">
-                      <thead>
-                        <tr>
-                          <th>Transaction ID</th>
-                          <th>Recipient Partner</th>
-                          <th>Withdrawal Amount</th>
-                          <th>Settlement Channel</th>
-                          <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {withdrawals.map(txn => (
-                          <tr key={txn.id}>
-                            <td style={{ fontWeight: '700' }}>{txn.id}</td>
-                            <td style={{ fontWeight: '600' }}>{txn.party}</td>
-                            <td style={{ fontWeight: '600', color: 'var(--accent-color)' }}>Rs. {txn.amount.toLocaleString()}</td>
-                            <td>{txn.method}</td>
-                            <td>
-                              <span className={`status-pill ${txn.status.toLowerCase()}`}>
-                                {txn.status}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              {txn.status === 'Pending' ? (
-                                <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleProcessPayout(txn.id)}>
-                                  Process & Payout
-                                </button>
-                              ) : (
-                                <span style={{ fontSize: '11px', color: 'var(--success-color)' }}>Paid</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 9: PROMOTIONS & MARKETING CONTROL
-                 ==================================================================== */}
-              {activeMenuTab === 'promotions' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Promotions & Campaign Builder</h1>
-                      <p>Generate promo coupon codes, referral codes, and campaign alerts.</p>
-                    </div>
-                  </div>
-
-                  <div className="activity-grid">
-                    <div className="chart-card">
-                      <h3>Generate Promo Coupon</h3>
-                      <form onSubmit={handleCreatePromo} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' }}>
-                        <div className="form-group">
-                          <label>Coupon Code Name</label>
-                          <input type="text" className="form-control-input" placeholder="e.g. NAANWEEKEND" value={promoForm.code} onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value })} />
-                        </div>
-                        <div className="form-grid-2">
-                          <div className="form-group">
-                            <label>Discount Value</label>
-                            <input type="number" className="form-control-input" value={promoForm.discount} onChange={(e) => setPromoForm({ ...promoForm, discount: e.target.value })} />
-                          </div>
-                          <div className="form-group">
-                            <label>Type</label>
-                            <select className="select-filter-box" value={promoForm.type} onChange={(e) => setPromoForm({ ...promoForm, type: e.target.value })}>
-                              <option value="Percentage">Percentage Discount (%)</option>
-                              <option value="Flat">Flat Cashoff (Rs.)</option>
-                            </select>
-                          </div>
-                        </div>
-                        <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}><Icon name="plus" size={14} /> Save Promo Code</button>
-                      </form>
-                    </div>
-
-                    <div className="chart-card">
-                      <h3>Active Promo Campaign Index</h3>
-                      <div className="premium-table-wrapper" style={{ boxShadow: 'none', border: 'none', margin: 0 }}>
-                        <table className="premium-table">
-                          <thead>
-                            <tr>
-                              <th>Coupon Code</th>
-                              <th>Details</th>
-                              <th>Status</th>
-                              <th>Toggle</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {promotions.map(promo => (
-                              <tr key={promo.code}>
-                                <td style={{ fontWeight: '700' }}>{promo.code}</td>
-                                <td>{promo.type === 'Percentage' ? `${promo.discount}% Off` : `Rs. ${promo.discount} Off`} (Min: {promo.minBasket})</td>
-                                <td>
-                                  <span className={`status-pill ${promo.status === 'Active' ? 'approved' : 'cancelled'}`}>
-                                    {promo.status}
-                                  </span>
-                                </td>
-                                <td>
-                                  <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => handleTogglePromoStatus(promo.code)}>
-                                    {promo.status === 'Active' ? 'Expire' : 'Activate'}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 10: ANALYTICS DETAIL PANEL
-                 ==================================================================== */}
-              {activeMenuTab === 'analytics' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Analytics Hub & Visual Reports</h1>
-                      <p>Deeper review of customer retention metrics, restaurant rankings, and performance indexes.</p>
-                    </div>
-                    <button className="btn-primary" onClick={() => handlePrintPDF('Full Report')}>Export System PDF</button>
-                  </div>
-
-                  <div className="charts-grid">
-                    <div className="chart-card">
-                      <h3>Order Demographics Hours (Peak hours)</h3>
-                      <div className="chart-container-box">
-                        {(() => {
-                          const hourBins = [10, 12, 14, 16, 18, 20, 22];
-                          const hourCounts = hourBins.map(binHour => {
-                            return orders.filter(o => {
-                              const hr = new Date(o.createdAt).getHours();
-                              return hr >= binHour && hr < binHour + 2;
-                            }).length;
-                          });
-                          const maxCnt = Math.max(...hourCounts, 1);
-
-                          return (
-                            <div style={{ display: 'flex', width: '100%', height: '180px', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 20px' }}>
-                              {hourBins.map((binHour, i) => {
-                                const hPct = Math.max(Math.round((hourCounts[i] / maxCnt) * 100), 10);
+                              {/* Data points */}
+                              {dailyRevenue.points.map((p, idx) => {
+                                const isSelected = selectedChartPoint && selectedChartPoint.dateStr === p.dateStr;
                                 return (
-                                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '10%' }}>
-                                    <div style={{ height: `${hPct}%`, width: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '6px 6px 0 0' }} title={`${hourCounts[i]} orders`}></div>
-                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px' }}>{binHour}h</span>
-                                  </div>
+                                  <circle
+                                    key={idx}
+                                    cx={p.x}
+                                    cy={p.y}
+                                    r={isSelected ? 7 : 5}
+                                    fill={isSelected ? 'var(--accent-color)' : 'var(--accent-color)'}
+                                    stroke={isSelected ? 'var(--success-color)' : 'white'}
+                                    strokeWidth={isSelected ? 3 : 1.5}
+                                    className="chart-dot"
+                                    style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                                    onClick={() => setSelectedChartPoint(p)}
+                                    title={`${p.dayLabel}: Rs. ${p.revenue.toLocaleString()}`}
+                                  />
                                 );
                               })}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
 
-                    <div className="chart-card">
-                      <h3>Top Selling Restaurants Rankings</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-                        {(() => {
-                          const rMap = {};
-                          orders.forEach(o => {
-                            const rName = o.restaurantId?.name || o.restaurantName || 'NaanNow Kitchen';
-                            if (!rMap[rName]) rMap[rName] = { name: rName, count: 0, total: 0 };
-                            rMap[rName].count += 1;
-                            rMap[rName].total += (o.totalAmount || 0);
-                          });
-                          const topList = Object.values(rMap).sort((a, b) => b.total - a.total).slice(0, 5);
+                              {/* Labels */}
+                              {dailyRevenue.points.map((p, idx) => (
+                                <text
+                                  key={idx}
+                                  x={p.x}
+                                  y="195"
+                                  fill="var(--text-muted)"
+                                  fontSize="10"
+                                  textAnchor="middle"
+                                >
+                                  {p.dayLabel}
+                                </text>
+                              ))}
 
-                          if (topList.length === 0) {
-                            return <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No sales data available yet.</p>;
-                          }
-
-                          return topList.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                              <strong>#{idx + 1} {item.name}</strong>
-                              <div style={{ textAlign: 'right' }}>
-                                <span style={{ fontSize: '13px', display: 'block' }}>{item.count} orders</span>
-                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rs. {item.total.toLocaleString()}</span>
-                              </div>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 11: CUSTOMER SUPPORT CHAT & TICKETS
-                 ==================================================================== */}
-              {activeMenuTab === 'support' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Customer & Partner Support Desk</h1>
-                      <p>Resolve tickets, process account unban requests, send replies, and close completed tickets.</p>
-                    </div>
-                  </div>
-
-                  {/* Filter chips for ticket type and status */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Type:</span>
-                      <button
-                        className={`filter-chip ${ticketFilterTab === 'all' ? 'active' : ''}`}
-                        onClick={() => setTicketFilterTab('all')}
-                      >
-                        All Tickets ({tickets.length})
-                      </button>
-                      <button
-                        className={`filter-chip ${ticketFilterTab === 'unban' ? 'active' : ''}`}
-                        onClick={() => setTicketFilterTab('unban')}
-                      >
-                        Unban Appeals ({tickets.filter(t => t.ticketType === 'unban').length})
-                      </button>
-                      <button
-                        className={`filter-chip ${ticketFilterTab === 'general' ? 'active' : ''}`}
-                        onClick={() => setTicketFilterTab('general')}
-                      >
-                        General Inquiries ({tickets.filter(t => t.ticketType !== 'unban').length})
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Status:</span>
-                      {['all', 'open', 'in_progress', 'closed'].map(st => (
-                        <button
-                          key={st}
-                          className={`filter-chip ${ticketStatusFilter === st ? 'active' : ''}`}
-                          onClick={() => setTicketStatusFilter(st)}
-                          style={{ textTransform: 'capitalize' }}
-                        >
-                          {st === 'all' ? 'All Statuses' : st.replace('_', ' ')}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="activity-grid" style={{ gridTemplateColumns: '360px 1fr' }}>
-                    {/* Tickets List */}
-                    <div className="chart-card" style={{ padding: '16px', height: '560px', display: 'flex', flexDirection: 'column' }}>
-                      <strong style={{ fontSize: '14px', marginBottom: '8px' }}>Support Tickets Queue ({getFilteredTickets().length})</strong>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
-                        {getFilteredTickets().map(t => {
-                          const userObj = t.userId || t.customerId;
-                          const userName = userObj?.name || t.customerName || 'User';
-                          const userRole = t.userRole || userObj?.role || 'customer';
-                          const isUnban = t.ticketType === 'unban';
-
-                          return (
-                            <div
-                              key={t._id || t.id}
-                              style={{
-                                padding: '12px',
-                                borderRadius: '10px',
-                                backgroundColor: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? 'var(--accent-light)' : 'var(--bg-primary)',
-                                border: (activeTicket?._id && activeTicket?._id === t._id) || (activeTicket?.id && activeTicket?.id === t.id) ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => {
-                                setActiveTicket(t);
-                                selectedTicketIdRef.current = t._id || t.id; // lock polling to this ticket
-                                setSupportReplyText('');
-                                setTicketAdminAction(t.adminAction || '');
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <strong style={{ fontSize: '13px', color: 'var(--accent-color)' }}>{t.ticketNumber || t.id}</strong>
-                                <span className={`status-pill ${t.status === 'closed' ? 'cancelled' : t.status === 'open' ? 'warning' : 'approved'}`} style={{ padding: '2px 6px', fontSize: '9px' }}>
-                                  {t.status.toUpperCase()}
-                                </span>
-                              </div>
-                              <span style={{ fontSize: '13px', fontWeight: '600', display: 'block', margin: '2px 0' }}>{t.subject}</span>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                                <span>{userName} ({userRole})</span>
-                                {isUnban && (
-                                  <span style={{ backgroundColor: '#fef2f2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: '600', fontSize: '10px' }}>
-                                    UNBAN APPEAL
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {getFilteredTickets().length === 0 && (
-                          <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>
-                            No matching support tickets found.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Chat Logs & Resolution Window */}
-                    <div className="chart-card" style={{ height: '560px', display: 'flex', flexDirection: 'column' }}>
-                      {activeTicket ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                          {/* Header Bar */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '12px' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--accent-color)' }}>{activeTicket.ticketNumber || activeTicket.id}</span>
-                                <span className={`status-pill ${activeTicket.status === 'closed' ? 'cancelled' : 'approved'}`} style={{ fontSize: '10px' }}>
-                                  {activeTicket.status.toUpperCase()}
-                                </span>
-                              </div>
-                              <h4 style={{ fontSize: '15px', margin: '2px 0' }}>{activeTicket.subject}</h4>
-                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                Requester: <strong>{(activeTicket.userId || activeTicket.customerId)?.name || activeTicket.customerName}</strong> ({(activeTicket.userId || activeTicket.customerId)?.email || activeTicket.customerEmail}) • Role: <strong style={{ textTransform: 'capitalize' }}>{activeTicket.userRole || 'customer'}</strong>
-                              </span>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                              <select
-                                className="select-filter-box"
-                                value={activeTicket.assignedTo || ""}
-                                onChange={(e) => handleAssignTicket(activeTicket._id || activeTicket.id, e.target.value)}
-                              >
-                                <option value="">Assign Specialist...</option>
-                                {staffMembers
-                                  .filter(m => (m.roleId?.permissions || []).includes('support'))
-                                  .map(m => (
-                                    <option key={m._id} value={m.userId?.name || 'Staff Member'}>
-                                      {m.userId?.name || 'Staff'} ({m.roleId?.name || 'Specialist'})
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
+                              <text x="30" y="110" fill="var(--text-muted)" fontSize="9" textAnchor="end">
+                                {Math.round(dailyRevenue.maxRevenue / 2 / 1000)}k
+                              </text>
+                              <text x="30" y="50" fill="var(--text-muted)" fontSize="9" textAnchor="end">
+                                {Math.round(dailyRevenue.maxRevenue / 1000)}k
+                              </text>
+                            </svg>
                           </div>
 
-                          {/* Admin Action Control Row */}
-                          {activeTicket.status !== 'closed' && (
-                            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-                                🛠 Admin Decision / Resolution Action:
-                              </label>
-                              <select
-                                className="select-filter-box"
-                                style={{ fontSize: '12px', padding: '6px 10px' }}
-                                value={ticketAdminAction}
-                                onChange={(e) => setTicketAdminAction(e.target.value)}
-                              >
-                                <option value="">Select Action (Optional)...</option>
-                                <option value="unban">🔓 Unban Account Immediately</option>
-                                <option value="pending_docs">📝 Request Additional Documents</option>
-                                <option value="keep_blocked">🚫 Keep Account Suspended</option>
-                              </select>
-                            </div>
-                          )}
-
-                          {/* Chat Messages */}
-                          <div className="support-chat-container" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div className="chat-messages-area" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
-                              {activeTicket.chat && activeTicket.chat.length > 0 ? (
-                                activeTicket.chat.map((msg, i) => (
-                                  <div key={i} className={`chat-bubble ${msg.sender === 'support' ? 'support' : 'customer'}`}>
-                                    <span className="chat-sender-lbl">
-                                      {msg.sender.toUpperCase()} • {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    {msg.text && <div>{msg.text}</div>}
-                                    {renderAdminAttachments(msg.attachments)}
-                                  </div>
-                                ))
-                              ) : (
-                                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginTop: '20px' }}>No chat messages in this ticket.</p>
-                              )}
-                            </div>
-
-                            {/* CHAT INPUT OR DETAILED CLOSED SUMMARY */}
-                            {activeTicket.status === 'closed' ? (
-                              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                <div style={{ padding: '12px', backgroundColor: '#f1f5f9', border: '1.5px dashed #cbd5e1', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: '#475569', fontWeight: '600' }}>
-                                  🔒 This ticket was closed by <strong>{activeTicket.closedBy || 'Admin'}</strong> on {activeTicket.closedAt ? new Date(activeTicket.closedAt).toLocaleString() : 'Record'}.
+                          {/* Interactive Data inspector side panel */}
+                          <div className="chart-point-details-panel" style={{
+                            flex: '0 1 200px',
+                            padding: '16px',
+                            borderRadius: '16px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            justifyContent: 'center',
+                            minWidth: '200px'
+                          }}>
+                            {selectedChartPoint ? (
+                              <div style={{ animation: 'fadeIn 0.25s ease' }}>
+                                <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--accent-color)', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                                  📊 {selectedChartPoint.dayLabel} Summary
+                                </h4>
+                                <div style={{ marginBottom: '10px' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Calendar Date</span>
+                                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                                    {new Date(selectedChartPoint.dateStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                                <div style={{ marginBottom: '10px' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Daily Revenue</span>
+                                  <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--success-color)' }}>
+                                    Rs. {selectedChartPoint.revenue.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div style={{ marginBottom: '10px' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Total Orders</span>
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                                    {selectedChartPoint.ordersList.length} deliveries
+                                  </span>
                                 </div>
 
-                                <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }}>
-                                  <h5 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                    📋 Closing Resolution & Appeal Restrictions Record:
-                                  </h5>
-                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                    <div>
-                                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>Resolution Action:</span>
-                                      <strong style={{ textTransform: 'capitalize', color: 'var(--accent-color)' }}>
-                                        {activeTicket.adminAction === 'unban' ? '🔓 Unbanned Account' : activeTicket.adminAction === 'keep_blocked' ? '🚫 Maintained Suspension' : activeTicket.adminAction === 'pending_docs' ? '📝 Requested Documents' : (activeTicket.adminAction || 'Closed Ticket')}
-                                      </strong>
-                                    </div>
-
-                                    <div>
-                                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>User Appeal Permission:</span>
-                                      {(() => {
-                                        const res = activeTicket.closingUnbanRestriction || activeTicket.userId?.unbanRestriction;
-                                        if (!res) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
-                                        if (res.canOpen) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
-                                        if (res.blockedUntil) return <span style={{ color: '#d97706', fontWeight: '700' }}>⏳ Restricted Until {new Date(res.blockedUntil).toLocaleString()}</span>;
-                                        return <span style={{ color: '#dc2626', fontWeight: '700' }}>🚫 Lifetime Block (Permanent)</span>;
-                                      })()}
-                                    </div>
+                                <div>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: '6px' }}>Contributing Transactions</span>
+                                  <div style={{ maxHeight: '72px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '2px' }}>
+                                    {selectedChartPoint.ordersList.length > 0 ? (
+                                      selectedChartPoint.ordersList.map((o, index) => (
+                                        <div
+                                          key={index}
+                                          style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            fontSize: '11px',
+                                            padding: '4px 6px',
+                                            borderRadius: '6px',
+                                            backgroundColor: 'var(--bg-primary)',
+                                            border: '1px solid var(--border-color)'
+                                          }}
+                                        >
+                                          <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>#{o.id.toString().slice(-5).toUpperCase()}</span>
+                                          <span style={{ fontWeight: '700', color: 'var(--accent-color)' }}>Rs. {o.grandTotal.toLocaleString()}</span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No active sales.</span>
+                                    )}
                                   </div>
-
-                                  {(activeTicket.closingUnbanRestriction?.adminRemarks || activeTicket.userId?.unbanRestriction?.adminRemarks) && (
-                                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #cbd5e1', fontSize: '12px', color: '#475569' }}>
-                                      <strong>Admin Remarks:</strong> {activeTicket.closingUnbanRestriction?.adminRemarks || activeTicket.userId?.unbanRestriction?.adminRemarks}
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                                {adminReplyFiles.length > 0 && (
-                                  <div style={{ fontSize: '11px', color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '4px 8px', borderRadius: '6px' }}>
-                                    📎 Selected {adminReplyFiles.length} file(s): {adminReplyFiles.map(f => f.name).join(', ')}
-                                  </div>
-                                )}
-                                <div className="chat-input-row" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                  <input
-                                    type="text"
-                                    className="chat-input-box"
-                                    placeholder="Type support reply or instructions..."
-                                    value={supportReplyText}
-                                    onChange={(e) => setSupportReplyText(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendSupportReply(activeTicket._id || activeTicket.id)}
-                                    style={{ flex: 1 }}
-                                  />
-                                  <label
-                                    style={{
-                                      cursor: 'pointer',
-                                      padding: '8px 12px',
-                                      borderRadius: '8px',
-                                      background: 'var(--bg-secondary)',
-                                      border: '1px solid var(--border-color)',
-                                      fontSize: '13px',
-                                      whiteSpace: 'nowrap'
-                                    }}
-                                    title="Attach documents/files"
-                                  >
-                                    📎 Attach
-                                    <input
-                                      type="file"
-                                      multiple
-                                      ref={adminReplyFileInputRef}
-                                      onChange={(e) => setAdminReplyFiles(Array.from(e.target.files))}
-                                      accept="image/*,.pdf,.doc,.docx,.txt"
-                                      style={{ display: 'none' }}
-                                    />
-                                  </label>
-                                  <button className="btn-primary" onClick={() => handleSendSupportReply(activeTicket._id || activeTicket.id)}>
-                                    Send Reply
-                                  </button>
-                                  <button
-                                    className="btn-secondary"
-                                    style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#ef4444', fontWeight: '700' }}
-                                    onClick={() => handleCloseTicketClick(activeTicket)}
-                                  >
-                                    🔒 Close Ticket
-                                  </button>
-                                </div>
+                              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '12px' }}>
+                                <div style={{ fontSize: '28px', marginBottom: '8px' }}>💡</div>
+                                <p style={{ fontSize: '12px', lineHeight: '1.4', margin: 0 }}>Click any graph data point to audit transaction details, daily totals, and invoice items.</p>
                               </div>
                             )}
                           </div>
                         </div>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
-                          👈 Select a support ticket to view chat thread & manage appeal decisions.
+                      </div>
+
+                      {/* Dynamic Order Status Pie Chart */}
+                      <div className="chart-card">
+                        <div className="chart-header">
+                          <div className="chart-title">
+                            <h3>Operational Breakdowns</h3>
+                            <p>Real-time order status distribution metrics</p>
+                          </div>
+                        </div>
+                        <div className="chart-container-box" style={{ flexDirection: 'column' }}>
+                          {(() => {
+                            const tot = orders.length || 1;
+                            const delCount = orders.filter(o => ['delivered', 'completed'].includes(o.status)).length;
+                            const prepCount = orders.filter(o => ['pending', 'preparing', 'ready_for_pickup'].includes(o.status)).length;
+                            const outCount = orders.filter(o => o.status === 'out_for_delivery').length;
+                            const cancCount = orders.filter(o => o.status === 'cancelled').length;
+
+                            const delP = Math.round((delCount / tot) * 100);
+                            const prepP = Math.round((prepCount / tot) * 100);
+                            const outP = Math.round((outCount / tot) * 100);
+                            const cancP = Math.round((cancCount / tot) * 100);
+
+                            return (
+                              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
+                                <svg width="150" height="150" viewBox="0 0 36 36">
+                                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--scrollbar-track)" strokeWidth="4" />
+                                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--success-color)" strokeWidth="4.2" strokeDasharray={`${delP} ${100 - delP}`} strokeDashoffset="25" className="pie-segment" />
+                                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--warning-color)" strokeWidth="4.2" strokeDasharray={`${prepP} ${100 - prepP}`} strokeDashoffset={25 - delP} className="pie-segment" />
+                                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--info-color)" strokeWidth="4.2" strokeDasharray={`${outP} ${100 - outP}`} strokeDashoffset={25 - delP - prepP} className="pie-segment" />
+                                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--error-color)" strokeWidth="4.2" strokeDasharray={`${cancP} ${100 - cancP}`} strokeDashoffset={25 - delP - prepP - outP} className="pie-segment" />
+                                </svg>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--success-color)' }}></span> Delivered: {delP}% ({delCount})</div>
+                                  <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--warning-color)' }}></span> Preparing: {prepP}% ({prepCount})</div>
+                                  <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--info-color)' }}></span> Out for Delivery: {outP}% ({outCount})</div>
+                                  <div className="legend-item"><span className="legend-color-dot" style={{ backgroundColor: 'var(--error-color)' }}></span> Cancelled: {cancP}% ({cancCount})</div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Real-time DB Activity stream */}
+                    <div className="activity-grid">
+                      <div className="activity-card">
+                        <div className="chart-header">
+                          <h3><span className="live-pulse-indicator"></span>Live Activity Stream</h3>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Database activity logs</span>
+                        </div>
+                        <div className="activity-list">
+                          {(() => {
+                            const formatAMPM = (dateObj) => {
+                              if (!dateObj) return 'N/A';
+                              const d = new Date(dateObj);
+                              return d.toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              });
+                            };
+
+                            const realStream = [
+                              ...orders.map(o => ({
+                                id: `ord-${o._id}`,
+                                rawDate: new Date(o.createdAt || Date.now()),
+                                type: 'order',
+                                status: o.status === 'delivered' || o.status === 'completed' ? 'approved' : 'pending',
+                                text: `Order ${o.orderNumber || '#' + o._id.toString().slice(-4)} (${o.restaurantId?.name || 'Restaurant'}) - Rs. ${(o.totalAmount || 0).toLocaleString()}`,
+                                time: formatAMPM(o.createdAt)
+                              })),
+                              ...users.map(u => ({
+                                id: `usr-${u._id}`,
+                                rawDate: new Date(u.createdAt || Date.now()),
+                                type: u.role === 'rider' ? 'rider' : u.role === 'manager' ? 'restaurant' : 'customer',
+                                status: u.status || 'approved',
+                                text: `${u.role.toUpperCase()} Account (${u.name}) registered / updated. Status: ${u.status || 'approved'}`,
+                                time: formatAMPM(u.createdAt)
+                              })),
+                              ...tickets.map(t => ({
+                                id: `tkt-${t._id}`,
+                                rawDate: new Date(t.createdAt || Date.now()),
+                                type: 'ticket',
+                                status: t.status === 'Open' ? 'pending' : 'approved',
+                                text: `Support Ticket "${t.subject}" created. Status: ${t.status}`,
+                                time: formatAMPM(t.createdAt)
+                              })),
+                              ...withdrawals.map(w => ({
+                                id: `wth-${w._id}`,
+                                rawDate: new Date(w.createdAt || Date.now()),
+                                type: 'withdrawal',
+                                status: w.status === 'Completed' ? 'approved' : 'pending',
+                                text: `Withdrawal payout request of Rs. ${w.amount.toLocaleString()} (${w.method})`,
+                                time: formatAMPM(w.createdAt)
+                              }))
+                            ]
+                              .sort((a, b) => b.rawDate - a.rawDate)
+                              .slice(0, 15);
+
+                            return realStream.map((act) => (
+                              <div className="activity-item" key={act.id}>
+                                <div className={`activity-badge-icon ${act.status}`}>
+                                  {act.type === 'order' && '📦'}
+                                  {act.type === 'rider' && '🛵'}
+                                  {act.type === 'restaurant' && '🏪'}
+                                  {act.type === 'customer' && '👤'}
+                                  {act.type === 'ticket' && '🎫'}
+                                  {act.type === 'withdrawal' && '💳'}
+                                </div>
+                                <div className="activity-info">
+                                  <p className="activity-title-text">{act.text}</p>
+                                  <span className="activity-desc-text">Database Event Log</span>
+                                </div>
+                                <span className="activity-time-lbl" style={{ whiteSpace: 'nowrap', fontSize: '11px' }}>{act.time}</span>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 2: ORDERS MANAGEMENT
+                 ==================================================================== */}
+                {activeMenuTab === 'orders' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Orders Management Ledger</h1>
+                        <p>View, track, cancel, refund, and administer details of all food deliveries.</p>
+                      </div>
+                    </div>
+
+                    {/* Table Filter card */}
+                    <div className="table-filter-card">
+                      <div className="filter-left">
+                        <button className={`filter-chip ${orderFilter === 'Today' ? 'active' : ''}`} onClick={() => setOrderFilter('Today')}>Today</button>
+                        <button className={`filter-chip ${orderFilter === 'Yesterday' ? 'active' : ''}`} onClick={() => setOrderFilter('Yesterday')}>Yesterday</button>
+                        <button className={`filter-chip ${orderFilter === 'This Week' ? 'active' : ''}`} onClick={() => setOrderFilter('This Week')}>This Week</button>
+                        <button className={`filter-chip ${orderFilter === 'All' ? 'active' : ''}`} onClick={() => setOrderFilter('All')}>All Time</button>
+
+                        <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)', margin: '0 8px' }}></div>
+
+                        <select className="select-filter-box" value={orderStatusFilter} onChange={(e) => setOrderStatusFilter(e.target.value)}>
+                          <option value="all">All Statuses</option>
+                          <option value="Pending">Pending Approval</option>
+                          <option value="Preparing">Preparing</option>
+                          <option value="Baking">Baking</option>
+                          <option value="Waiting for Rider">Waiting for Rider</option>
+                          <option value="Delivering">Delivering</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Cancelled">Cancelled</option>
+                          <option value="Refunded">Refunded</option>
+                        </select>
+                      </div>
+
+                      <button className="btn-secondary" onClick={() => handleExportCSV(orders, "naannow_orders_report")}>
+                        <Icon name="export" size={14} /> Export CSV
+                      </button>
+                    </div>
+
+                    {/* Orders Table */}
+                    <div className="premium-table-wrapper">
+                      <table className="premium-table">
+                        <thead>
+                          <tr>
+                            <th>Order ID</th>
+                            <th>Customer Details</th>
+                            <th>Restaurant</th>
+                            <th>Amount (Rs.)</th>
+                            <th>Payment</th>
+                            <th>Status</th>
+                            <th>Date & Time</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getFilteredOrders().length === 0 ? (
+                            <tr>
+                              <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                No orders match the specified filters.
+                              </td>
+                            </tr>
+                          ) : (
+                            getPaginatedList(getFilteredOrders()).map(order => (
+                              <tr key={order.id}>
+                                <td style={{ fontWeight: '700' }}>{order.id}</td>
+                                <td>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: '600' }}>{order.name || "Guest Customer"}</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{order.phone || "N/A"}</span>
+                                  </div>
+                                </td>
+                                <td style={{ fontWeight: '500' }}>{order.restaurantName}</td>
+                                <td style={{ fontWeight: '600', color: 'var(--accent-color)' }}>Rs. {order.grandTotal || order.totalPrice || 0}</td>
+                                <td style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 'bold' }}>{order.paymentMethod || "cod"}</td>
+                                <td>
+                                  <span className={`status-pill ${order.status.toLowerCase().replace(/ /g, '-')}`}>
+                                    {order.status}
+                                  </span>
+                                </td>
+                                <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                  {new Date(order.date).toLocaleString()}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedOrder(order)}>
+                                    Details / Control
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination widget */}
+                    <div className="pagination-row-wrapper">
+                      <span className="pagination-text-summary">
+                        Showing page <strong>{currentPage}</strong> of <strong>{Math.ceil(getFilteredOrders().length / itemsPerPage) || 1}</strong> ({getFilteredOrders().length} orders total)
+                      </span>
+                      <div className="pagination-actions-box">
+                        <button className="pagination-nav-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>Previous</button>
+                        <button className="pagination-nav-btn" disabled={currentPage >= Math.ceil(getFilteredOrders().length / itemsPerPage)} onClick={() => setCurrentPage(prev => prev + 1)}>Next</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 3: RESTAURANT PARTNERS MANAGEMENT
+                 ==================================================================== */}
+                {activeMenuTab === 'restaurants' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Restaurant Partners Control</h1>
+                        <p>Supervise restaurant registration requests, verify license credentials, CNICs, and adjust commission rates.</p>
+                      </div>
+                    </div>
+
+                    {/* Table Filter card */}
+                    <div className="table-filter-card">
+                      <div className="filter-left">
+                        <button className={`filter-chip ${restaurantFilter === 'all' ? 'active' : ''}`} onClick={() => setRestaurantFilter('all')}>All Partners</button>
+                        <button className={`filter-chip ${restaurantFilter === 'pending' ? 'active' : ''}`} onClick={() => setRestaurantFilter('pending')}>Pending Approval</button>
+                        <button className={`filter-chip ${restaurantFilter === 'approved' ? 'active' : ''}`} onClick={() => setRestaurantFilter('approved')}>Active / Approved</button>
+                        <button className={`filter-chip ${restaurantFilter === 'blocked' ? 'active' : ''}`} onClick={() => setRestaurantFilter('blocked')}>Suspended</button>
+                      </div>
+                    </div>
+
+                    {/* Restaurant Table */}
+                    <div className="premium-table-wrapper">
+                      <table className="premium-table">
+                        <thead>
+                          <tr>
+                            <th>Restaurant Details</th>
+                            <th>Owner Profile</th>
+                            <th>Location / Contact</th>
+                            <th>Rating</th>
+                            <th>Commission</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getFilteredRestaurants().length === 0 ? (
+                            <tr>
+                              <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                No restaurants found matching this criteria.
+                              </td>
+                            </tr>
+                          ) : (
+                            getPaginatedList(getFilteredRestaurants()).map(manager => (
+                              <tr key={manager.email}>
+                                <td>
+                                  <div className="avatar-cell">
+                                    {manager.logo ? (
+                                      <img src={manager.logo} alt="Logo" className="user-profile-img" style={{ borderRadius: '8px' }} />
+                                    ) : (
+                                      <div className="avatar-initials" style={{ borderRadius: '8px' }}>R</div>
+                                    )}
+                                    <div>
+                                      <span className="user-fullname">{manager.restaurantName || "Unnamed Eatery"}</span>
+                                      <span className="user-subinfo" style={{ display: 'block' }}>Platform Partner</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: '500' }}>{manager.name}</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CNIC: {manager.cnicNumber || "Pending"}</span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span>{manager.city || "Islamabad"}</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{manager.phone || manager.email}</span>
+                                  </div>
+                                </td>
+                                <td>⭐ {manager.rating ? Number(manager.rating).toFixed(1) : '0.0 (New)'}</td>
+                                <td style={{ fontWeight: '600' }}>{platformSettings.commission}%</td>
+                                <td>
+                                  <span className={`status-pill ${(manager.status || 'approved').toLowerCase()}`}>
+                                    {manager.status || 'approved'}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedRestaurant(manager)}>
+                                    Profile & Verification
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 4: RIDER MANAGEMENT
+                 ==================================================================== */}
+                {activeMenuTab === 'riders' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Riders Verification & Logs</h1>
+                        <p>View riders license documents, online statuses, ratings, and track delivery routes.</p>
+                      </div>
+                    </div>
+
+                    {/* Table Filter card */}
+                    <div className="table-filter-card">
+                      <div className="filter-left">
+                        <button className={`filter-chip ${riderFilter === 'all' ? 'active' : ''}`} onClick={() => setRiderFilter('all')}>All Riders</button>
+                        <button className={`filter-chip ${riderFilter === 'pending' ? 'active' : ''}`} onClick={() => setRiderFilter('pending')}>Pending Review</button>
+                        <button className={`filter-chip ${riderFilter === 'approved' ? 'active' : ''}`} onClick={() => setRiderFilter('approved')}>Active / Approved</button>
+                        <button className={`filter-chip ${riderFilter === 'online' ? 'active' : ''}`} onClick={() => setRiderFilter('online')}>Online GPS</button>
+                        <button className={`filter-chip ${riderFilter === 'blocked' ? 'active' : ''}`} onClick={() => setRiderFilter('blocked')}>Blocked / Suspended</button>
+                      </div>
+                    </div>
+
+                    {/* Rider Table */}
+                    <div className="premium-table-wrapper">
+                      <table className="premium-table">
+                        <thead>
+                          <tr>
+                            <th>Rider Profile</th>
+                            <th>Bike Details</th>
+                            <th>License Plate</th>
+                            <th>Online GPS</th>
+                            <th>Deliveries</th>
+                            <th>Rating</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getFilteredRiders().length === 0 ? (
+                            <tr>
+                              <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                No riders match these filter configurations.
+                              </td>
+                            </tr>
+                          ) : (
+                            getPaginatedList(getFilteredRiders()).map(rider => {
+                              const isRiderOnline = rider.email === 'hamza@rider.com' || rider.email === 'ali@rider.com';
+                              return (
+                                <tr key={rider.email}>
+                                  <td>
+                                    <div className="avatar-cell">
+                                      <div className="avatar-initials">🛵</div>
+                                      <div>
+                                        <span className="user-fullname">{rider.name}</span>
+                                        <span className="user-subinfo" style={{ display: 'block' }}>{rider.email}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    {rider.vehicleDetails || rider.bikeModel || "Honda CD70"}
+                                  </td>
+                                  <td style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>{rider.licensePlate || "Pending"}</td>
+                                  <td>
+                                    <span style={{ display: 'flex', alignItems: 'center' }}>
+                                      {isRiderOnline ? (
+                                        <>
+                                          <span className="live-pulse-indicator"></span> Online Tracking
+                                        </>
+                                      ) : (
+                                        "● Offline"
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td>{orders.filter(o => (o.riderId?._id === rider._id || o.riderId === rider._id) && ['delivered', 'completed'].includes(o.status)).length} Deliveries</td>
+                                  <td>⭐ {rider.rating || 0}</td>
+                                  <td>
+                                    <span className={`status-pill ${(rider.status || 'approved').toLowerCase()}`}>
+                                      {rider.status || 'approved'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedRider(rider)}>
+                                      Documents & Profile
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 5: CUSTOMER MANAGEMENT
+                 ==================================================================== */}
+                {activeMenuTab === 'customers' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Customer Accounts Matrix</h1>
+                        <p>View customer profiles, ordering history, account statuses, and manage account blocks with reasons.</p>
+                      </div>
+                    </div>
+
+                    <div className="table-filter-card">
+                      <div className="filter-left">
+                        <button className={`filter-chip ${customerFilter === 'all' ? 'active' : ''}`} onClick={() => setCustomerFilter('all')}>All Accounts</button>
+                        <button className={`filter-chip ${customerFilter === 'approved' ? 'active' : ''}`} onClick={() => setCustomerFilter('approved')}>Active / Normal</button>
+                        <button className={`filter-chip ${customerFilter === 'blocked' ? 'active' : ''}`} onClick={() => setCustomerFilter('blocked')}>Suspended / Blocked</button>
+                      </div>
+                    </div>
+
+                    <div className="premium-table-wrapper">
+                      <table className="premium-table">
+                        <thead>
+                          <tr>
+                            <th>Customer Info</th>
+                            <th>Total Orders</th>
+                            <th>Spending Ledger</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getFilteredCustomers().length === 0 ? (
+                            <tr>
+                              <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                No customer accounts match criteria.
+                              </td>
+                            </tr>
+                          ) : (
+                            getPaginatedList(getFilteredCustomers()).map(customer => (
+                              <tr key={customer.email}>
+                                <td>
+                                  <div className="avatar-cell">
+                                    <div className="avatar-initials" style={{ backgroundColor: 'var(--accent-color)' }}>C</div>
+                                    <div>
+                                      <span className="user-fullname">{customer.name}</span>
+                                      <span className="user-subinfo" style={{ display: 'block' }}>{customer.email}</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ fontWeight: '500' }}>{orders.filter(o => o.phone === customer.phone || o.name === customer.name || (o.customerId && o.customerId._id === customer._id)).length} Orders</td>
+                                <td style={{ fontWeight: '600', color: 'var(--accent-color)' }}>
+                                  Rs. {(orders.filter(o => o.phone === customer.phone || o.name === customer.name || (o.customerId && o.customerId._id === customer._id)).reduce((s, o) => s + (o.grandTotal || o.totalAmount || 0), 0)).toLocaleString()}
+                                </td>
+                                <td>
+                                  <span className={`status-pill ${(customer.status || 'approved').toLowerCase()}`}>
+                                    {customer.status || 'approved'}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedCustomer(customer)}>
+                                    Logs & Control
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 6: VERIFICATION CENTER
+                 ==================================================================== */}
+                {activeMenuTab === 'verification' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Verification Center Inbox</h1>
+                        <p>Review documents submitted by partner restaurants and riders trying to join the platform.</p>
+                      </div>
+                    </div>
+
+                    {/* Tabs within center */}
+                    <div className="table-filter-card">
+                      <div className="filter-left">
+                        <button className={`filter-chip ${riderFilter === 'pending' ? 'active' : ''}`} onClick={() => { setRiderFilter('pending'); setActiveMenuTab('riders'); }}>
+                          Rider Applications ({users.filter(u => u.status === 'pending' && u.role === 'rider').length})
+                        </button>
+                        <button className={`filter-chip ${restaurantFilter === 'pending' ? 'active' : ''}`} onClick={() => { setRestaurantFilter('pending'); setActiveMenuTab('restaurants'); }}>
+                          Restaurant Applications ({users.filter(u => u.status === 'pending' && u.role === 'manager').length})
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="activity-grid">
+                      {users.filter(u => u.status === 'pending').map(pending => (
+                        <div className="chart-card" key={pending.email}>
+                          <div className="chart-header">
+                            <div>
+                              <strong style={{ fontSize: '16px' }}>{pending.name}</strong>
+                              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Role: {pending.role.toUpperCase()} | CNIC: {pending.cnicNumber || "Pending"}</p>
+                            </div>
+                            <span className="status-pill pending">Pending Checks</span>
+                          </div>
+                          <div style={{ flex: 1, padding: '10px 0' }}>
+                            <p style={{ fontSize: '13px', margin: '0 0 10px 0' }}>
+                              {pending.role === 'manager' ? `Eatery: ${pending.restaurantName}` : `Vehicle details: ${pending.vehicleDetails}`}
+                            </p>
+                            <div className="document-previews-grid">
+                              <div className="document-preview-box" onClick={() => setZoomedDoc(pending.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500")}>
+                                <img src={pending.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500"} alt="CNIC Front" />
+                                <span className="document-label">CNIC Front View</span>
+                              </div>
+                              <div className="document-preview-box" onClick={() => setZoomedDoc(pending.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500")}>
+                                <img src={pending.cnicBack || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500"} alt="CNIC Back" />
+                                <span className="document-label">CNIC Back View</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                            <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleApproveUser(pending._id || pending.email, pending.role)}>Approve</button>
+                            <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenReject(pending._id || pending.email, pending.name, pending.role)}>Reject Checks</button>
+                          </div>
+                        </div>
+                      ))}
+                      {users.filter(u => u.status === 'pending').length === 0 && (
+                        <div className="chart-card" style={{ gridColumn: 'span 2', textAlign: 'center', padding: '40px' }}>
+                          🎉 No pending rider or restaurant verification files currently in inbox queue!
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* ====================================================================
-                 VIEW 13: STAFF ROLE & PERMISSION MANAGEMENT SYSTEM
+                {/* ====================================================================
+                 VIEW 7: MENU CATEGORIES MANAGEMENT
                  ==================================================================== */}
-              {activeMenuTab === 'staff' && (
-                <div>
-                  <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div className="page-title-desc">
-                      <h1>🧑‍💼 Staff Role & Permission Management</h1>
-                      <p>Define custom staff roles, assign sub-page access permissions, promote users to staff, and track role histories.</p>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button
-                        className="btn-primary"
-                        onClick={() => setStaffRoleModal({ name: '', description: '', permissions: [] })}
-                      >
-                        ➕ Create Staff Role
-                      </button>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => setAssignStaffModal({ userId: '', roleId: '', notes: '' })}
-                      >
-                        👤 Assign Staff to User
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sub-navigation tabs */}
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                    <button
-                      className={`filter-chip ${staffActiveTab === 'members' ? 'active' : ''}`}
-                      onClick={() => setStaffActiveTab('members')}
-                    >
-                      Active Staff Members ({staffMembers.length})
-                    </button>
-                    <button
-                      className={`filter-chip ${staffActiveTab === 'roles' ? 'active' : ''}`}
-                      onClick={() => setStaffActiveTab('roles')}
-                    >
-                      Staff Roles ({staffRoles.length})
-                    </button>
-                    <button
-                      className={`filter-chip ${staffActiveTab === 'history' ? 'active' : ''}`}
-                      onClick={() => setStaffActiveTab('history')}
-                    >
-                      Assignment History ({staffHistory.length})
-                    </button>
-                  </div>
-
-                  {/* TAB 1: ACTIVE STAFF MEMBERS */}
-                  {staffActiveTab === 'members' && (
-                    <div className="chart-card">
-                      <h3>Active Staff Assignments</h3>
-                      <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
-                        <table className="admin-data-table">
-                          <thead>
-                            <tr>
-                              <th>Staff Member</th>
-                              <th>Assigned Role</th>
-                              <th>Assigned On</th>
-                              <th>Assigned By</th>
-                              <th>Sub-Page Access</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {getFilteredStaffMembers().length > 0 ? (
-                              getFilteredStaffMembers().map(m => (
-                                <tr key={m._id}>
-                                  <td>
-                                    <strong>{m.userId?.name || 'User'}</strong>
-                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{m.userId?.email}</span>
-                                  </td>
-                                  <td>
-                                    <span className="status-pill approved" style={{ fontWeight: '600' }}>
-                                      {m.roleId?.name || 'Staff Role'}
-                                    </span>
-                                  </td>
-                                  <td>{new Date(m.assignedAt).toLocaleDateString()}</td>
-                                  <td>{m.assignedBy || 'Admin'}</td>
-                                  <td>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                      {(m.roleId?.permissions || []).map(p => (
-                                        <span key={p} style={{ fontSize: '10px', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                                          {p}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </td>
-                                  <td>
-                                    <button
-                                      className="btn-secondary"
-                                      style={{ color: '#ef4444', borderColor: '#ef4444', padding: '4px 10px', fontSize: '12px' }}
-                                      onClick={() => handleRevokeStaffMember(m.userId?._id, m.userId?.name)}
-                                    >
-                                      Revoke Role
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>
-                                  No active staff members assigned yet. Click "Assign Staff to User" above to promote a user to staff.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                {activeMenuTab === 'menu_categories' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Menu Categorization Matrix</h1>
+                        <p>Create, edit, and structure universal categories allowed for restaurant partner menus across NaanNow.</p>
                       </div>
                     </div>
-                  )}
 
-                  {/* TAB 2: STAFF ROLES & PERMISSION MATRIX */}
-                  {staffActiveTab === 'roles' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-                      {getFilteredStaffRoles().map(r => (
-                        <div key={r._id} className="chart-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                              <h3 style={{ fontSize: '16px', margin: 0 }}>{r.name}</h3>
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                {staffMembers.filter(m => m.roleId?._id === r._id).length} Active Member(s)
-                              </span>
-                            </div>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                              {r.description || 'No description provided.'}
-                            </p>
-
-                            <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                              Allowed Sub-Pages ({r.permissions?.length || 0}):
-                            </label>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
-                              {(r.permissions || []).map(p => (
-                                <span key={p} style={{ fontSize: '11px', background: 'var(--accent-light)', color: 'var(--accent-color)', padding: '3px 8px', borderRadius: '6px', fontWeight: '600' }}>
-                                  {p}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                            <button
-                              className="btn-secondary"
-                              style={{ flex: 1, padding: '6px' }}
-                              onClick={() => setStaffRoleModal(r)}
-                            >
-                              ✏️ Edit Permissions
-                            </button>
-                            <button
-                              className="btn-secondary"
-                              style={{ color: '#ef4444', borderColor: '#ef4444', padding: '6px 12px' }}
-                              onClick={() => handleDeleteStaffRole(r._id)}
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* TAB 3: ROLE ASSIGNMENT HISTORY */}
-                  {staffActiveTab === 'history' && (
-                    <div className="chart-card">
-                      <h3>Role Assignment Audit Logs</h3>
-                      <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
-                        <table className="admin-data-table">
-                          <thead>
-                            <tr>
-                              <th>User Name</th>
-                              <th>Staff Role</th>
-                              <th>Status</th>
-                              <th>Assigned On</th>
-                              <th>Revoked On</th>
-                              <th>Assigned By</th>
-                              <th>Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {staffHistory.length > 0 ? (
-                              staffHistory.map(h => (
-                                <tr key={h._id}>
-                                  <td>{h.userId?.name || 'User'}</td>
-                                  <td>{h.roleId?.name || 'Staff Role'}</td>
-                                  <td>
-                                    <span className={`status-pill ${h.revokedAt ? 'cancelled' : 'approved'}`}>
-                                      {h.revokedAt ? 'REVOKED' : 'ACTIVE'}
-                                    </span>
-                                  </td>
-                                  <td>{new Date(h.assignedAt).toLocaleString()}</td>
-                                  <td>{h.revokedAt ? new Date(h.revokedAt).toLocaleString() : '—'}</td>
-                                  <td>{h.assignedBy}</td>
-                                  <td>{h.notes || '—'}</td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>No role assignment history recorded yet.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ====================================================================
-                 VIEW 12: RICH BROADCAST NOTIFICATIONS
-                 ==================================================================== */}
-              {activeMenuTab === 'notifications' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Platform Notification Broadcaster</h1>
-                      <p>Send marketing push campaigns or alerts to riders, customers, or restaurants.</p>
-                    </div>
-                  </div>
-
-                  <div className="activity-grid">
-                    <div className="chart-card">
-                      <h3>Compose Rich Notification</h3>
-                      <form onSubmit={handleSendNotification} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
-                        <div className="form-group">
-                          <label>Alert Target Audience</label>
-                          <select className="select-filter-box" value={notifForm.target} onChange={(e) => setNotifForm({ ...notifForm, target: e.target.value })}>
-                            <option value="All">All Registered App Profiles</option>
-                            <option value="Customers">Customers Only</option>
-                            <option value="Riders">Riders Only</option>
-                            <option value="Restaurants">Restaurant Managers Only</option>
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Notification Title</label>
-                          <input type="text" className="form-control-input" placeholder="e.g. Free Delivery Friday!" value={notifForm.title} onChange={(e) => setNotifForm({ ...notifForm, title: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Notification Body Message</label>
-                          <textarea rows="4" className="form-control-input" placeholder="Enter rich notification details..." value={notifForm.body} onChange={(e) => setNotifForm({ ...notifForm, body: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Image Attachment URL (Optional)</label>
-                          <input type="text" className="form-control-input" placeholder="https://images.unsplash.com/..." value={notifForm.image} onChange={(e) => setNotifForm({ ...notifForm, image: e.target.value })} />
-                        </div>
-                        <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}><Icon name="plane" size={14} /> Send Broadcast</button>
+                    {/* Add New Category Form */}
+                    <div className="chart-card" style={{ marginBottom: '24px' }}>
+                      <h3>➕ Add New Platform Category</h3>
+                      <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap' }}>
+                        <input
+                          type="text"
+                          placeholder="Category Title (e.g. Pizza, Shakes, Rolls)"
+                          value={newCatName}
+                          onChange={(e) => setNewCatName(e.target.value)}
+                          className="form-control-input"
+                          style={{ flex: 1, minWidth: '200px' }}
+                          required
+                        />
+                        <button type="submit" className="btn-primary" style={{ padding: '10px 20px' }}>
+                          Add Category to DB
+                        </button>
                       </form>
                     </div>
 
-                    <div className="chart-card" style={{ height: '500px', overflowY: 'auto' }}>
-                      <h3>Broadcast Campaign History</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' }}>
-                        {sentNotifications.map(n => (
-                          <div key={n.id} style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <strong style={{ fontSize: '13px' }}>{n.title}</strong>
-                              <span className="status-pill waiting-for-rider" style={{ fontSize: '9px', padding: '2px 6px' }}>Audience: {n.target}</span>
+                    {/* Edit Category Modal / Overlay */}
+                    {editingCat && (
+                      <div className="modal-overlay" style={{ zIndex: 3000 }}>
+                        <div className="modal-content-card" style={{ maxWidth: '450px', padding: '24px' }}>
+                          <h3 style={{ marginBottom: '16px' }}>✏️ Edit Category: {editingCat.name}</h3>
+                          <form onSubmit={handleSaveEditCategory} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Category Name</label>
+                              <input
+                                type="text"
+                                value={editingCat.name}
+                                onChange={(e) => setEditingCat({ ...editingCat, name: e.target.value })}
+                                className="form-control-input"
+                                style={{ width: '100%' }}
+                                required
+                              />
                             </div>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0' }}>{n.body}</p>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sent: {new Date(n.sentAt).toLocaleString()}</span>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                              <button type="button" className="btn-secondary" onClick={() => setEditingCat(null)}>Cancel</button>
+                              <button type="submit" className="btn-primary">Save Changes</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="chart-card">
+                      <h3>Active Database Menu Categories ({categories.length})</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                        Restaurant managers select from these database categories when creating or editing menu items.
+                      </p>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
+                        {categories.map(cat => (
+                          <div
+                            key={cat._id || cat.name}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '12px 16px',
+                              borderRadius: '12px',
+                              backgroundColor: 'var(--bg-secondary)',
+                              border: '1px solid var(--border-color)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontWeight: '600', fontSize: '14px' }}>{cat.name}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                onClick={() => setEditingCat({ _id: cat._id, name: cat.name })}
+                                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
+                                title="Edit Category"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCategory(cat._id)}
+                                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
+                                title="Delete Category"
+                              >
+                                🗑️
+                              </button>
+                            </div>
                           </div>
                         ))}
-                        {sentNotifications.length === 0 && (
-                          <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>No broadcasts sent yet.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 8: PAYMENTS & FINANCIAL LEDGER
+                 ==================================================================== */}
+                {activeMenuTab === 'payments' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Financial Ledger & Settlements</h1>
+                        <p>View splits of gross sales, process payouts for riders/restaurants, and export financial records.</p>
+                      </div>
+                    </div>
+
+                    <div className="ledger-header-box">
+                      <div className="ledger-stat-card">
+                        <strong>Gross Platform Sales</strong>
+                        <p className="ledger-num">Rs. {totalSales.toLocaleString()}</p>
+                      </div>
+                      <div className="ledger-stat-card">
+                        <strong>Net Platform Commission</strong>
+                        <p className="ledger-num">Rs. {Math.round(totalSales * 0.15).toLocaleString()}</p>
+                      </div>
+                      <div className="ledger-stat-card">
+                        <strong>Pending Withdrawals</strong>
+                        <p className="ledger-num" style={{ color: 'var(--warning-color)' }}>
+                          Rs. {withdrawals.filter(w => w.status === 'Pending').reduce((s, w) => s + w.amount, 0).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="premium-table-wrapper">
+                      <table className="premium-table">
+                        <thead>
+                          <tr>
+                            <th>Transaction ID</th>
+                            <th>Recipient Partner</th>
+                            <th>Withdrawal Amount</th>
+                            <th>Settlement Channel</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {withdrawals.map(txn => (
+                            <tr key={txn.id}>
+                              <td style={{ fontWeight: '700' }}>{txn.id}</td>
+                              <td style={{ fontWeight: '600' }}>{txn.party}</td>
+                              <td style={{ fontWeight: '600', color: 'var(--accent-color)' }}>Rs. {txn.amount.toLocaleString()}</td>
+                              <td>{txn.method}</td>
+                              <td>
+                                <span className={`status-pill ${txn.status.toLowerCase()}`}>
+                                  {txn.status}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                {txn.status === 'Pending' ? (
+                                  <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleProcessPayout(txn.id)}>
+                                    Process & Payout
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: '11px', color: 'var(--success-color)' }}>Paid</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 9: PROMOTIONS & MARKETING CONTROL
+                 ==================================================================== */}
+                {activeMenuTab === 'promotions' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Promotions & Campaign Builder</h1>
+                        <p>Generate promo coupon codes, referral codes, and campaign alerts.</p>
+                      </div>
+                    </div>
+
+                    <div className="activity-grid">
+                      <div className="chart-card">
+                        <h3>Generate Promo Coupon</h3>
+                        <form onSubmit={handleCreatePromo} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' }}>
+                          <div className="form-group">
+                            <label>Coupon Code Name</label>
+                            <input type="text" className="form-control-input" placeholder="e.g. NAANWEEKEND" value={promoForm.code} onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value })} />
+                          </div>
+                          <div className="form-grid-2">
+                            <div className="form-group">
+                              <label>Discount Value</label>
+                              <input type="number" className="form-control-input" value={promoForm.discount} onChange={(e) => setPromoForm({ ...promoForm, discount: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                              <label>Type</label>
+                              <select className="select-filter-box" value={promoForm.type} onChange={(e) => setPromoForm({ ...promoForm, type: e.target.value })}>
+                                <option value="Percentage">Percentage Discount (%)</option>
+                                <option value="Flat">Flat Cashoff (Rs.)</option>
+                              </select>
+                            </div>
+                          </div>
+                          <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}><Icon name="plus" size={14} /> Save Promo Code</button>
+                        </form>
+                      </div>
+
+                      <div className="chart-card">
+                        <h3>Active Promo Campaign Index</h3>
+                        <div className="premium-table-wrapper" style={{ boxShadow: 'none', border: 'none', margin: 0 }}>
+                          <table className="premium-table">
+                            <thead>
+                              <tr>
+                                <th>Coupon Code</th>
+                                <th>Details</th>
+                                <th>Status</th>
+                                <th>Toggle</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {promotions.map(promo => (
+                                <tr key={promo.code}>
+                                  <td style={{ fontWeight: '700' }}>{promo.code}</td>
+                                  <td>{promo.type === 'Percentage' ? `${promo.discount}% Off` : `Rs. ${promo.discount} Off`} (Min: {promo.minBasket})</td>
+                                  <td>
+                                    <span className={`status-pill ${promo.status === 'Active' ? 'approved' : 'cancelled'}`}>
+                                      {promo.status}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => handleTogglePromoStatus(promo.code)}>
+                                      {promo.status === 'Active' ? 'Expire' : 'Activate'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 10: ANALYTICS DETAIL PANEL
+                 ==================================================================== */}
+                {activeMenuTab === 'analytics' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Analytics Hub & Visual Reports</h1>
+                        <p>Deeper review of customer retention metrics, restaurant rankings, and performance indexes.</p>
+                      </div>
+                      <button className="btn-primary" onClick={() => handlePrintPDF('Full Report')}>Export System PDF</button>
+                    </div>
+
+                    <div className="charts-grid">
+                      <div className="chart-card">
+                        <h3>Order Demographics Hours (Peak hours)</h3>
+                        <div className="chart-container-box">
+                          {(() => {
+                            const hourBins = [10, 12, 14, 16, 18, 20, 22];
+                            const hourCounts = hourBins.map(binHour => {
+                              return orders.filter(o => {
+                                const hr = new Date(o.createdAt).getHours();
+                                return hr >= binHour && hr < binHour + 2;
+                              }).length;
+                            });
+                            const maxCnt = Math.max(...hourCounts, 1);
+
+                            return (
+                              <div style={{ display: 'flex', width: '100%', height: '180px', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 20px' }}>
+                                {hourBins.map((binHour, i) => {
+                                  const hPct = Math.max(Math.round((hourCounts[i] / maxCnt) * 100), 10);
+                                  return (
+                                    <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '10%' }}>
+                                      <div style={{ height: `${hPct}%`, width: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '6px 6px 0 0' }} title={`${hourCounts[i]} orders`}></div>
+                                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px' }}>{binHour}h</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      <div className="chart-card">
+                        <h3>Top Selling Restaurants Rankings</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+                          {(() => {
+                            const rMap = {};
+                            orders.forEach(o => {
+                              const rName = o.restaurantId?.name || o.restaurantName || 'NaanNow Kitchen';
+                              if (!rMap[rName]) rMap[rName] = { name: rName, count: 0, total: 0 };
+                              rMap[rName].count += 1;
+                              rMap[rName].total += (o.totalAmount || 0);
+                            });
+                            const topList = Object.values(rMap).sort((a, b) => b.total - a.total).slice(0, 5);
+
+                            if (topList.length === 0) {
+                              return <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No sales data available yet.</p>;
+                            }
+
+                            return topList.map((item, idx) => (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                                <strong>#{idx + 1} {item.name}</strong>
+                                <div style={{ textAlign: 'right' }}>
+                                  <span style={{ fontSize: '13px', display: 'block' }}>{item.count} orders</span>
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rs. {item.total.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 11: CUSTOMER SUPPORT CHAT & TICKETS
+                 ==================================================================== */}
+                {activeMenuTab === 'support' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Customer & Partner Support Desk</h1>
+                        <p>Resolve tickets, process account unban requests, send replies, and close completed tickets.</p>
+                      </div>
+                    </div>
+
+                    {/* Filter chips for ticket type and status */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Type:</span>
+                        <button
+                          className={`filter-chip ${ticketFilterTab === 'all' ? 'active' : ''}`}
+                          onClick={() => setTicketFilterTab('all')}
+                        >
+                          All Tickets ({tickets.length})
+                        </button>
+                        <button
+                          className={`filter-chip ${ticketFilterTab === 'unban' ? 'active' : ''}`}
+                          onClick={() => setTicketFilterTab('unban')}
+                        >
+                          Unban Appeals ({tickets.filter(t => t.ticketType === 'unban').length})
+                        </button>
+                        <button
+                          className={`filter-chip ${ticketFilterTab === 'general' ? 'active' : ''}`}
+                          onClick={() => setTicketFilterTab('general')}
+                        >
+                          General Inquiries ({tickets.filter(t => t.ticketType !== 'unban').length})
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Status:</span>
+                        {['all', 'open', 'in_progress', 'closed'].map(st => (
+                          <button
+                            key={st}
+                            className={`filter-chip ${ticketStatusFilter === st ? 'active' : ''}`}
+                            onClick={() => setTicketStatusFilter(st)}
+                            style={{ textTransform: 'capitalize' }}
+                          >
+                            {st === 'all' ? 'All Statuses' : st.replace('_', ' ')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="activity-grid" style={{ gridTemplateColumns: '360px 1fr' }}>
+                      {/* Tickets List */}
+                      <div className="chart-card" style={{ padding: '16px', height: '560px', display: 'flex', flexDirection: 'column' }}>
+                        <strong style={{ fontSize: '14px', marginBottom: '8px' }}>Support Tickets Queue ({getFilteredTickets().length})</strong>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+                          {getFilteredTickets().map(t => {
+                            const userObj = t.userId || t.customerId;
+                            const userName = userObj?.name || t.customerName || 'User';
+                            const userRole = t.userRole || userObj?.role || 'customer';
+                            const isUnban = t.ticketType === 'unban';
+                            const tId = t._id || t.id;
+                            const isSelected = (activeTicket?._id && activeTicket?._id === tId) || (activeTicket?.id && activeTicket?.id === tId);
+                            const unreadCount = getAdminUnreadCount(t);
+                            const badgeText = unreadCount > 10 ? '10+' : String(unreadCount);
+
+                            return (
+                              <div
+                                key={tId}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '10px',
+                                  backgroundColor: isSelected ? 'var(--accent-light)' : 'var(--bg-primary)',
+                                  border: isSelected ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  scrollToAdminFirstUnreadOrBottom(t);
+                                  setActiveTicket(t);
+                                  selectedTicketIdRef.current = tId;
+                                  markAdminTicketRead(tId, t.chat);
+                                  setSupportReplyText('');
+                                  setTicketAdminAction(t.adminAction || '');
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <strong style={{ fontSize: '13px', color: 'var(--accent-color)' }}>{t.ticketNumber || tId}</strong>
+                                    {unreadCount > 0 && !isSelected && (
+                                      <span style={{ backgroundColor: '#ef4444', color: '#ffffff', fontSize: '10px', fontWeight: '800', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }} title={`${unreadCount} unread message(s)`}>
+                                        {badgeText}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className={`status-pill ${t.status === 'closed' ? 'cancelled' : t.status === 'open' ? 'warning' : 'approved'}`} style={{ padding: '2px 6px', fontSize: '9px' }}>
+                                    {t.status.toUpperCase()}
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: '13px', fontWeight: '600', display: 'block', margin: '2px 0' }}>{t.subject}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  <span>{userName} ({userRole})</span>
+                                  {isUnban && (
+                                    <span style={{ backgroundColor: '#fef2f2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: '600', fontSize: '10px' }}>
+                                      UNBAN APPEAL
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {getFilteredTickets().length === 0 && (
+                            <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>
+                              No matching support tickets found.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Chat Logs & Resolution Window */}
+                      <div className="chart-card" style={{ height: '560px', display: 'flex', flexDirection: 'column' }}>
+                        {activeTicket ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                            {/* Header Bar */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '12px' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                  <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--accent-color)' }}>{activeTicket.ticketNumber || activeTicket.id}</span>
+                                  <span className={`status-pill ${activeTicket.status === 'closed' ? 'cancelled' : 'approved'}`} style={{ fontSize: '10px' }}>
+                                    {activeTicket.status.toUpperCase()}
+                                  </span>
+                                </div>
+                                <h4 style={{ fontSize: '15px', margin: '2px 0' }}>{activeTicket.subject}</h4>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                  Requester: <strong>{(activeTicket.userId || activeTicket.customerId)?.name || activeTicket.customerName}</strong> ({(activeTicket.userId || activeTicket.customerId)?.email || activeTicket.customerEmail}) • Role: <strong style={{ textTransform: 'capitalize' }}>{activeTicket.userRole || 'customer'}</strong>
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                                <select
+                                  className="select-filter-box"
+                                  value={activeTicket.assignedTo || ""}
+                                  onChange={(e) => handleAssignTicket(activeTicket._id || activeTicket.id, e.target.value)}
+                                >
+                                  <option value="">Assign Specialist...</option>
+                                  {staffMembers
+                                    .filter(m => (m.roleId?.permissions || []).includes('support'))
+                                    .map(m => (
+                                      <option key={m._id} value={m.userId?.name || 'Staff Member'}>
+                                        {m.userId?.name || 'Staff'} ({m.roleId?.name || 'Specialist'})
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Admin Action Control Row */}
+                            {activeTicket.status !== 'closed' && (
+                              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                                  🛠 Admin Decision / Resolution Action:
+                                </label>
+                                <select
+                                  className="select-filter-box"
+                                  style={{ fontSize: '12px', padding: '6px 10px' }}
+                                  value={ticketAdminAction}
+                                  onChange={(e) => setTicketAdminAction(e.target.value)}
+                                >
+                                  <option value="">Select Action (Optional)...</option>
+                                  <option value="unban">🔓 Unban Account Immediately</option>
+                                  <option value="pending_docs">📝 Request Additional Documents</option>
+                                  <option value="keep_blocked">🚫 Keep Account Suspended</option>
+                                </select>
+                              </div>
+                            )}
+
+                            {/* Chat Messages */}
+                            <div className="support-chat-container" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                              <div className="chat-messages-area" ref={adminChatScrollRef} style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                                {activeTicket.chat && activeTicket.chat.length > 0 ? (
+                                  activeTicket.chat.map((msg, i) => (
+                                    <div key={i} className={`chat-bubble ${msg.sender === 'support' ? 'support' : 'customer'}`}>
+                                      <span className="chat-sender-lbl">
+                                        {msg.sender.toUpperCase()} • {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      {msg.text && <div>{msg.text}</div>}
+                                      {renderAdminAttachments(msg.attachments)}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginTop: '20px' }}>No chat messages in this ticket.</p>
+                                )}
+                              </div>
+
+                              {/* CHAT INPUT OR DETAILED CLOSED SUMMARY */}
+                              {activeTicket.status === 'closed' ? (
+                                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <div style={{ padding: '12px', backgroundColor: '#f1f5f9', border: '1.5px dashed #cbd5e1', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: '#475569', fontWeight: '600' }}>
+                                    🔒 This ticket was closed by <strong>{activeTicket.closedBy || 'Admin'}</strong> on {activeTicket.closedAt ? new Date(activeTicket.closedAt).toLocaleString() : 'Record'}.
+                                  </div>
+
+                                  <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }}>
+                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                      📋 Closing Resolution & Appeal Restrictions Record:
+                                    </h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                      <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>Resolution Action:</span>
+                                        <strong style={{ textTransform: 'capitalize', color: 'var(--accent-color)' }}>
+                                          {activeTicket.adminAction === 'unban' ? '🔓 Unbanned Account' : activeTicket.adminAction === 'keep_blocked' ? '🚫 Maintained Suspension' : activeTicket.adminAction === 'pending_docs' ? '📝 Requested Documents' : (activeTicket.adminAction || 'Closed Ticket')}
+                                        </strong>
+                                      </div>
+
+                                      <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>User Appeal Permission:</span>
+                                        {(() => {
+                                          const res = activeTicket.closingUnbanRestriction || activeTicket.userId?.unbanRestriction;
+                                          if (!res) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
+                                          if (res.canOpen) return <span style={{ color: '#16a34a', fontWeight: '700' }}>🟢 Always Allowed</span>;
+                                          if (res.blockedUntil) return <span style={{ color: '#d97706', fontWeight: '700' }}>⏳ Restricted Until {new Date(res.blockedUntil).toLocaleString()}</span>;
+                                          return <span style={{ color: '#dc2626', fontWeight: '700' }}>🚫 Lifetime Block (Permanent)</span>;
+                                        })()}
+                                      </div>
+                                    </div>
+
+                                    {(activeTicket.closingUnbanRestriction?.adminRemarks || activeTicket.userId?.unbanRestriction?.adminRemarks) && (
+                                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #cbd5e1', fontSize: '12px', color: '#475569' }}>
+                                        <strong>Admin Remarks:</strong> {activeTicket.closingUnbanRestriction?.adminRemarks || activeTicket.userId?.unbanRestriction?.adminRemarks}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                                  {adminReplyFiles.length > 0 && (
+                                    <div style={{ fontSize: '11px', color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                                      📎 Selected {adminReplyFiles.length} file(s): {adminReplyFiles.map(f => f.name).join(', ')}
+                                    </div>
+                                  )}
+                                  <div className="chat-input-row" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <input
+                                      type="text"
+                                      className="chat-input-box"
+                                      placeholder="Type support reply or instructions..."
+                                      value={supportReplyText}
+                                      onChange={(e) => setSupportReplyText(e.target.value)}
+                                      onKeyDown={(e) => e.key === 'Enter' && handleSendSupportReply(activeTicket._id || activeTicket.id)}
+                                      style={{ flex: 1 }}
+                                    />
+                                    <label
+                                      style={{
+                                        cursor: 'pointer',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        background: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border-color)',
+                                        fontSize: '13px',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                      title="Attach documents/files"
+                                    >
+                                      📎 Attach
+                                      <input
+                                        type="file"
+                                        multiple
+                                        ref={adminReplyFileInputRef}
+                                        onChange={(e) => setAdminReplyFiles(Array.from(e.target.files))}
+                                        accept="image/*,.pdf,.doc,.docx,.txt"
+                                        style={{ display: 'none' }}
+                                      />
+                                    </label>
+                                    <button className="btn-primary" onClick={() => handleSendSupportReply(activeTicket._id || activeTicket.id)}>
+                                      Send Reply
+                                    </button>
+                                    <button
+                                      className="btn-secondary"
+                                      style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#ef4444', fontWeight: '700' }}
+                                      onClick={() => handleCloseTicketClick(activeTicket)}
+                                    >
+                                      🔒 Close Ticket
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+                            👈 Select a support ticket to view chat thread & manage appeal decisions.
+                          </div>
                         )}
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* ====================================================================
-                 VIEW 13: SETTINGS
+                {/* ====================================================================
+                 VIEW 13: STAFF ROLE & PERMISSION MANAGEMENT SYSTEM
                  ==================================================================== */}
-              {activeMenuTab === 'settings' && (
-                <div>
-                  <div className="page-header">
-                    <div className="page-title-desc">
-                      <h1>Global Control Settings</h1>
-                      <p>Adjust system commissions, delivery limits, taxes, API mappings, and maintenance toggles.</p>
-                    </div>
-                  </div>
+                {activeMenuTab === 'staff' && (
+                  <div>
+                    <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div className="page-title-desc">
+                        <h1>🧑‍💼 Staff Role & Permission Management</h1>
+                        <p>Define custom staff roles, assign sub-page access permissions, promote users to staff, and track role histories.</p>
+                      </div>
 
-                  <div className="activity-grid">
-                    <div className="chart-card">
-                      <h3>Configure Financials</h3>
-                      <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
-                        <div className="form-group">
-                          <label>Base Platform Commission (%)</label>
-                          <input type="number" className="form-control-input" value={platformSettings.commission} onChange={(e) => setPlatformSettings({ ...platformSettings, commission: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Base Delivery Charges (Rs.)</label>
-                          <input type="number" className="form-control-input" value={platformSettings.deliveryCharges} onChange={(e) => setPlatformSettings({ ...platformSettings, deliveryCharges: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Sales Taxes (%)</label>
-                          <input type="number" className="form-control-input" value={platformSettings.taxes} onChange={(e) => setPlatformSettings({ ...platformSettings, taxes: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Google Maps API Key Mapping</label>
-                          <input type="text" className="form-control-input" value={platformSettings.mapsApiKey} onChange={(e) => setPlatformSettings({ ...platformSettings, mapsApiKey: e.target.value })} />
-                        </div>
-                        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
-                          <input
-                            type="checkbox"
-                            id="maint-mode"
-                            checked={platformSettings.maintenanceMode}
-                            onChange={(e) => setPlatformSettings({ ...platformSettings, maintenanceMode: e.target.checked })}
-                          />
-                          <label htmlFor="maint-mode" style={{ margin: 0 }}>Enable Platform Maintenance Mode</label>
-                        </div>
-                        <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}>Save Configuration</button>
-                      </form>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          className="btn-primary"
+                          onClick={() => setStaffRoleModal({ name: '', description: '', permissions: [] })}
+                        >
+                          ➕ Create Staff Role
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => setAssignStaffModal({ userId: '', roleId: '', notes: '' })}
+                        >
+                          👤 Assign Staff to User
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="chart-card">
-                      <h3>Database Backup & Recovery</h3>
-                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-                        Backup all MERN local storage tables immediately as a single JSON file. You can restore this file state at any time.
-                      </p>
-                      <button className="btn-secondary" style={{ alignSelf: 'flex-start', marginTop: '14px' }} onClick={handleExportDB}>
-                        Export DB Backup
+                    {/* Sub-navigation tabs */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                      <button
+                        className={`filter-chip ${staffActiveTab === 'members' ? 'active' : ''}`}
+                        onClick={() => setStaffActiveTab('members')}
+                      >
+                        Active Staff Members ({staffMembers.length})
                       </button>
+                      <button
+                        className={`filter-chip ${staffActiveTab === 'roles' ? 'active' : ''}`}
+                        onClick={() => setStaffActiveTab('roles')}
+                      >
+                        Staff Roles ({staffRoles.length})
+                      </button>
+                      <button
+                        className={`filter-chip ${staffActiveTab === 'history' ? 'active' : ''}`}
+                        onClick={() => setStaffActiveTab('history')}
+                      >
+                        Assignment History ({staffHistory.length})
+                      </button>
+                    </div>
 
-                      <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                        <h4>Restore System State</h4>
-                        <textarea
-                          rows="4"
-                          className="form-control-input"
-                          placeholder="Paste database JSON configuration string here..."
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.ctrlKey) {
-                              handleRestoreDB(e.target.value);
-                            }
-                          }}
-                        />
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>Paste backup text, then press Ctrl+Enter to restore.</span>
+                    {/* TAB 1: ACTIVE STAFF MEMBERS */}
+                    {staffActiveTab === 'members' && (
+                      <div className="chart-card">
+                        <h3>Active Staff Assignments</h3>
+                        <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
+                          <table className="admin-data-table">
+                            <thead>
+                              <tr>
+                                <th>Staff Member</th>
+                                <th>Assigned Role</th>
+                                <th>Assigned On</th>
+                                <th>Assigned By</th>
+                                <th>Sub-Page Access</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {getFilteredStaffMembers().length > 0 ? (
+                                getFilteredStaffMembers().map(m => (
+                                  <tr key={m._id}>
+                                    <td>
+                                      <strong>{m.userId?.name || 'User'}</strong>
+                                      <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{m.userId?.email}</span>
+                                    </td>
+                                    <td>
+                                      <span className="status-pill approved" style={{ fontWeight: '600' }}>
+                                        {m.roleId?.name || 'Staff Role'}
+                                      </span>
+                                    </td>
+                                    <td>{new Date(m.assignedAt).toLocaleDateString()}</td>
+                                    <td>{m.assignedBy || 'Admin'}</td>
+                                    <td>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                        {(m.roleId?.permissions || []).map(p => (
+                                          <span key={p} style={{ fontSize: '10px', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                                            {p}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <button
+                                        className="btn-secondary"
+                                        style={{ color: '#ef4444', borderColor: '#ef4444', padding: '4px 10px', fontSize: '12px' }}
+                                        onClick={() => handleRevokeStaffMember(m.userId?._id, m.userId?.name)}
+                                      >
+                                        Revoke Role
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>
+                                    No active staff members assigned yet. Click "Assign Staff to User" above to promote a user to staff.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 2: STAFF ROLES & PERMISSION MATRIX */}
+                    {staffActiveTab === 'roles' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                        {getFilteredStaffRoles().map(r => (
+                          <div key={r._id} className="chart-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                <h3 style={{ fontSize: '16px', margin: 0 }}>{r.name}</h3>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  {staffMembers.filter(m => m.roleId?._id === r._id).length} Active Member(s)
+                                </span>
+                              </div>
+                              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                                {r.description || 'No description provided.'}
+                              </p>
+
+                              <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                                Allowed Sub-Pages ({r.permissions?.length || 0}):
+                              </label>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
+                                {(r.permissions || []).map(p => (
+                                  <span key={p} style={{ fontSize: '11px', background: 'var(--accent-light)', color: 'var(--accent-color)', padding: '3px 8px', borderRadius: '6px', fontWeight: '600' }}>
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                              <button
+                                className="btn-secondary"
+                                style={{ flex: 1, padding: '6px' }}
+                                onClick={() => setStaffRoleModal(r)}
+                              >
+                                ✏️ Edit Permissions
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                style={{ color: '#ef4444', borderColor: '#ef4444', padding: '6px 12px' }}
+                                onClick={() => handleDeleteStaffRole(r._id)}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TAB 3: ROLE ASSIGNMENT HISTORY */}
+                    {staffActiveTab === 'history' && (
+                      <div className="chart-card">
+                        <h3>Role Assignment Audit Logs</h3>
+                        <div className="table-responsive-wrapper" style={{ marginTop: '16px' }}>
+                          <table className="admin-data-table">
+                            <thead>
+                              <tr>
+                                <th>User Name</th>
+                                <th>Staff Role</th>
+                                <th>Status</th>
+                                <th>Assigned On</th>
+                                <th>Revoked On</th>
+                                <th>Assigned By</th>
+                                <th>Notes</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {staffHistory.length > 0 ? (
+                                staffHistory.map(h => (
+                                  <tr key={h._id}>
+                                    <td style={{ textAlign: 'center' }}>{h.userId?.name || 'User'}</td>
+                                    <td style={{ textAlign: 'center' }}>{h.roleId?.name || 'Staff Role'}</td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <span className={`status-pill ${h.revokedAt ? 'cancelled' : 'approved'}`}>
+                                        {h.revokedAt ? 'REVOKED' : 'ACTIVE'}
+                                      </span>
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>{new Date(h.assignedAt).toLocaleString()}</td>
+                                    <td style={{ textAlign: 'center' }}>{h.revokedAt ? new Date(h.revokedAt).toLocaleString() : '—'}</td>
+                                    <td style={{ textAlign: 'center' }}>{h.assignedBy}</td>
+                                    <td style={{ textAlign: 'center' }}>{h.notes || '—'}</td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>No role assignment history recorded yet.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW 12: RICH BROADCAST NOTIFICATIONS
+                 ==================================================================== */}
+                {activeMenuTab === 'notifications' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Platform Notification Broadcaster</h1>
+                        <p>Send marketing push campaigns or alerts to riders, customers, or restaurants.</p>
+                      </div>
+                    </div>
+
+                    <div className="activity-grid">
+                      <div className="chart-card">
+                        <h3>Compose Rich Notification</h3>
+                        <form onSubmit={handleSendNotification} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
+                          <div className="form-group">
+                            <label>Alert Target Audience</label>
+                            <select className="select-filter-box" value={notifForm.target} onChange={(e) => setNotifForm({ ...notifForm, target: e.target.value })}>
+                              <option value="All">All Registered App Profiles</option>
+                              <option value="Customers">Customers Only</option>
+                              <option value="Riders">Riders Only</option>
+                              <option value="Restaurants">Restaurant Managers Only</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>Notification Title</label>
+                            <input type="text" className="form-control-input" placeholder="e.g. Free Delivery Friday!" value={notifForm.title} onChange={(e) => setNotifForm({ ...notifForm, title: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Notification Body Message</label>
+                            <textarea rows="4" className="form-control-input" placeholder="Enter rich notification details..." value={notifForm.body} onChange={(e) => setNotifForm({ ...notifForm, body: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Image Attachment URL (Optional)</label>
+                            <input type="text" className="form-control-input" placeholder="https://images.unsplash.com/..." value={notifForm.image} onChange={(e) => setNotifForm({ ...notifForm, image: e.target.value })} />
+                          </div>
+                          <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}><Icon name="plane" size={14} /> Send Broadcast</button>
+                        </form>
+                      </div>
+
+                      <div className="chart-card" style={{ height: '500px', overflowY: 'auto' }}>
+                        <h3>Broadcast Campaign History</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' }}>
+                          {sentNotifications.map(n => (
+                            <div key={n.id} style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <strong style={{ fontSize: '13px' }}>{n.title}</strong>
+                                <span className="status-pill waiting-for-rider" style={{ fontSize: '9px', padding: '2px 6px' }}>Audience: {n.target}</span>
+                              </div>
+                              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0' }}>{n.body}</p>
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sent: {new Date(n.sentAt).toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {sentNotifications.length === 0 && (
+                            <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>No broadcasts sent yet.</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* ====================================================================
+                 VIEW 13: SETTINGS
+                 ==================================================================== */}
+                {activeMenuTab === 'settings' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>Global Control Settings</h1>
+                        <p>Adjust system commissions, delivery limits, taxes, API mappings, and maintenance toggles.</p>
+                      </div>
+                    </div>
+
+                    <div className="activity-grid">
+                      <div className="chart-card">
+                        <h3>Configure Financials</h3>
+                        <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
+                          <div className="form-group">
+                            <label>Base Platform Commission (%)</label>
+                            <input type="number" className="form-control-input" value={platformSettings.commission} onChange={(e) => setPlatformSettings({ ...platformSettings, commission: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Base Delivery Charges (Rs.)</label>
+                            <input type="number" className="form-control-input" value={platformSettings.deliveryCharges} onChange={(e) => setPlatformSettings({ ...platformSettings, deliveryCharges: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Sales Taxes (%)</label>
+                            <input type="number" className="form-control-input" value={platformSettings.taxes} onChange={(e) => setPlatformSettings({ ...platformSettings, taxes: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Google Maps API Key Mapping</label>
+                            <input type="text" className="form-control-input" value={platformSettings.mapsApiKey} onChange={(e) => setPlatformSettings({ ...platformSettings, mapsApiKey: e.target.value })} />
+                          </div>
+                          <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
+                            <input
+                              type="checkbox"
+                              id="maint-mode"
+                              checked={platformSettings.maintenanceMode}
+                              onChange={(e) => setPlatformSettings({ ...platformSettings, maintenanceMode: e.target.checked })}
+                            />
+                            <label htmlFor="maint-mode" style={{ margin: 0 }}>Enable Platform Maintenance Mode</label>
+                          </div>
+                          <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}>Save Configuration</button>
+                        </form>
+                      </div>
+
+                      <div className="chart-card">
+                        <h3>Database Backup & Recovery</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                          Backup all MERN local storage tables immediately as a single JSON file. You can restore this file state at any time.
+                        </p>
+                        <button className="btn-secondary" style={{ alignSelf: 'flex-start', marginTop: '14px' }} onClick={handleExportDB}>
+                          Export DB Backup
+                        </button>
+
+                        <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                          <h4>Restore System State</h4>
+                          <textarea
+                            rows="4"
+                            className="form-control-input"
+                            placeholder="Paste database JSON configuration string here..."
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && e.ctrlKey) {
+                                handleRestoreDB(e.target.value);
+                              }
+                            }}
+                          />
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>Paste backup text, then press Ctrl+Enter to restore.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             );
           })()}
@@ -3935,17 +4019,20 @@ function AdminDashboard() {
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', maxHeight: '200px', overflowY: 'auto', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   {[
-                    { key: 'dashboard', label: '📊 Dashboard Overview' },
-                    { key: 'orders', label: '📦 Orders Management' },
-                    { key: 'restaurants', label: '🏪 Restaurants Management' },
-                    { key: 'riders', label: '🛵 Riders Management' },
-                    { key: 'users', label: '👥 Customers & Users' },
-                    { key: 'support', label: '🎫 Support Desk & Unban' },
-                    { key: 'promotions', label: '🏷️ Promotions & Vouchers' },
-                    { key: 'categories', label: '🍽️ Menu Categories' },
-                    { key: 'settings', label: '⚙️ Settings & System' },
-                    { key: 'withdrawals', label: '💳 Withdrawals & Ledger' },
-                    { key: 'staff', label: '🧑‍💼 Staff Management' }
+                    { key: 'dashboard', label: '📊 Dashboard' },
+                    { key: 'orders', label: '📦 Orders' },
+                    { key: 'restaurants', label: '🏪 Restaurants' },
+                    { key: 'riders', label: '🛵 Riders' },
+                    { key: 'customers', label: '👥 Customers' },
+                    { key: 'verification', label: '🔍 Verification Center' },
+                    { key: 'menu_categories', label: '🍽️ Categories' },
+                    { key: 'payments', label: '💳 Payments & Ledger' },
+                    { key: 'promotions', label: '🏷️ Promotions' },
+                    { key: 'analytics', label: '📈 Analytics' },
+                    { key: 'support', label: '🎫 Customer Support' },
+                    { key: 'notifications', label: '🔔 Rich Alerts' },
+                    { key: 'staff', label: '🧑‍💼 Staff & Roles' },
+                    { key: 'settings', label: '⚙️ Settings' }
                   ].map(p => {
                     const isChecked = (staffRoleModal.permissions || []).includes(p.key);
                     return (

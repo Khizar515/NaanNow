@@ -5,25 +5,21 @@ const StaffAssignment = require('../models/StaffAssignment');
 const User = require('../models/User');
 const { auth, restrictTo } = require('../middleware/auth');
 
-// Default initial roles to seed if empty
-const DEFAULT_ROLES = [
-  {
-    name: 'Customer Support Specialist',
-    description: 'Handles support tickets, unban appeals, and customer inquiries.',
-    permissions: ['dashboard', 'support', 'users']
-  },
-  {
-    name: 'Order Management Staff',
-    description: 'Oversees live orders, delivery issues, and restaurant order flows.',
-    permissions: ['dashboard', 'orders', 'restaurants']
-  }
-];
+// Special reserved role marker to ensure seed runs only ONCE ever (never re-seeds after admin deletes roles)
+const SEED_MARKER = '__seeded__';
 
-const seedStaffRolesIfEmpty = async () => {
-  const count = await StaffRole.countDocuments();
-  if (count === 0) {
-    await StaffRole.insertMany(DEFAULT_ROLES);
-  }
+const seedStaffRolesOnce = async () => {
+  const alreadySeeded = await StaffRole.findOne({ name: SEED_MARKER });
+  if (alreadySeeded) return; // Seed has already run in history
+
+  await StaffRole.insertMany([
+    { name: SEED_MARKER, description: 'Internal seed tracking marker', permissions: [] },
+    {
+      name: 'Customer Support Specialist',
+      description: 'Handles support tickets, unban appeals, and customer inquiries.',
+      permissions: ['dashboard', 'support', 'customers']
+    }
+  ]);
 };
 
 // @route   GET /api/staff/me
@@ -35,8 +31,9 @@ router.get('/me', auth, async (req, res) => {
         isAdmin: true,
         roleName: 'System Administrator',
         permissions: [
-          'dashboard', 'orders', 'restaurants', 'riders', 'users',
-          'support', 'promotions', 'categories', 'settings', 'withdrawals', 'staff'
+          'dashboard', 'orders', 'restaurants', 'riders', 'customers',
+          'verification', 'menu_categories', 'payments', 'promotions',
+          'analytics', 'support', 'notifications', 'staff', 'settings'
         ]
       });
     }
@@ -71,8 +68,8 @@ router.get('/me', auth, async (req, res) => {
 // @desc    Get all staff roles (Admin or Staff)
 router.get('/roles', auth, async (req, res) => {
   try {
-    await seedStaffRolesIfEmpty();
-    const roles = await StaffRole.find().sort({ createdAt: -1 });
+    await seedStaffRolesOnce();
+    const roles = await StaffRole.find({ name: { $ne: SEED_MARKER } }).sort({ createdAt: -1 });
     res.json(roles);
   } catch (err) {
     console.error(err.message);

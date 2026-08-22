@@ -10,13 +10,16 @@ const staffRoleSchema = new mongoose.Schema({
       'orders',
       'restaurants',
       'riders',
-      'users',
-      'support',
+      'customers',
+      'verification',
+      'menu_categories',
+      'payments',
       'promotions',
-      'categories',
-      'settings',
-      'withdrawals',
-      'staff'
+      'analytics',
+      'support',
+      'notifications',
+      'staff',
+      'settings'
     ]
   }],
   createdBy: { type: String, default: 'Admin' }
