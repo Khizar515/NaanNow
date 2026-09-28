@@ -169,14 +169,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 58px;
+  height: 58px;
   cursor: pointer;
 }
 
 .cart-icon {
-  width: 100px;
-  height: 100px;
+  width: 122px;
+  height: 122px;
   object-fit: contain;
   transition: 0.25s ease;
 }
@@ -187,18 +187,19 @@
 
 .cart-badge {
   position: absolute;
-  top: 0px;
-  right: -2px;
-  width: 16px;
-  height: 16px;
+  top: 2px;
+  right: 1px;
+  width: 18px;
+  height: 18px;
   background: #F28C28;
   color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 /* --- BOTTOM ROW --- */
@@ -307,7 +308,37 @@
   display: none;
 }
 
+.mobile-profile-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
 
+.mobile-profile-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(229, 121, 25, 0.3);
+}
+
+.mobile-profile-avatar-placeholder {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-color: var(--color-tandoori);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgba(229, 121, 25, 0.25);
+}
 
 /* --- MOBILE RESPONSIVENESS (< 768px) --- */
 @media (max-width: 768px) {
@@ -324,15 +355,50 @@
   /* Redesign Top Row */
   .navbar-top {
     position: relative;
-    padding: 12px 5%;
+    padding: 8px 4%;
+    min-height: 52px;
     justify-content: space-between;
-    /* Profile left, Cart right */
+    align-items: center;
   }
 
-  .heart-icon {
-    position: relative;
-    /* left: 30px; Nudge the heart icon slightly left to visually balance with the cart */
-    /* Adds a bit of breathing room between the heart and cart icons */
+  /* Mobile Profile Button scaling */
+  .mobile-profile-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .mobile-profile-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(229, 121, 25, 0.4);
+  }
+
+  .mobile-profile-avatar-placeholder {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: var(--color-tandoori);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    box-shadow: 0 2px 6px rgba(229, 121, 25, 0.25);
+  }
+
+  /* Scale down brand logo on mobile so it never crowds icons */
+  .nav-logo {
+    height: 46px;
+    max-width: 130px;
+    object-fit: contain;
+    transform: scale(1.4);
   }
 
   /* Force Brand to exact center of the screen */
@@ -343,32 +409,94 @@
   }
 
   .nav-user-actions {
-    gap: 12px;
-    /* Tighter gap between wishlist and cart */
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Wishlist button scaling */
+  .heart-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .heart-icon-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .favorites-badge {
+    top: 1px;
+    right: 1px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  /* Cart Container and Icon scaling */
+  .cart-container {
+    width: 44px;
+    height: 44px;
+  }
+
+  .cart-icon {
+    width: 76px;
+    height: 76px;
+    object-fit: contain;
+  }
+
+  .cart-badge {
+    top: 0px;
+    right: 0px;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    font-weight: 700;
   }
 
   /* Middle Row Design */
   .navbar-middle {
     justify-content: center;
-    /* Centers the location button */
-    padding: 0 5% 12px 5%;
+    padding: 0 4% 8px 4%;
+  }
+
+  .location-btn {
+    font-size: 14px;
+    padding: 6px 12px;
+    max-width: 100%;
+    gap: 8px;
+  }
+
+  .location-btn svg:not(.chevron-icon) {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .location-btn .chevron-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  .location-text {
+    max-width: 220px;
+    font-size: 14px;
   }
 
   /* Bottom Row Redesign */
   .navbar-bottom {
     flex-direction: row;
-    gap: 16px;
-    padding: 0 5% 12px 5%;
+    gap: 10px;
+    padding: 0 4% 10px 4%;
   }
 
   .nav-tabs {
-    gap: 12px;
+    gap: 8px;
     display: flex;
     overflow: hidden;
     white-space: nowrap;
-    /* Prevents text from stacking as it shrinks */
-    max-width: 300px;
-    /* A safe maximum width to animate from */
+    max-width: 260px;
     opacity: 1;
     transition:
       max-width 0.35s cubic-bezier(0.22, 1, 0.36, 1),
@@ -376,26 +504,110 @@
       gap 0.3s ease;
   }
 
+  .tab {
+    font-size: 14px;
+    padding-bottom: 6px;
+    gap: 6px;
+  }
+
+  .tab-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+
   .navbar-bottom.search-focused .nav-tabs {
     max-width: 0;
     opacity: 0;
     gap: 0;
     pointer-events: none;
-    /* Prevents accidental phantom clicks */
   }
 
   .nav-search {
-    padding: 8px 12px;
+    padding: 7px 14px;
+    border-radius: 20px;
     transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Hide the text on tabs to save horizontal space, leaving only the emojis */
-  .tab-text {
-    /* display: none; */
+  .nav-search svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
   }
 
-  .nav-search {
-    padding: 8px 12px;
+  .nav-search input {
+    font-size: 14px;
+  }
+
+  /* Modal scaling for small mobile viewports */
+  .address-modal-card {
+    width: 94%;
+    max-width: 420px;
+    padding: 16px;
+    border-radius: 14px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .profile-dropdown {
+    right: 0;
+    width: 200px;
+  }
+}
+
+@media (max-width: 400px) {
+  .nav-logo {
+    height: 40px;
+    max-width: 100px;
+    transform: scale(1.4);
+  }
+
+  .location-text {
+    max-width: 160px;
+    font-size: 13px;
+  }
+
+  .tab-text {
+    font-size: 13px;
+  }
+
+  .tab-icon {
+    font-size: 18px;
+  }
+
+  .nav-user-actions {
+    gap: 6px;
+  }
+
+  .mobile-profile-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mobile-profile-avatar,
+  .mobile-profile-avatar-placeholder {
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+  }
+
+  .heart-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .heart-icon-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .cart-container {
+    width: 40px;
+    height: 40px;
+  }
+
+  .cart-icon {
+    width: 70px;
+    height: 70px;
   }
 }
 
@@ -673,11 +885,23 @@
 }
 
 @keyframes fadeInModal {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInModal {
-  from { transform: translateY(-20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }

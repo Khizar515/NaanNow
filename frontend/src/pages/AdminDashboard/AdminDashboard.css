@@ -1949,3 +1949,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Global table responsive wrapper safeguard */
+.dashboard-table-container,
+.orders-table-wrapper,
+.users-table-container,
+.admin-table-container,
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: block;
+}

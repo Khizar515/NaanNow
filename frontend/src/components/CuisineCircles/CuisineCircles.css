@@ -97,3 +97,50 @@
   background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 50%);
   pointer-events: none;
 }
+
+
+/* --- RESPONSIVE CUISINE CIRCLES --- */
+@media (max-width: 768px) {
+  .cuisine-circles-container {
+    margin-top: 4px;
+    margin-bottom: 18px;
+  }
+  .cuisine-title {
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+  }
+  .cuisine-circles-list {
+    gap: 14px;
+    padding: 6px 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cuisine-circle-btn {
+    min-width: 66px;
+    gap: 6px;
+  }
+  .cuisine-circle-img-wrapper {
+    width: 60px;
+    height: 60px;
+  }
+  .cuisine-circle-name {
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .cuisine-circles-list {
+    gap: 12px;
+  }
+  .cuisine-circle-btn {
+    min-width: 58px;
+  }
+  .cuisine-circle-img-wrapper {
+    width: 52px;
+    height: 52px;
+    padding: 2px;
+  }
+  .cuisine-circle-name {
+    font-size: 0.72rem;
+  }
+}

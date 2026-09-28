@@ -750,24 +750,24 @@
 @media (max-width: 1024px) {
   .track-grid {
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: 20px;
   }
   .map-wrapper-card {
-    height: 400px;
+    height: 350px;
   }
   .mobile-chat-fab {
-    display: flex !important; /* Forces layout show on mobile viewports */
+    display: flex !important;
   }
 }
 
 @media (max-width: 768px) {
   .track-order-page {
-    padding: 16px 4%;
+    padding: 16px 4% 40px 4%;
   }
   .track-page-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 12px;
   }
   .map-overlay-banner {
     top: 10px;
@@ -775,30 +775,74 @@
     right: 10px;
     min-width: unset;
   }
+  .stepper-container {
+    padding: 18px 8px;
+    overflow-x: auto;
+  }
+  .stepper-steps-row {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    min-width: 260px;
+  }
   .stepper-line {
-    left: 15%;
-    width: 70%;
+    left: 12%;
+    width: 76%;
+  }
+  .step-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .step-circle {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
   }
   .step-text {
     font-size: 10px;
-  }
-  .step-circle {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
+    text-align: center;
+    white-space: nowrap;
   }
   .rider-card {
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     align-items: stretch;
     text-align: center;
+    padding: 16px;
   }
   .rider-avatar-row {
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
   .btn-call {
     justify-content: center;
+    width: 100%;
+    padding: 12px;
+  }
+  .map-wrapper-card {
+    height: 280px;
+  }
+  .rating-feedback-card {
+    padding: 18px 16px;
+  }
+  .star-btn {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .track-order-page {
+    padding: 12px 12px 30px 12px;
+  }
+  .step-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+  .step-text {
+    font-size: 9px;
   }
 }
 
