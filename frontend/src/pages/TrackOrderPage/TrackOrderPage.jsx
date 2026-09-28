@@ -3,21 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import './TrackOrderPage.css';
 
-// Load Leaflet dynamically to avoid React 19 dependency peer resolution issues
+// Load Leaflet dynamically
 const loadLeaflet = (callback) => {
   if (window.L) {
     callback();
     return;
   }
 
-  // Create link tag for CSS
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
   link.crossOrigin = '';
   document.head.appendChild(link);
 
-  // Create script tag for JS
   const script = document.createElement('script');
   script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
   script.crossOrigin = '';
@@ -27,79 +25,23 @@ const loadLeaflet = (callback) => {
   document.body.appendChild(script);
 };
 
-// Coords & route segments in Islamabad
-const restaurantCoords = [33.6923, 73.0105]; // F-10 Markaz (Tandoori Flames)
-const customerCoords = [33.6823, 73.0305];   // F-8 House
-const routePath = [
-  [33.6923, 73.0105], // F-10 Markaz
-  [33.6923, 73.0200], // F-10 Corner
-  [33.6880, 73.0200], // Intersection
-  [33.6880, 73.0305], // F-8 Corner
-  [33.6823, 73.0305]  // F-8 House
-];
-
-// Helper to interpolate position along multi-segment path
-const getPointAlongPath = (path, p) => {
-  if (path.length === 0) return [0, 0];
-  if (path.length === 1) return path[0];
-  if (p <= 0) return path[0];
-  if (p >= 1) return path[path.length - 1];
-
-  const totalSegments = path.length - 1;
-  const segmentLength = 1 / totalSegments;
-  const segmentIndex = Math.min(Math.floor(p / segmentLength), totalSegments - 1);
-  const segmentProgress = (p - segmentIndex * segmentLength) / segmentLength;
-
-  const start = path[segmentIndex];
-  const end = path[segmentIndex + 1];
-
-  const lat = start[0] + (end[0] - start[0]) * segmentProgress;
-  const lng = start[1] + (end[1] - start[1]) * segmentProgress;
-
-  return [lat, lng];
-};
-
-// Web Audio API dual-tone notification chime
-const playNotificationSound = () => {
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-
-    oscillator.type = 'sine';
-    // Friendly dual-tone notification chime
-    oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-    oscillator.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.08); // A5
-
-    gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-
-    oscillator.start(audioCtx.currentTime);
-    oscillator.stop(audioCtx.currentTime + 0.3);
-  } catch (e) {
-    console.log('Web Audio Context error:', e);
-  }
-};
-
-const getOrderProgress = (order) => {
-  if (order.status === 'completed' || order.status === 'delivered') {
-    return { status: 'Completed', step: 4, remaining: 0 };
-  }
-
-  switch (order.status) {
+const getOrderProgress = (status) => {
+  switch (status) {
     case 'pending':
-      return { status: 'Preparing', step: 1, remaining: 45 };
+      return { status: 'Placed', step: 1 };
     case 'preparing':
-      return { status: 'Baking', step: 2, remaining: 30 };
+      return { status: 'Preparing', step: 2 };
     case 'ready_for_pickup':
-      return { status: 'Waiting for Rider', step: 2.5, remaining: 15 };
+      return { status: 'Prepared', step: 3 };
+    case 'handed_over':
+      return { status: 'Handed Over', step: 4 };
     case 'out_for_delivery':
-      return { status: 'Delivering', step: 3, remaining: 10 };
+      return { status: 'Out for Delivery', step: 5 };
+    case 'delivered':
+    case 'completed':
+      return { status: 'Delivered', step: 6 };
     default:
-      return { status: 'Completed', step: 4, remaining: 0 };
+      return { status: 'Placed', step: 1 };
   }
 };
 
@@ -107,61 +49,28 @@ function TrackOrderPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
 
-  const [orders, setOrders] = useState([]);
   const [order, setOrder] = useState(null);
-  const [tick, setTick] = useState(0);
-  const [liveOrderState, setLiveOrderState] = useState(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
-
-  // Chat state
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'rider',
-      text: 'Salam! I am Raja Kamran, your rider. I am heading to the restaurant to collect your hot order. 🛵',
-      time: new Date(Date.now() - 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
 
   // Rating states
   const [riderRating, setRiderRating] = useState(5);
   const [riderReview, setRiderReview] = useState('');
   const [itemRatings, setItemRatings] = useState({});
 
-  useEffect(() => {
-    if (order && order.items && Object.keys(itemRatings).length === 0) {
-      const initial = {};
-      order.items.forEach(item => {
-        initial[item.id] = 5;
-      });
-      setItemRatings(initial);
-    }
-  }, [order]);
-
   // Leaflet refs
   const mapRef = useRef(null);
   const riderMarkerRef = useRef(null);
-  const polylineRef = useRef(null);
   const mapInitRef = useRef(false);
   const chatContainerRef = useRef(null);
   const chatSectionRef = useRef(null);
-  const isInitializedRef = useRef(false);
 
   const scrollToChat = () => {
     if (chatSectionRef.current) {
       chatSectionRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   };
-
-  // Message trigger refs to prevent double messages on ticks
-  const triggeredMsgs = useRef({
-    baking: false,
-    waitingForRider: false,
-    delivering: false,
-    completed: false
-  });
 
   // Load Leaflet Script
   useEffect(() => {
@@ -170,7 +79,7 @@ function TrackOrderPage() {
     });
   }, []);
 
-  // Sync order status and chat messages from API periodically
+  // Sync order status and chat messages from API periodically (3s)
   useEffect(() => {
     if (!orderId) return;
     const syncOrder = async () => {
@@ -178,25 +87,8 @@ function TrackOrderPage() {
         const found = await api.getOrderById(orderId);
         if (found) {
           setOrder(found);
-          if (found.messages && found.messages.length > 0) {
+          if (found.messages) {
             setMessages(found.messages);
-          } else {
-            // Initialize default welcome message if not present locally
-            const defaultMsgs = [
-              {
-                id: 1,
-                sender: 'rider',
-                text: 'Salam! I am your rider. I am heading to the restaurant to collect your hot order. 🛵',
-                time: new Date(Date.now() - 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              }
-            ];
-            setMessages(defaultMsgs);
-          }
-          // Defer setting the initialized flag to prevent scrolling on mount
-          if (!isInitializedRef.current) {
-            setTimeout(() => {
-              isInitializedRef.current = true;
-            }, 500);
           }
         }
       } catch (err) {
@@ -205,148 +97,35 @@ function TrackOrderPage() {
     };
 
     syncOrder();
-    const interval = setInterval(syncOrder, 5000);
+    const interval = setInterval(syncOrder, 3000);
     return () => clearInterval(interval);
   }, [orderId]);
 
-  // Tick timer
-  useEffect(() => {
-    if (!order) return;
-    const interval = setInterval(() => {
-      setTick(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [order]);
-
-  // Compute live order state
-  useEffect(() => {
-    if (!order) return;
-
-    const progress = getOrderProgress(order);
-    setLiveOrderState({
-      liveStatus: progress.status,
-      liveStep: progress.step,
-      remainingTime: progress.remaining
-    });
-
-    // Write back completed state to localStorage if transitioned
-    if (!order.isManual) {
-      const elapsed = (new Date().getTime() - new Date(order.date).getTime()) / 1000;
-      if (elapsed >= 55 && order.status !== 'Completed') {
-        const updatedOrders = JSON.parse(localStorage.getItem('naannow_orders') || '[]').map(o => {
-          if (o.id === order.id) {
-            return { ...o, status: 'Completed' };
-          }
-          return o;
-        });
-        localStorage.setItem('naannow_orders', JSON.stringify(updatedOrders));
-        setOrder(prev => ({ ...prev, status: 'Completed' }));
-      }
-    }
-  }, [order, tick]);
-
-  // Scroll to bottom of chat container internally (does not scroll the window)
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [messages.length, isTyping]);
-
-  // Handle automatic messages from rider based on progress
-  useEffect(() => {
-    if (!liveOrderState || !order) return;
-
-    const status = liveOrderState.liveStatus;
-
-    if (status === 'Baking' && !triggeredMsgs.current.baking) {
-      triggeredMsgs.current.baking = true;
-      setTimeout(() => {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            sender: 'rider',
-            text: 'Tandoor is heating up! The chefs are baking your fresh naans now. Smells incredible! 🥯🔥',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-        playNotificationSound();
-      }, 1000);
-    }
-
-    if (status === 'Waiting for Rider' && !triggeredMsgs.current.waitingForRider) {
-      triggeredMsgs.current.waitingForRider = true;
-      setTimeout(() => {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            sender: 'rider',
-            text: 'Your order is ready at the restaurant! 📦 I am arriving at the counter to pick it up. Smells delicious! 🛵',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-        playNotificationSound();
-      }, 1000);
-    }
-
-    if (status === 'Delivering' && !triggeredMsgs.current.delivering) {
-      triggeredMsgs.current.delivering = true;
-      setTimeout(() => {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            sender: 'rider',
-            text: 'I have picked up your order! Fresh out of the oven. Speeding your way now! 🛵💨',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-        playNotificationSound();
-      }, 1000);
-    }
-
-    if (status === 'Completed' && !triggeredMsgs.current.completed) {
-      triggeredMsgs.current.completed = true;
-      setTimeout(() => {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            sender: 'rider',
-            text: 'Arrived at your doorstep! Please receive your warm NaanNow meal. Enjoy! 😊👍',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-        playNotificationSound();
-      }, 1000);
-    }
-  }, [liveOrderState, order]);
-
-  // Initialize Map and handle real-time Rider marker placement
+  // Initialize Map and handle Rider marker placement
   useEffect(() => {
     if (!leafletLoaded || !order || mapInitRef.current) return;
 
     const L = window.L;
 
-    // Create Map centered in Islamabad F-10/F-8 area
+    const resLat = order.restaurantId?.lat || 33.6923;
+    const resLng = order.restaurantId?.lng || 73.0105;
+    const custLat = order.deliveryLat || 33.6823;
+    const custLng = order.deliveryLng || 73.0305;
+
     const map = L.map('map-tracker', {
       zoomControl: false,
       attributionControl: false
-    }).setView([33.6873, 73.0205], 14);
+    }).setView([resLat, resLng], 13);
 
     mapRef.current = map;
     mapInitRef.current = true;
 
-    // Zoom controls in bottom right
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // Standard OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
 
-    // Div icons with emoji & pulsing animations
     const restaurantIcon = L.divIcon({
       html: `<div class="map-marker-pin restaurant-pin">🔥<div class="pulse-ring"></div></div>`,
       className: 'custom-div-icon',
@@ -368,29 +147,24 @@ function TrackOrderPage() {
       iconAnchor: [23, 23]
     });
 
-    // Add markers
-    L.marker(restaurantCoords, { icon: restaurantIcon }).addTo(map)
-      .bindPopup(`<b>${order.restaurantName}</b><br/>Clay oven tandoor output`);
+    L.marker([resLat, resLng], { icon: restaurantIcon }).addTo(map)
+      .bindPopup(`<b>${order.restaurantId?.name || 'Restaurant'}</b>`);
 
-    L.marker(customerCoords, { icon: customerIcon }).addTo(map)
-      .bindPopup(`<b>Your Address</b><br/>${order.address}`);
+    L.marker([custLat, custLng], { icon: customerIcon }).addTo(map)
+      .bindPopup(`<b>Delivery Address</b><br/>${order.deliveryAddress}`);
 
-    // Create path line
-    const polyline = L.polyline(routePath, {
-      color: 'var(--color-tandoori)',
+    const polyline = L.polyline([[resLat, resLng], [custLat, custLng]], {
+      color: '#E57919',
       weight: 4,
       opacity: 0.8,
-      dashArray: '8, 12',
-      className: 'route-polyline'
+      dashArray: '8, 12'
     }).addTo(map);
-    polylineRef.current = polyline;
 
-    // Create rider marker initial position
-    const riderMarker = L.marker(restaurantCoords, { icon: riderIcon }).addTo(map);
+    const initialRiderPos = order.riderLat && order.riderLng ? [order.riderLat, order.riderLng] : [resLat, resLng];
+    const riderMarker = L.marker(initialRiderPos, { icon: riderIcon }).addTo(map);
     riderMarkerRef.current = riderMarker;
 
-    // Fit map bounds
-    map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+    map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
 
     return () => {
       if (mapRef.current) {
@@ -401,95 +175,53 @@ function TrackOrderPage() {
     };
   }, [leafletLoaded, orderId]);
 
-  // Update Rider Location dynamically on the map based on simulated coordinates
+  // Update Rider Location marker ONLY (without recentering map automatically)
   useEffect(() => {
-    if (!liveOrderState || !riderMarkerRef.current) return;
+    if (!order || !riderMarkerRef.current) return;
 
-    let targetCoords = restaurantCoords;
-
-    if (liveOrderState.liveStatus === 'Delivering') {
-      const startTime = order.dispatchedAt ? new Date(order.dispatchedAt).getTime() : new Date(order.date).getTime() + 30000;
-      const deliveryElapsed = (new Date().getTime() - startTime) / 1000;
-      const p = Math.min(Math.max(deliveryElapsed / 25, 0), 1);
-      targetCoords = getPointAlongPath(routePath, p);
-    } else if (liveOrderState.liveStatus === 'Completed') {
-      targetCoords = customerCoords;
+    if (order.status === 'out_for_delivery' && order.riderLat && order.riderLng) {
+      riderMarkerRef.current.setLatLng([order.riderLat, order.riderLng]);
+    } else if (order.status === 'delivered' || order.status === 'completed') {
+      const custLat = order.deliveryLat || 33.6823;
+      const custLng = order.deliveryLng || 73.0305;
+      riderMarkerRef.current.setLatLng([custLat, custLng]);
     }
+  }, [order?.riderLat, order?.riderLng, order?.status]);
 
-    // Set position
-    riderMarkerRef.current.setLatLng(targetCoords);
-
-    // Pan map to follow rider slightly if delivering
-    if (liveOrderState.liveStatus === 'Delivering' && mapRef.current) {
-      mapRef.current.panTo(targetCoords, { animate: true, duration: 0.5 });
+  // Manual recenter button handler
+  const handleRecenterMap = () => {
+    if (!mapRef.current || !order) return;
+    let targetPos = [order.restaurantId?.lat || 33.6923, order.restaurantId?.lng || 73.0105];
+    if (order.riderLat && order.riderLng) {
+      targetPos = [order.riderLat, order.riderLng];
+    } else if (order.status === 'delivered' || order.status === 'completed') {
+      targetPos = [order.deliveryLat || 33.6823, order.deliveryLng || 73.0305];
     }
-  }, [liveOrderState, order]);
+    mapRef.current.setView(targetPos, 15, { animate: true });
+  };
 
   // Send message
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !order) return;
 
-    const userMsg = {
-      id: Date.now(),
-      sender: 'user',
-      text: inputText.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, userMsg]);
+    const msgText = inputText.trim();
     setInputText('');
-    setIsTyping(true);
 
     try {
-      // In a real app we'd post to backend, but here we just simulate
-      await api.addOrderMessage(order._id, userMsg.text);
+      const updated = await api.addOrderMessage(order._id, msgText);
+      setMessages(updated.messages || []);
     } catch (err) {
-      console.log("Could not post message to API:", err);
+      console.error("Could not post message:", err);
     }
-
-    const lowerText = userMsg.text.toLowerCase();
-
-    // Rider automated response simulation after a short delay
-    setTimeout(async () => {
-      let replyText = "Got it! I am currently focused on driving safely. Will talk soon! 🛵";
-
-      if (liveOrderState?.liveStatus === 'Completed') {
-        replyText = "Your hot naan order is already delivered! Hope you love it. Please review us on the store! 😊👍";
-      } else if (lowerText.includes('where') || lowerText.includes('location') || lowerText.includes('map') || lowerText.includes('eta') || lowerText.includes('time') || lowerText.includes('kahan')) {
-        if (liveOrderState?.liveStatus === 'Preparing' || liveOrderState?.liveStatus === 'Baking') {
-          replyText = "I am waiting at the restaurant. They are cooking it right now, will pick up soon! 🍕";
-        } else {
-          const rem = liveOrderState?.remainingTime || 12;
-          replyText = `I have crossed the main road, heading towards your house. Map shows my live position! Arriving in about ${rem} seconds. 🏍️`;
-        }
-      } else if (lowerText.includes('hot') || lowerText.includes('fresh') || lowerText.includes('garam') || lowerText.includes('oven')) {
-        replyText = "Don't worry! I have the food inside my special thermal heat-bag. It will remain extremely hot and soft! 🎒🔥";
-      } else if (lowerText.includes('call') || lowerText.includes('phone') || lowerText.includes('number') || lowerText.includes('contact')) {
-        replyText = `Understood! I will call you on your number (${order?.phone || '0300-1234567'}) as soon as I arrive at your gate! 📞`;
-      } else if (lowerText.includes('sauce') || lowerText.includes('raita') || lowerText.includes('coke') || lowerText.includes('chilli') || lowerText.includes('extra') || lowerText.includes('bread')) {
-        replyText = "Yes, I verified the checklist with the chef. Everything you ordered is packed inside the bag! 📦✅";
-      } else if (lowerText.includes('salam') || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey')) {
-        replyText = "Walaikum Assalam! Doing great, hope you are hungry. Speeding to bring your delicious flatbreads! 😃";
-      } else if (lowerText.includes('thank') || lowerText.includes('thanks') || lowerText.includes('shukriya') || lowerText.includes('great') || lowerText.includes('ok')) {
-        replyText = "No worries at all! Serving you fresh food is my pleasure. 🌟";
-      }
-
-      const riderMsg = {
-        id: Date.now() + 1,
-        sender: 'rider',
-        text: replyText,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setMessages(prev => [...prev, riderMsg]);
-      setIsTyping(false);
-      playNotificationSound();
-    }, 2000 + Math.random() * 800);
   };
 
-  const handleFakeCall = () => {
-    alert(`📞 Calling Rider Raja Kamran (+92 300 9821245) via cellular bridge...\n\n(Rider's screen: "Incoming call from ${order?.name || order?.customerId?.name || 'Customer'}").`);
+  const handleCallRider = () => {
+    if (order?.riderId?.phone) {
+      alert(`📞 Calling Rider ${order.riderId.name} (${order.riderId.phone})...`);
+    } else {
+      alert(`📞 Rider details will be available once rider accepts your order.`);
+    }
   };
 
   const handleSubmitFeedback = async (e) => {
@@ -526,11 +258,8 @@ function TrackOrderPage() {
     );
   }
 
-  const getStepClass = (stepNum, currentStep) => {
-    if (currentStep > stepNum) return 'tracker-step-done';
-    if (currentStep === stepNum) return 'tracker-step-active';
-    return 'tracker-step-pending';
-  };
+  const progInfo = getOrderProgress(order.status);
+  const hasRider = Boolean(order.riderId);
 
   return (
     <div className="track-order-page">
@@ -547,122 +276,90 @@ function TrackOrderPage() {
           
           <div className="order-summary-title">
             <h2>Order Tracking: <span className="ref-id">{order.orderNumber}</span></h2>
-            <p>From: <strong>{order.restaurantId?.name || "NaanNow Kitchen"}</strong> • Speed: <strong>{order.deliverySpeed === 'priority' ? '⚡ Priority' : '🛵 Standard'}</strong></p>
+            <p>From: <strong>{order.restaurantId?.name || "NaanNow Kitchen"}</strong></p>
           </div>
         </div>
 
         {/* Dashboard Grid */}
         <div className="track-grid">
           
-          {/* LEFT: MAP & PROGRESS */}
+          {/* LEFT: MAP & 6 LEVELS PROGRESS */}
           <div className="track-map-column">
             
-            {/* Stepper Progress */}
-            {liveOrderState && (
-              <div className="status-progress-card" style={{ marginBottom: '24px' }}>
-                <h3>Delivery Status</h3>
-                
-                <div className="stepper-horizontal">
-                  <div className="stepper-line">
+            {/* 6 Levels Stepper Progress */}
+            <div className="status-progress-card" style={{ marginBottom: '24px' }}>
+              <h3>Delivery Status ({progInfo.status})</h3>
+              
+              <div className="stepper-horizontal" style={{ marginTop: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px', textAlign: 'center' }}>
+                  {[
+                    { num: 1, label: 'Placed', icon: '📋' },
+                    { num: 2, label: 'Preparing', icon: '🍳' },
+                    { num: 3, label: 'Prepared', icon: '📦' },
+                    { num: 4, label: 'Handed Over', icon: '🤝' },
+                    { num: 5, label: 'Out for Delivery', icon: '🛵' },
+                    { num: 6, label: 'Delivered', icon: '✅' }
+                  ].map(s => (
                     <div 
-                      className="stepper-fill" 
+                      key={s.num} 
                       style={{ 
-                        width: `${
-                          liveOrderState.liveStep === 1 ? '0%' :
-                          liveOrderState.liveStep === 2 ? '33%' :
-                          liveOrderState.liveStep === 2.5 ? '50%' :
-                          liveOrderState.liveStep === 3 ? '66%' : '100%'
-                        }` 
+                        opacity: progInfo.step >= s.num ? 1 : 0.4,
+                        background: progInfo.step >= s.num ? '#FEF3C7' : '#F3F4F6',
+                        border: progInfo.step === s.num ? '2px solid #F59E0B' : '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        padding: '8px 2px'
                       }}
-                    ></div>
-                  </div>
-
-                  <div className="steps-row">
-                    <div className={`step-item ${getStepClass(1, liveOrderState.liveStep)}`}>
-                      <div className="step-circle">🥣</div>
-                      <span className="step-text">Prepared</span>
+                    >
+                      <div style={{ fontSize: '18px' }}>{s.icon}</div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px', color: '#1F2937' }}>
+                        {s.label}
+                      </div>
                     </div>
-
-                    <div className={`step-item ${getStepClass(2, liveOrderState.liveStep)}`}>
-                      <div className="step-circle">🔥</div>
-                      <span className="step-text">Baking</span>
-                    </div>
-
-                    <div className={`step-item ${getStepClass(3, liveOrderState.liveStep)}`}>
-                      <div className="step-circle">🛵</div>
-                      <span className="step-text">On the Way</span>
-                    </div>
-
-                    <div className={`step-item ${getStepClass(4, liveOrderState.liveStep)}`}>
-                      <div className="step-circle">✅</div>
-                      <span className="step-text">Arrived</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="progress-note">
-                  {liveOrderState.liveStep === 1 && "👩‍🍳 The chef is preparing your customized naans and curries."}
-                  {liveOrderState.liveStep === 2 && "🔥 Baking your flatbreads inside the clay oven tandoor for perfect crunch."}
-                  {liveOrderState.liveStep === 2.5 && "📦 Order is ready & packaged! Waiting for the rider to arrive at the tandoor."}
-                  {liveOrderState.liveStep === 3 && "🛵 Rider has collected the order and is driving to your location."}
-                  {liveOrderState.liveStep === 4 && "✨ Food is here! Please open the door and enjoy your fresh warm meal."}
+                  ))}
                 </div>
               </div>
-            )}
-
-            {/* Map Container */}
-            <div className="map-wrapper-card">
-              <div id="map-tracker"></div>
-              
-              {/* Overlay Float Card */}
-              {liveOrderState && (
-                <div className="map-overlay-banner">
-                  <div className="overlay-indicator">
-                    <span className="live-dot"></span>
-                    <span className="live-status-lbl">
-                      {liveOrderState.liveStatus === 'Preparing' && '🥣 Kitchen Preparing'}
-                      {liveOrderState.liveStatus === 'Baking' && '🔥 Baking Hot Naan'}
-                      {liveOrderState.liveStatus === 'Waiting for Rider' && '📦 Packaged & Ready'}
-                      {liveOrderState.liveStatus === 'Delivering' && '🛵 Transit to Address'}
-                      {liveOrderState.liveStatus === 'Completed' && '✅ Order Arrived'}
-                    </span>
-                  </div>
-                  {liveOrderState.liveStatus !== 'Completed' ? (
-                    <div className="overlay-eta">
-                      ETA: <strong>{liveOrderState.remainingTime}s</strong>
-                    </div>
-                  ) : (
-                    <div className="overlay-eta arrived">
-                      Delivered
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
-            {/* Rating & Review Section (Only when Completed) */}
-            {order.status === 'Completed' && (
-              <div className="rating-feedback-card">
+            {/* Map Container */}
+            <div className="map-wrapper-card" style={{ position: 'relative' }}>
+              <div id="map-tracker" style={{ height: '360px' }}></div>
+              
+              {/* Recenter Button Overlay */}
+              <button
+                type="button"
+                onClick={handleRecenterMap}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  zIndex: 1000,
+                  backgroundColor: '#ffffff',
+                  color: '#1F2937',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  fontWeight: 'bold',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                🎯 Recenter to Rider
+              </button>
+            </div>
+
+            {/* Rating Section (Only when Completed) */}
+            {(order.status === 'completed' || order.status === 'delivered') && (
+              <div className="rating-feedback-card" style={{ marginTop: '24px' }}>
                 {order.rating ? (
                   <div className="rating-success-message">
                     <h4>🎉 Thank you for your feedback!</h4>
                     <p>Your review helps us keep NaanNow high quality.</p>
                     <div className="rating-summary-stars">
-                      Rider: {'⭐'.repeat(order.rating.riderRating)}
-                    </div>
-                    {order.rating.riderReview && (
-                      <p style={{ fontStyle: 'italic', color: '#666', marginTop: '8px' }}>
-                        "{order.rating.riderReview}"
-                      </p>
-                    )}
-                    <div style={{ marginTop: '16px', borderTop: '1px solid rgba(79,46,29,0.1)', paddingTop: '12px' }}>
-                      <p style={{ fontWeight: '600', marginBottom: '8px' }}>Food Ratings:</p>
-                      {order.items.map(item => (
-                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', margin: '4px 0' }}>
-                          <span>{item.name}</span>
-                          <span>{'⭐'.repeat(order.rating.itemRatings?.[item.id] || 5)}</span>
-                        </div>
-                      ))}
+                      Rider Rating: {'⭐'.repeat(order.rating.riderRating || 5)}
                     </div>
                   </div>
                 ) : (
@@ -670,9 +367,8 @@ function TrackOrderPage() {
                     <h3>⭐ Share Your Experience</h3>
                     <p className="subtitle">Tell us how your rider did and how you liked the food!</p>
 
-                    {/* Rider Rating */}
                     <div className="rating-section">
-                      <h4>How was your Rider (Raja Kamran)?</h4>
+                      <h4>How was your Rider ({order.riderId?.name || 'Delivery Rider'})?</h4>
                       <div className="stars-selector-row">
                         {[1, 2, 3, 4, 5].map(star => (
                           <button
@@ -694,36 +390,6 @@ function TrackOrderPage() {
                       />
                     </div>
 
-                    {/* Items Rating */}
-                    <div className="rating-section">
-                      <h4>Rate Your Food Items:</h4>
-                      {order.items.map(item => (
-                        <div key={item.id} className="rating-item-row">
-                          <div className="item-info">
-                            {item.image ? (
-                              <img src={item.image} alt={item.name} className="item-thumb" />
-                            ) : (
-                              <span style={{ fontSize: '20px' }}>🍕</span>
-                            )}
-                            <span className="item-name">{item.name}</span>
-                          </div>
-                          <div className="stars-selector-row" style={{ marginBottom: 0 }}>
-                            {[1, 2, 3, 4, 5].map(star => (
-                              <button
-                                key={star}
-                                type="button"
-                                className={`star-btn ${itemRatings[item.id] >= star ? 'active' : ''}`}
-                                onClick={() => setItemRatings(prev => ({ ...prev, [item.id]: star }))}
-                                style={{ fontSize: '24px' }}
-                              >
-                                ★
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
                     <button type="submit" className="btn-submit-rating">
                       Submit Feedback
                     </button>
@@ -734,95 +400,99 @@ function TrackOrderPage() {
 
           </div>
 
-          {/* RIGHT: RIDER PROFILE & CHAT */}
+          {/* RIGHT: RIDER PROFILE & CHAT (ONLY SHOWN AFTER RIDER ACCEPTS) */}
           <div className="track-rider-column" ref={chatSectionRef}>
             
-            {/* Rider Identity Card */}
-            <div className="rider-card">
-              <div className="rider-avatar-row">
-                <div className="rider-avatar">
-                  <span>RK</span>
-                  <span className="online-indicator"></span>
-                </div>
-                <div className="rider-meta">
-                  <h4>Raja Kamran</h4>
-                  <p className="rating">⭐ 4.9 (120+ trips)</p>
-                  <p className="vehicle">Honda CD70 • <strong className="plate">ICT-9821</strong></p>
-                </div>
-              </div>
-              <button className="btn-call" onClick={handleFakeCall}>
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                </svg>
-                Call Rider
-              </button>
-            </div>
-
-            {/* Chat Module */}
-            <div className="chat-wrapper-card">
-              <div className="chat-header">
-                <h4>Message Center</h4>
-                <span className="chat-badge-lbl">Live Connection</span>
-              </div>
-              
-              {/* Message List */}
-              <div className="chat-messages-container" ref={chatContainerRef}>
-                {messages.map(msg => (
-                  <div key={msg.id} className={`message-bubble-wrapper ${msg.sender}`}>
-                    <div className="bubble">
-                      <p className="msg-text">{msg.text}</p>
-                      <span className="msg-time">{msg.time}</span>
+            {hasRider ? (
+              <>
+                {/* Rider Identity Card (Dynamic from DB) */}
+                <div className="rider-card">
+                  <div className="rider-avatar-row">
+                    <div className="rider-avatar">
+                      <span>{order.riderId?.name ? order.riderId.name.slice(0, 2).toUpperCase() : 'RD'}</span>
+                      <span className="online-indicator"></span>
+                    </div>
+                    <div className="rider-meta">
+                      <h4>{order.riderId.name}</h4>
+                      <p className="rating">
+                        ⭐ {order.riderId.rating > 0 ? order.riderId.rating : 'New Rider'}
+                      </p>
+                      <p className="vehicle">
+                        {order.riderId.bikeModel || order.riderId.vehicleDetails || 'Bike'} ({order.riderId.bikeColor || 'Black'}) • <strong className="plate">{order.riderId.licensePlate || 'Registered'}</strong>
+                      </p>
                     </div>
                   </div>
-                ))}
-                
-                {isTyping && (
-                  <div className="message-bubble-wrapper rider">
-                    <div className="bubble typing-bubble">
-                      <div className="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  <button className="btn-call" onClick={handleCallRider}>
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                    </svg>
+                    Call Rider
+                  </button>
+                </div>
 
-              {/* Chat Input */}
-              <form className="chat-input-form" onSubmit={handleSendMessage}>
-                <input
-                  type="text"
-                  placeholder="Type a message to the rider..."
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  disabled={liveOrderState?.liveStatus === 'Completed'}
-                />
-                <button 
-                  type="submit" 
-                  className="btn-send-message"
-                  disabled={!inputText.trim() || liveOrderState?.liveStatus === 'Completed'}
-                >
-                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                  </svg>
-                </button>
-              </form>
-            </div>
+                {/* Dynamic Async Chat Module */}
+                <div className="chat-wrapper-card">
+                  <div className="chat-header">
+                    <h4>Message Center</h4>
+                    <span className="chat-badge-lbl">Rider Chat</span>
+                  </div>
+                  
+                  {/* Message List */}
+                  <div className="chat-messages-container" ref={chatContainerRef} style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    {messages.length === 0 ? (
+                      <p style={{ textAlign: 'center', color: '#9CA3AF', fontSize: '13px', marginTop: '20px' }}>
+                        No messages yet. Send a message to your rider below.
+                      </p>
+                    ) : (
+                      messages.map((msg, idx) => (
+                        <div key={idx} className={`message-bubble-wrapper ${msg.sender}`}>
+                          <div className="bubble">
+                            <p className="msg-text">{msg.text}</p>
+                            <span className="msg-time">{new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Chat Input with Visible Send Icon */}
+                  <form className="chat-input-form" onSubmit={handleSendMessage}>
+                    <input
+                      type="text"
+                      placeholder="Type a message to rider..."
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      disabled={order.status === 'delivered' || order.status === 'completed'}
+                    />
+                    <button 
+                      type="submit" 
+                      className="btn-send-message"
+                      disabled={!inputText.trim() || order.status === 'delivered' || order.status === 'completed'}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E57919', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 14px', cursor: 'pointer' }}
+                    >
+                      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                      </svg>
+                    </button>
+                  </form>
+                </div>
+              </>
+            ) : (
+              <div style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
+                <span style={{ fontSize: '36px' }}>🛵</span>
+                <h4 style={{ margin: '12px 0 6px 0', color: '#1F2937' }}>Searching for a Rider</h4>
+                <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
+                  Rider details and direct chat will open as soon as a rider accepts your order.
+                </p>
+              </div>
+            )}
 
           </div>
 
         </div>
 
       </div>
-
-      {/* Floating Chat FAB for Mobiles */}
-      <button className="mobile-chat-fab" onClick={scrollToChat} aria-label="Scroll to Chat">
-        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-      </button>
     </div>
   );
 }

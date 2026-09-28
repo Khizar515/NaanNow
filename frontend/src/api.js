@@ -74,8 +74,8 @@ export const api = {
   },
 
   // Restaurants
-  getRestaurants: async () => {
-    const res = await fetch(`${API_URL}/restaurants`);
+  getRestaurants: async (all = false) => {
+    const res = await fetch(`${API_URL}/restaurants${all ? '?all=true' : ''}`);
     if (!res.ok) throw new Error('Failed to fetch restaurants');
     return res.json();
   },
@@ -135,8 +135,8 @@ export const api = {
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
-  getOrders: async () => {
-    const res = await fetch(`${API_URL}/orders`, { headers: getAuthHeaders() });
+  getOrders: async (myOrders = false) => {
+    const res = await fetch(`${API_URL}/orders${myOrders ? '?myOrders=true' : ''}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();
   },
@@ -150,6 +150,63 @@ export const api = {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ status, adminNotes })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  verifyHandoverOtp: async (orderId, otp) => {
+    const res = await fetch(`${API_URL}/orders/${orderId}/verify-handover-otp`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ otp })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  verifyDeliveryOtp: async (orderId, otp) => {
+    const res = await fetch(`${API_URL}/orders/${orderId}/verify-delivery-otp`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ otp })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  updateRiderLocation: async (orderId, lat, lng) => {
+    const res = await fetch(`${API_URL}/orders/${orderId}/rider-location`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ lat, lng })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  updateRestaurantLocation: async (restaurantId, lat, lng, address) => {
+    const res = await fetch(`${API_URL}/restaurants/${restaurantId}/location`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ lat, lng, address })
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  getEscrow: async () => {
+    const res = await fetch(`${API_URL}/escrow`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  releaseEscrow: async (orderId) => {
+    const res = await fetch(`${API_URL}/escrow/release/${orderId}`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error((await res.json()).message || await res.text());
+    return res.json();
+  },
+  refundEscrow: async (orderId) => {
+    const res = await fetch(`${API_URL}/escrow/refund/${orderId}`, {
+      method: 'POST',
+      headers: getAuthHeaders()
     });
     if (!res.ok) throw new Error((await res.json()).message || await res.text());
     return res.json();

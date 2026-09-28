@@ -5,6 +5,7 @@ const cardSchema = new mongoose.Schema({
   cardNumber: { type: String, required: true },
   expiryDate: { type: String, required: true },
   cvv: { type: String, required: true },
+  pin: { type: String, default: '1234' },
   balance: { type: Number, default: 5000 },
   status: { type: String, enum: ['active', 'disabled'], default: 'active' }
 }, { timestamps: true });

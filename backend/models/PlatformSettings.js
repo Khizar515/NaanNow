@@ -4,6 +4,7 @@ const platformSettingsSchema = new mongoose.Schema({
   commission: { type: Number, default: 15 },
   deliveryCharges: { type: Number, default: 150 },
   taxes: { type: Number, default: 5 },
+  escrowBalance: { type: Number, default: 0 },
   maintenanceMode: { type: Boolean, default: false },
   backupInterval: { type: String, default: 'Daily' }
 }, { timestamps: true });

@@ -918,6 +918,9 @@
   background: #ffffff;
   width: 620px;
   max-width: 92%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   border-radius: 20px;
   box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0,0,0,0.1);
   overflow: hidden;
@@ -933,6 +936,7 @@
   background: linear-gradient(135deg, var(--color-roasted, #4F2E1D) 0%, #2A170E 100%);
   color: #ffffff;
   border-bottom: 3px solid var(--color-tandoori, #E57919);
+  flex-shrink: 0;
 }
 
 .modal-title-wrap {
@@ -983,6 +987,8 @@
 .modal-form {
   padding: 32px;
   background-color: #ffffff;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .form-error-banner {

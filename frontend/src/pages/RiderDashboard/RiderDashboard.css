@@ -2,9 +2,10 @@
 
 .rider-dashboard-page {
   min-height: 100vh;
-  background-color: var(--color-dough); /* Light background matching NaanNow styling */
+  background-color: var(--color-dough);
+  /* Light background matching NaanNow styling */
   color: var(--color-roasted);
-  padding: 120px 24px 40px 24px;
+  padding: 24px 24px 40px 24px;
   font-family: 'Poppins', sans-serif;
 }
 
@@ -130,11 +131,11 @@
   border-radius: 50%;
 }
 
-input:checked + .slider {
+input:checked+.slider {
   background-color: #10b981;
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
   transform: translateX(24px);
 }
 
@@ -237,8 +238,17 @@ input:checked + .slider:before {
 }
 
 @keyframes pulse-offline {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.08); opacity: 1; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }
 
 .rider-offline-panel h2 {
@@ -396,8 +406,15 @@ input:checked + .slider:before {
 }
 
 @keyframes pulse-priority {
-  0%, 100% { opacity: 0.9; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .restaurant-title {
@@ -1000,4 +1017,77 @@ input:checked + .slider:before {
 .history-order-tips {
   font-size: 11px;
   color: #6b7280;
+}
+
+/* Available Order Map Card Styles */
+.available-order-map-card {
+  margin-top: 14px;
+  background: #fdfdfc;
+  border: 1px solid rgba(79, 46, 29, 0.1);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.distance-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-roasted);
+  background: rgba(229, 121, 25, 0.1);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.btn-big-screen-map {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #374151;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.btn-big-screen-map:hover {
+  background: var(--color-tandoori);
+  color: #ffffff;
+  border-color: var(--color-tandoori);
+}
+
+.card-leaflet-map {
+  width: 100%;
+  height: 180px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  z-index: 1;
+}
+
+.delivery-address-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #4b5563;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.delivery-address-footer .address-text {
+  line-height: 1.4;
 }

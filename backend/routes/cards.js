@@ -19,7 +19,13 @@ router.get('/', auth, async (req, res) => {
 // @desc    Register a new card or enable a soft-deleted one
 router.post('/', auth, async (req, res) => {
   try {
-    const { cardNumber, expiryDate, cvv } = req.body;
+    const { cardNumber, expiryDate, cvv, pin } = req.body;
+    
+    if (!pin || pin.toString().trim().length !== 4) {
+      return res.status(400).json({ message: 'A 4-digit Card Security PIN is required' });
+    }
+
+    const cleanPin = pin.toString().trim();
     
     // Check if card already exists for user
     let card = await Card.findOne({ userId: req.user.id, cardNumber });
@@ -27,6 +33,9 @@ router.post('/', auth, async (req, res) => {
     if (card) {
       if (card.status === 'disabled') {
         card.status = 'active';
+        card.pin = cleanPin;
+        if (expiryDate) card.expiryDate = expiryDate;
+        if (cvv) card.cvv = cvv;
         await card.save();
         return res.json(card);
       } else {
@@ -40,6 +49,7 @@ router.post('/', auth, async (req, res) => {
       cardNumber,
       expiryDate,
       cvv,
+      pin: cleanPin,
       balance: 5000 // Initial balance mockup
     });
 

@@ -110,18 +110,24 @@ function CartSidebar({ isOpen, onClose }) {
                 <div className="cart-footer">
 
                     <div className="price-row">
-                        <span>Subtotal</span>
+                        <span>Items Subtotal</span>
                         <span>Rs {subtotal}</span>
                     </div>
 
                     <div className="price-row">
-                        <span>Delivery</span>
-                        <span>Rs {deliveryFee}</span>
+                        <span>Delivery Charge</span>
+                        <div style={{ textAlign: 'right' }}>
+                            <span>Min. Rs 150</span>
+                            <span style={{ display: 'block', fontSize: '10px', color: '#888', fontWeight: 'normal' }}>Varies based on distance</span>
+                        </div>
                     </div>
 
                     <div className="price-row total">
-                        <span>Total</span>
-                        <span>Rs {total}</span>
+                        <div>
+                            <span>Cart Total</span>
+                            <span style={{ display: 'block', fontSize: '10px', color: '#e53e3e', fontWeight: '500' }}>⚠️ Excludes delivery charges</span>
+                        </div>
+                        <span>Rs {subtotal}</span>
                     </div>
 
                     <button 

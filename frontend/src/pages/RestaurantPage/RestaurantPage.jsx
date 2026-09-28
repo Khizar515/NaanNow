@@ -26,6 +26,7 @@ function RestaurantPage() {
   // Search and Category states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [conflictModal, setConflictModal] = useState(null);
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -78,7 +79,7 @@ function RestaurantPage() {
 
   // Helper to check if item is in cart and return its quantity
   const getCartItemQuantity = (itemId) => {
-    const item = cartItems.find(cartItem => cartItem._id === itemId);
+    const item = cartItems.find(cartItem => String(cartItem._id) === String(itemId));
     return item ? item.quantity : 0;
   };
 
@@ -278,7 +279,7 @@ function RestaurantPage() {
                               style={restaurant.isOpen === false ? { backgroundColor: '#9ca3af', cursor: 'not-allowed', opacity: 0.7 } : {}}
                               onClick={() => {
                                 if (restaurant.isOpen === false) return;
-                                addToCart({
+                                const res = addToCart({
                                   _id: item._id,
                                   name: item.name,
                                   price: item.price,
@@ -286,6 +287,9 @@ function RestaurantPage() {
                                   restaurantId: restaurant._id,
                                   restaurantName: restaurant.name
                                 });
+                                if (res && res.conflict) {
+                                  setConflictModal({ item, existingName: res.existingRestaurantName, itemImgSrc });
+                                }
                               }}
                             >
                               {restaurant.isOpen === false ? 'Closed' : 'Add to Tokri'}
@@ -301,6 +305,43 @@ function RestaurantPage() {
           )}
         </div>
       </div>
+
+      {/* Restaurant Conflict Dialog Modal */}
+      {conflictModal && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="modal-content" style={{ background: '#fff', borderRadius: '16px', padding: '28px', maxWidth: '440px', width: '90%', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🍲</div>
+            <h3 style={{ margin: '0 0 10px', color: '#1f2937', fontSize: '1.25rem' }}>Create New Order Tokri?</h3>
+            <p style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: '1.5', margin: '0 0 24px' }}>
+              Your Tokri already contains items from <strong>{conflictModal.existingName}</strong>. You can only order from one restaurant at a time.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setConflictModal(null)}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f9fafb', color: '#374151', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  addToCart({
+                    _id: conflictModal.item._id,
+                    name: conflictModal.item.name,
+                    price: conflictModal.item.price,
+                    image: conflictModal.itemImgSrc,
+                    restaurantId: restaurant._id,
+                    restaurantName: restaurant.name
+                  }, true);
+                  setConflictModal(null);
+                }}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: '#e57919', color: '#fff', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Clear & Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

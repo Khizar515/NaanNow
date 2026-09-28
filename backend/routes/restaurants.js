@@ -24,7 +24,8 @@ const getRestaurantRatings = async (restaurantId) => {
 // @desc    Get all restaurants
 router.get('/', async (req, res) => {
   try {
-    const restaurants = await Restaurant.find().lean();
+    const filter = req.query.all === 'true' ? {} : { status: 'approved' };
+    const restaurants = await Restaurant.find(filter).lean();
     const enriched = await Promise.all(restaurants.map(async (r) => {
       const stats = await getRestaurantRatings(r._id);
       return {
@@ -110,7 +111,7 @@ router.put('/:id/toggle-open', auth, restrictTo('manager'), async (req, res) => 
 // @desc    Create or Update a restaurant (Manager)
 router.post('/', auth, restrictTo('manager', 'admin'), async (req, res) => {
   try {
-    const { name, cuisine, rating, deliveryTime, deliveryFee, image, logo, address, city, phone, email, isSuper, deal, menu } = req.body;
+    const { name, cuisine, rating, deliveryTime, deliveryFee, image, logo, address, lat, lng, city, phone, email, isSuper, deal, menu } = req.body;
     
     // Check if manager already has a restaurant
     let restaurant = await Restaurant.findOne({ managerId: req.user._id });
@@ -125,6 +126,8 @@ router.post('/', auth, restrictTo('manager', 'admin'), async (req, res) => {
       if (image) restaurant.image = image;
       if (logo) restaurant.logo = logo;
       if (address) restaurant.address = address;
+      if (lat !== undefined) restaurant.lat = lat;
+      if (lng !== undefined) restaurant.lng = lng;
       if (city) restaurant.city = city;
       if (phone) restaurant.phone = phone;
       if (email) restaurant.email = email;
@@ -138,13 +141,54 @@ router.post('/', auth, restrictTo('manager', 'admin'), async (req, res) => {
 
     // Create
     restaurant = new Restaurant({
-      name, cuisine, rating: rating || 0, deliveryTime, deliveryFee, image, logo, address, city, phone, email, isSuper: isSuper || false, deal, menu,
+      name, cuisine, rating: rating || 0, deliveryTime, deliveryFee, image, logo, address, lat, lng, city, phone, email, isSuper: isSuper || false, deal, menu,
       managerId: req.user._id
     });
 
     await restaurant.save();
     res.json(restaurant);
 
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// @route   PUT /api/restaurants/:id/location
+// @desc    Update restaurant location on map (Manager) -> requires re-approval (status becomes pending)
+router.put('/:id/location', auth, restrictTo('manager'), async (req, res) => {
+  try {
+    let restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+
+    if (restaurant.managerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { lat, lng, address } = req.body;
+    if (lat !== undefined) restaurant.lat = lat;
+    if (lng !== undefined) restaurant.lng = lng;
+    if (address) restaurant.address = address;
+
+    const reasonMsg = `Address/GPS Location updated by manager to "${address || restaurant.address || 'New Address'}" (Lat: ${restaurant.lat}, Lng: ${restaurant.lng}). Re-approval required.`;
+
+    // Reset status to pending for admin re-approval
+    restaurant.status = 'pending';
+    restaurant.locationUpdatedRecently = true;
+    restaurant.locationUpdateReason = reasonMsg;
+    await restaurant.save();
+
+    // Also update manager User's status to pending so Admin Dashboard sees manager as pending
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(restaurant.managerId, {
+      status: 'pending',
+      locationUpdatedRecently: true,
+      locationUpdateReason: reasonMsg,
+      restaurantAddress: address || restaurant.address,
+      mapsLocation: `Lat: ${restaurant.lat}, Lng: ${restaurant.lng}`
+    });
+
+    res.json(restaurant);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');

@@ -4,26 +4,24 @@ import { api } from '../../api';
 import { CartContext } from '../../components/Context/CartContext';
 import './OrdersPage.css';
 
-// Helper to determine simulated progress status based on creation time
-const getOrderProgress = (order) => {
-  if (order.status === 'completed') {
-    return { status: 'Completed', step: 4, remaining: 0 };
-  }
-  if (order.status === 'delivered') {
-    return { status: 'Delivered - Confirm Receipt', step: 3.5, remaining: 0 };
-  }
-
-  switch (order.status) {
+// Helper to determine standardized 6-step progress status based on database status
+const getOrderProgress = (status) => {
+  switch (status) {
     case 'pending':
-      return { status: 'Preparing', step: 1, remaining: 45 };
+      return { status: 'Placed', step: 1, text: '📋 Order submitted & preheating in kitchen.' };
     case 'preparing':
-      return { status: 'Baking', step: 2, remaining: 30 };
+      return { status: 'Preparing', step: 2, text: '🍳 Chef is baking and preparing your flatbreads.' };
     case 'ready_for_pickup':
-      return { status: 'Waiting for Rider', step: 2.5, remaining: 15 };
+      return { status: 'Prepared', step: 3, text: '📦 Order is ready & packaged in thermal box.' };
+    case 'handed_over':
+      return { status: 'Handed over to rider', step: 4, text: '🤝 Rider has received order from restaurant.' };
     case 'out_for_delivery':
-      return { status: 'Delivering', step: 3, remaining: 10 };
+      return { status: 'Out for delivery', step: 5, text: '🛵 Rider is driving to your location.' };
+    case 'delivered':
+    case 'completed':
+      return { status: 'Delivered', step: 6, text: '✅ Order delivered safely!' };
     default:
-      return { status: 'Completed', step: 4, remaining: 0 };
+      return { status: 'Placed', step: 1, text: '📋 Order submitted.' };
   }
 };
 
@@ -32,7 +30,7 @@ function OrdersPage() {
   const { addToCart } = useContext(CartContext);
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [tick, setTick] = useState(0);
+  const [dismissedPopups, setDismissedPopups] = useState([]);
 
   // Rating Modal state
   const [ratingOrder, setRatingOrder] = useState(null);
@@ -41,60 +39,38 @@ function OrdersPage() {
   const [restaurantRating, setRestaurantRating] = useState(5);
   const [restaurantReview, setRestaurantReview] = useState('');
 
-  // Load orders from API
+  // Load orders strictly for logged in user
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const data = await api.getOrders();
+        const data = await api.getOrders(true); // myOrders = true
         setOrders(data);
       } catch (err) {
         console.error("Failed to load orders:", err);
       }
     };
     fetchOrders();
-  }, []);
-
-  // Tick timer to update statuses in real-time
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(prev => prev + 1);
-    }, 1000);
+    const interval = setInterval(fetchOrders, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  // Compute live orders with progress step calculated
-  const liveOrders = orders.map(order => {
-    const progress = getOrderProgress(order);
-    return {
-      ...order,
-      liveStatus: progress.status,
-      liveStep: progress.step,
-      remainingTime: progress.remaining
-    };
-  });
+  // Filter orders for active and completed
+  const activeOrders = orders.filter(o => o.status !== 'completed' && o.status !== 'delivered' && o.status !== 'cancelled');
+  const historyOrders = orders.filter(o => o.status === 'completed' || o.status === 'delivered' || o.status === 'cancelled');
 
-  // Split into active and history
-  const activeOrders = liveOrders.filter(o => o.liveStatus !== 'Completed');
-  const historyOrders = liveOrders.filter(o => o.liveStatus === 'Completed');
+  const selectedOrder = orders.find(o => o._id === selectedOrderId) || activeOrders[0] || historyOrders[0];
 
-  // Currently selected order
-  const selectedOrder = liveOrders.find(o => o._id === selectedOrderId) || activeOrders[0] || historyOrders[0];
-
-  const handleConfirmReceipt = async (orderId, e) => {
-    if (e) e.stopPropagation();
-    try {
-      const updatedOrder = await api.confirmReceipt(orderId);
-      setOrders(prev => prev.map(o => o._id === orderId ? updatedOrder : o));
-      // Trigger rating modal automatically
-      setRatingOrder(updatedOrder);
-      setRiderRating(5);
-      setRiderReview('');
-      setRestaurantRating(5);
-      setRestaurantReview('');
-    } catch (err) {
-      alert(err.message || 'Failed to confirm receipt');
+  // Rating popup for orders delivered in last 48 hours that have no rating
+  const unratedRecentOrder = orders.find(o => {
+    if ((o.status === 'delivered' || o.status === 'completed') && !o.rating?.riderRating) {
+      if (dismissedPopups.includes(o._id)) return false;
+      const deliveredTime = o.completedAt ? new Date(o.completedAt).getTime() : new Date(o.createdAt).getTime();
+      const now = new Date().getTime();
+      const hoursPassed = (now - deliveredTime) / (1000 * 60 * 60);
+      return hoursPassed <= 48; // 1-2 days limit
     }
-  };
+    return false;
+  });
 
   const handleRatingSubmit = async (e) => {
     e.preventDefault();
@@ -119,7 +95,7 @@ function OrdersPage() {
     order.items.forEach(item => {
       for (let i = 0; i < item.quantity; i++) {
         addToCart({
-          _id: item._id, // if item from history doesn't have restaurant details, this might be incomplete. It's just a simulation.
+          _id: item._id,
           name: item.name,
           price: item.price,
           image: item.image || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000"
@@ -129,25 +105,8 @@ function OrdersPage() {
     alert(`🛒 Reordered! ${order.items.length} unique items added back to your Tokri.`);
   };
 
-  const getStepClass = (stepNum, currentStep) => {
-    if (currentStep > stepNum) return 'step-done';
-    if (currentStep === stepNum) return 'step-active';
-    return 'step-pending';
-  };
-
-  const getProgressPercentage = (step) => {
-    switch (step) {
-      case 1: return 12;
-      case 2: return 40;
-      case 2.5: return 55;
-      case 3: return 72;
-      case 3.5: return 88;
-      case 4: return 100;
-      default: return 0;
-    }
-  };
-
   const formatDate = (isoString) => {
+    if (!isoString) return '';
     const date = new Date(isoString);
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -173,7 +132,7 @@ function OrdersPage() {
 
       <div className="orders-title-section">
         <h1>My Orders 📋</h1>
-        <p>Track your fresh hot naans or browse your previous tokris.</p>
+        <p>Track your fresh hot naans or browse your previous order history.</p>
       </div>
 
       {orders.length === 0 ? (
@@ -187,10 +146,10 @@ function OrdersPage() {
         </div>
       ) : (
         <div className="orders-layout-grid">
-          
+
           {/* Left Column: Lists */}
           <div className="orders-lists-column">
-            
+
             {/* Active Orders Section */}
             <div className="orders-section-card">
               <h2 className="section-title active-title">
@@ -202,45 +161,45 @@ function OrdersPage() {
                 </div>
               ) : (
                 <div className="orders-card-list">
-                  {activeOrders.map(order => (
-                    <div 
-                      key={order._id} 
-                      className={`order-list-card ${selectedOrder?._id === order._id ? 'selected' : ''}`}
-                      onClick={() => setSelectedOrderId(order._id)}
-                    >
-                      <div className="order-list-header">
-                        <div className="restaurant-info">
-                          <span className="restaurant-icon">🔥</span>
-                          <h4>{order.restaurantId?.name || "NaanNow Kitchen"}</h4>
+                  {activeOrders.map(order => {
+                    const prog = getOrderProgress(order.status);
+                    return (
+                      <div
+                        key={order._id}
+                        className={`order-list-card ${selectedOrder?._id === order._id ? 'selected' : ''}`}
+                        onClick={() => setSelectedOrderId(order._id)}
+                      >
+                        <div className="order-list-header">
+                          <div className="restaurant-info">
+                            <span className="restaurant-icon">🔥</span>
+                            <h4>{order.restaurantId?.name || "NaanNow Kitchen"}</h4>
+                          </div>
+                          <span className="status-badge-live">
+                            {prog.status}
+                          </span>
                         </div>
-                        <span className={`status-badge-live ${order.liveStatus.toLowerCase().replace(/\s/g, '-')}`}>
-                          {order.liveStatus === 'Preparing' && '🥣 Preparing'}
-                          {order.liveStatus === 'Baking' && '🔥 Baking'}
-                          {order.liveStatus === 'Waiting for Rider' && '⌛ Waiting'}
-                          {order.liveStatus === 'Delivering' && '🛵 Delivering'}
-                        </span>
-                      </div>
-                      
-                      <div className="order-list-body">
-                        <p className="order-id-label">Order: <span>{order.orderNumber}</span></p>
-                        <p className="order-items-summary">
-                          {order.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}
-                        </p>
-                        <div className="order-list-footer">
-                          <span className="order-price">Rs {order.totalAmount}</span>
-                          <button 
-                            className="track-order-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/track-order/${order._id}`);
-                            }}
-                          >
-                            Track Order 🎯
-                          </button>
+
+                        <div className="order-list-body">
+                          <p className="order-id-label">Order: <span>{order.orderNumber}</span></p>
+                          <p className="order-items-summary">
+                            {order.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}
+                          </p>
+                          <div className="order-list-footer">
+                            <span className="order-price">Rs {order.totalAmount}</span>
+                            <button
+                              className="track-order-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/track-order/${order._id}`);
+                              }}
+                            >
+                              Track Order 🎯
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -253,8 +212,8 @@ function OrdersPage() {
                   <p className="no-orders-prompt">No historical orders found.</p>
                 ) : (
                   historyOrders.map(order => (
-                    <div 
-                      key={order._id} 
+                    <div
+                      key={order._id}
                       className={`order-list-card history-card ${selectedOrder?._id === order._id ? 'selected' : ''}`}
                       onClick={() => setSelectedOrderId(order._id)}
                     >
@@ -263,9 +222,11 @@ function OrdersPage() {
                           <span className="restaurant-icon">🍽️</span>
                           <h4>{order.restaurantId?.name || "NaanNow Kitchen"}</h4>
                         </div>
-                        <span className="status-badge-completed">✅ Delivered</span>
+                        <span className="status-badge-completed">
+                          {order.status === 'cancelled' ? '❌ Cancelled' : '✅ Delivered'}
+                        </span>
                       </div>
-                      
+
                       <div className="order-list-body">
                         <p className="order-id-label">Order: <span>{order.orderNumber}</span></p>
                         <p className="order-date-label">{formatDate(order.createdAt)}</p>
@@ -275,18 +236,8 @@ function OrdersPage() {
                         <div className="order-list-footer">
                           <span className="order-price">Rs {order.totalAmount}</span>
                           <div className="history-actions" style={{ gap: '6px' }}>
-                            {order.status === 'delivered' && (
-                              <button 
-                                type="button"
-                                className="confirm-receipt-btn"
-                                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#10b981', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
-                                onClick={(e) => handleConfirmReceipt(order._id, e)}
-                              >
-                                Confirm Receipt ✅
-                              </button>
-                            )}
-                            {order.status === 'completed' && !order.rating?.riderRating && (
-                              <button 
+                            {!order.rating?.riderRating && order.status !== 'cancelled' && (
+                              <button
                                 type="button"
                                 className="rate-order-btn"
                                 style={{ padding: '6px 10px', fontSize: '12px', fontWeight: '600', backgroundColor: '#f59e0b', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
@@ -302,13 +253,13 @@ function OrdersPage() {
                                 Rate Order ⭐
                               </button>
                             )}
-                            <button 
+                            <button
                               className="view-details-link"
                               onClick={() => setSelectedOrderId(order._id)}
                             >
                               Details
                             </button>
-                            <button 
+                            <button
                               className="reorder-btn"
                               onClick={(e) => handleReorder(order, e)}
                             >
@@ -325,11 +276,11 @@ function OrdersPage() {
 
           </div>
 
-          {/* Right Column: Current Detail & Stepper */}
+          {/* Right Column: Current Detail & 6-Step Stepper */}
           {selectedOrder && (
             <div className="order-details-column">
               <div className="order-details-card">
-                
+
                 {/* Header info */}
                 <div className="detail-header">
                   <div className="title-details">
@@ -339,89 +290,66 @@ function OrdersPage() {
                   </div>
                   <div className="restaurant-details">
                     <h4>{selectedOrder.restaurantId?.name || "NaanNow Kitchen"}</h4>
-                    <p>Hot Tandoori Outlet</p>
+                    <p>{selectedOrder.restaurantId?.address || "Hot Tandoori Outlet"}</p>
                   </div>
                 </div>
 
-                {/* Progress Tracker Stepper (Only active or tracking) */}
-                <div className="detail-tracker-section">
-                  <div className="tracker-status-row">
-                    <span className="tracker-status-text">
-                      Status: <strong>{selectedOrder.liveStatus}</strong>
-                    </span>
-                    {selectedOrder.liveStatus !== 'Completed' && (
-                      <span className="tracker-eta">
-                        ETA: <strong>{selectedOrder.remainingTime}s</strong>
-                      </span>
-                    )}
-                  </div>
+                {/* Progress Tracker Stepper (6 Levels) */}
+                {(() => {
+                  const prog = getOrderProgress(selectedOrder.status);
+                  return (
+                    <div className="detail-tracker-section">
+                      <div className="tracker-status-row">
+                        <span className="tracker-status-text">
+                          Order Status: <strong style={{ color: '#E57919' }}>{prog.status}</strong>
+                        </span>
+                      </div>
 
-                  {/* The visual progress bars & circles */}
-                  <div className="stepper-visual-container">
-                    <div className="stepper-line-background"></div>
-                    <div 
-                      className="stepper-line-progress" 
-                      style={{ width: `${getProgressPercentage(selectedOrder.liveStep)}%` }}
-                    ></div>
+                      {/* 6 Levels Visual Stepper */}
+                      <div className="stepper-visual-container" style={{ marginTop: '6px', marginBottom: '60px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '4px', textAlign: 'center' }}>
+                          {[
+                            { num: 1, label: 'Placed', icon: '📋' },
+                            { num: 2, label: 'Preparing', icon: '🍳' },
+                            { num: 3, label: 'Prepared', icon: '📦' },
+                            { num: 4, label: 'Handed Over', icon: '🤝' },
+                            { num: 5, label: 'Out for Delivery', icon: '🛵' },
+                            { num: 6, label: 'Delivered', icon: '✅' }
+                          ].map(s => (
+                            <div
+                              key={s.num}
+                              style={{
+                                opacity: prog.step >= s.num ? 1 : 0.4,
+                                background: prog.step >= s.num ? '#FEF3C7' : '#F3F4F6',
+                                border: prog.step === s.num ? '2px solid #F59E0B' : '1px solid #E5E7EB',
+                                borderRadius: '8px',
+                                padding: '6px 2px'
+                              }}
+                            >
+                              <div style={{ fontSize: '16px' }}>{s.icon}</div>
+                              <div style={{ fontSize: '10px', fontWeight: 'bold', marginTop: '2px', color: '#1F2937' }}>
+                                {s.label}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
 
-                    <div className="stepper-steps-row">
-                      <div className={`step-bubble ${getStepClass(1, selectedOrder.liveStep)}`}>
-                        <span className="bubble-icon">🥣</span>
-                        <span className="bubble-label">Received</span>
-                      </div>
-                      <div className={`step-bubble ${getStepClass(2, selectedOrder.liveStep)}`}>
-                        <span className="bubble-icon">🔥</span>
-                        <span className="bubble-label">Baking</span>
-                      </div>
-                      <div className={`step-bubble ${getStepClass(3, selectedOrder.liveStep)}`}>
-                        <span className="bubble-icon">🛵</span>
-                        <span className="bubble-label">Delivering</span>
-                      </div>
-                      <div className={`step-bubble ${getStepClass(4, selectedOrder.liveStep)}`}>
-                        <span className="bubble-icon">✅</span>
-                        <span className="bubble-label">Arrived</span>
+                      <div className="status-explainer-card" style={{ padding: '10px 14px', background: '#FFFBEB', borderLeft: '4px solid #F59E0B', borderRadius: '6px' }}>
+                        <p style={{ margin: 0, fontSize: '13px', color: '#92400E' }}>
+                          {prog.text}
+                        </p>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Interactive Status Explainer */}
-                  <div className="status-explainer-card">
-                    {selectedOrder.liveStep === 1 && (
-                      <p>🥣 <strong>Kitchen is warming up:</strong> We have received your order details and the Chef is preparing the fresh dough bases.</p>
-                    )}
-                    {selectedOrder.liveStep === 2 && (
-                      <p>🔥 <strong>Naan in Tandoor:</strong> Flatbreads are stuck inside our hot clay oven. Preparing that perfect crispy golden crust.</p>
-                    )}
-                    {selectedOrder.liveStep === 2.5 && (
-                      <p>⌛ <strong>Waiting for Rider:</strong> Food is ready and sealed in thermal packages. A rider will pick it up shortly.</p>
-                    )}
-                    {selectedOrder.liveStep === 3 && (
-                      <p>🛵 <strong>Warm Delivery Transit:</strong> Food is sealed in thermal packages and our rider is speeding to your address.</p>
-                    )}
-                    {selectedOrder.liveStep === 3.5 && (
-                      <div style={{ textAlign: 'center', padding: '6px' }}>
-                        <p style={{ marginBottom: '10px' }}>📦 <strong>Rider has delivered your food!</strong> Please confirm receipt to finish the order and credit the rider.</p>
-                        <button
-                          className="confirm-receipt-btn"
-                          style={{ padding: '10px 24px', fontSize: '14px', fontWeight: 'bold', backgroundColor: '#10b981', color: '#fff', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                          onClick={(e) => handleConfirmReceipt(selectedOrder._id, e)}
-                        >
-                          Confirm Order Received ✅
-                        </button>
-                      </div>
-                    )}
-                    {selectedOrder.liveStep === 4 && (
-                      <p>✅ <strong>Order completed:</strong> Enjoy your fresh NaanNow meal! Thank you for dining with us.</p>
-                    )}
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Items Summary Table */}
                 <div className="receipt-items-section">
                   <h4>Tokri Summary</h4>
                   <div className="receipt-items-list">
-                    {selectedOrder.items.map(item => (
-                      <div key={item._id} className="receipt-item-row">
+                    {selectedOrder.items.map((item, idx) => (
+                      <div key={item._id || idx} className="receipt-item-row">
                         <div className="item-desc">
                           <span className="item-qty">{item.quantity}x</span>
                           <span className="item-name">{item.name}</span>
@@ -440,36 +368,28 @@ function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Delivery Information */}
+                {/* Delivery Credentials */}
                 <div className="receipt-delivery-section">
                   <h4>Delivery Credentials</h4>
                   <div className="delivery-info-grid">
                     <div className="info-block">
-                      <span className="info-label">Customer</span>
+                      <span className="info-label">Customer Name</span>
                       <span className="info-value">{selectedOrder.name || selectedOrder.customerId?.name}</span>
                     </div>
                     <div className="info-block">
-                      <span className="info-label">Phone</span>
+                      <span className="info-label">Contact Phone</span>
                       <span className="info-value">{selectedOrder.phone || selectedOrder.customerId?.phone}</span>
                     </div>
                     <div className="info-block full-width">
-                      <span className="info-label">Address</span>
+                      <span className="info-label">Delivery Address</span>
                       <span className="info-value">{selectedOrder.deliveryAddress}</span>
                     </div>
-                    {selectedOrder.instructions && (
-                      <div className="info-block full-width instructions-block">
-                        <span className="info-label">Rider Instructions</span>
-                        <span className="info-value">“{selectedOrder.instructions}”</span>
+                    {selectedOrder.customerOtp && (
+                      <div className="info-block full-width" style={{ background: '#FFFBEB', padding: '8px', borderRadius: '6px', border: '1px solid #FCD34D' }}>
+                        <span className="info-label" style={{ color: '#B45309', fontWeight: 'bold' }}>🔐 Customer Security Delivery OTP</span>
+                        <span className="info-value" style={{ fontSize: '18px', fontWeight: '800', color: '#D97706' }}>{selectedOrder.customerOtp}</span>
                       </div>
                     )}
-                    <div className="info-block">
-                      <span className="info-label">Payment Mode</span>
-                      <span className="info-value">
-                        {selectedOrder.paymentMethod === 'cod' ? '💵 Cash on Delivery' : 
-                         selectedOrder.paymentMethod === 'card' ? '💳 Credit/Debit Card' : 
-                         selectedOrder.paymentMethod === 'wallet' ? '📱 Mobile Wallet' : selectedOrder.paymentMethod}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
@@ -477,6 +397,56 @@ function OrdersPage() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Persistent floating banner popup for rating recent orders (within 48h) */}
+      {unratedRecentOrder && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          backgroundColor: '#1F2937',
+          color: '#fff',
+          padding: '16px 20px',
+          borderRadius: '16px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          zIndex: 9999,
+          maxWidth: '340px',
+          border: '2px solid #F59E0B'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#F59E0B' }}>⭐ How was your meal?</span>
+            <button
+              onClick={() => setDismissedPopups(prev => [...prev, unratedRecentOrder._id])}
+              style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: '16px' }}
+            >
+              &times;
+            </button>
+          </div>
+          <p style={{ fontSize: '12px', color: '#D1D5DB', margin: '0 0 12px 0' }}>
+            Your order <strong>#{unratedRecentOrder.orderNumber}</strong> was delivered. Please rate the rider & restaurant!
+          </p>
+          <button
+            onClick={() => {
+              setRatingOrder(unratedRecentOrder);
+              setRiderRating(5);
+              setRestaurantRating(5);
+            }}
+            style={{
+              width: '100%',
+              backgroundColor: '#F59E0B',
+              color: '#111827',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '13px'
+            }}
+          >
+            Rate Order Now ⭐
+          </button>
         </div>
       )}
 

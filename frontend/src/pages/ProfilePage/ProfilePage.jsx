@@ -27,6 +27,7 @@ function ProfilePage() {
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+  const [cardPin, setCardPin] = useState('');
 
   // Password States
   const [currentPassword, setCurrentPassword] = useState('');
@@ -202,6 +203,10 @@ function ProfilePage() {
       showNotification('Please enter a valid CVV', 'error');
       return;
     }
+    if (!cardPin || cardPin.length !== 4) {
+      showNotification('Please enter a 4-digit Security PIN for this card', 'error');
+      return;
+    }
     if (!cardHolder.trim()) {
       showNotification('Please enter cardholder name', 'error');
       return;
@@ -211,15 +216,17 @@ function ProfilePage() {
       await api.addCard({
         cardNumber: rawNumber,
         expiryDate: cardExpiry,
-        cvv: cardCvv
+        cvv: cardCvv,
+        pin: cardPin
       });
       // Reset fields
       setCardHolder('');
       setCardNumber('');
       setCardExpiry('');
       setCardCvv('');
+      setCardPin('');
       fetchCards();
-      showNotification('Card added successfully');
+      showNotification('Card added successfully with 4-digit Security PIN');
     } catch (err) {
       showNotification(err.message, 'error');
     }
@@ -578,6 +585,21 @@ function ProfilePage() {
                       </div>
                     </div>
 
+                    <div className="form-group">
+                      <label>Create 4-Digit Security PIN (Required for Checkout Verification)</label>
+                      <input
+                        type="password"
+                        maxLength={4}
+                        value={cardPin}
+                        onChange={(e) => setCardPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        placeholder="••••"
+                        required
+                      />
+                      <span style={{ fontSize: '11px', color: '#666', marginTop: '4px', display: 'block' }}>
+                        Set a 4-digit secret PIN for this card. You will enter this PIN at checkout to authorize payments.
+                      </span>
+                    </div>
+
                     <button type="submit" className="btn-primary full-width">Add New Card</button>
                   </form>
                 </div>
@@ -600,7 +622,10 @@ function ProfilePage() {
                           </div>
                           <div className="card-digits-details">
                             <span className="card-name-brand">{brand} ending in •••• {card.cardNumber.slice(-4)}</span>
-                            <span className="card-expiry-span">Expires {card.expiryDate} • Balance: <strong style={{ color: 'var(--color-tandoori)' }}>Rs. {(card.balance || 0).toLocaleString()}</strong></span>
+                            <span className="card-expiry-span">
+                              Expires {card.expiryDate} • Balance: <strong style={{ color: 'var(--color-tandoori)' }}>Rs. {(card.balance || 0).toLocaleString()}</strong>
+                              <span style={{ marginLeft: '10px', color: '#10B981', fontWeight: 'bold' }}>🔑 PIN: {card.pin || '1234'}</span>
+                            </span>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

@@ -17,6 +17,8 @@ const restaurantSchema = new mongoose.Schema({
   image: { type: String },
   logo: { type: String },
   address: { type: String },
+  lat: { type: Number },
+  lng: { type: Number },
   city: { type: String },
   phone: { type: String },
   email: { type: String },
@@ -25,7 +27,9 @@ const restaurantSchema = new mongoose.Schema({
   menu: [menuItemSchema],
   managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   isOpen: { type: Boolean, default: true },
-  status: { type: String, enum: ['pending', 'approved', 'suspended', 'rejected', 'revoked'], default: 'approved' }
+  status: { type: String, enum: ['pending', 'approved', 'suspended', 'rejected', 'revoked'], default: 'approved' },
+  locationUpdatedRecently: { type: Boolean, default: false },
+  locationUpdateReason: { type: String, default: '' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Restaurant', restaurantSchema);

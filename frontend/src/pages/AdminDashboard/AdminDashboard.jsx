@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 import './AdminDashboard.css';
 import naanSvg from '../../assets/naan-removebg-svg.svg';
 
@@ -158,6 +159,7 @@ const MAP_ROUTE_3 = [
 // ==========================================================================
 function AdminDashboard() {
   const navigate = useNavigate();
+  const { logout: authLogout } = useAuth();
 
   // ------------------------------------------------------------------------
   // Core UI Toggles & States
@@ -318,6 +320,46 @@ function AdminDashboard() {
   const [unbanRestrictionChoice, setUnbanRestrictionChoice] = useState('allow'); // 'allow', 'timed', 'lifetime'
   const [unbanBlockedUntilDate, setUnbanBlockedUntilDate] = useState('');
   const [unbanAdminRemarks, setUnbanAdminRemarks] = useState('');
+
+  // Admin Escrow Wallet State
+  const [escrowInfo, setEscrowInfo] = useState({ escrowBalance: 0, heldOrders: [] });
+
+  const loadEscrow = async () => {
+    try {
+      const data = await api.getEscrow();
+      setEscrowInfo(data);
+    } catch (err) {
+      console.error("Failed to load escrow details:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeMenuTab === 'escrow_wallet') {
+      loadEscrow();
+    }
+  }, [activeMenuTab]);
+
+  const handleReleaseEscrow = async (orderId) => {
+    if (!window.confirm("Are you sure you want to manually release escrow payment for this order to Rider, Restaurant Manager, and Admin Cut?")) return;
+    try {
+      await api.releaseEscrow(orderId);
+      alert("Escrow payment released successfully!");
+      loadEscrow();
+    } catch (err) {
+      alert(err.message || "Failed to release escrow payment");
+    }
+  };
+
+  const handleRefundEscrow = async (orderId) => {
+    if (!window.confirm("Are you sure you want to refund this order amount back to the customer's card?")) return;
+    try {
+      await api.refundEscrow(orderId);
+      alert("Order payment refunded successfully to customer's card!");
+      loadEscrow();
+    } catch (err) {
+      alert(err.message || "Failed to refund order");
+    }
+  };
 
   const isImageFile = (filename) => {
     return /\.(jpg|jpeg|png|webp|gif)$/i.test(filename);
@@ -649,7 +691,7 @@ function AdminDashboard() {
       ] = await Promise.all([
         api.getAllUsers().catch(() => []),
         api.getOrders().catch(() => []),
-        api.getRestaurants().catch(() => []),
+        api.getRestaurants(true).catch(() => []),
         api.getTickets().catch(() => []),
         api.getPromotions().catch(() => []),
         api.getWithdrawals().catch(() => []),
@@ -1096,8 +1138,8 @@ function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('naannow_token');
-    navigate('/login');
+    authLogout();
+    navigate('/');
   };
 
   const handleAddCategory = async (e) => {
@@ -1255,7 +1297,24 @@ function AdminDashboard() {
 
   // 3. Restaurants Filtering
   const getFilteredRestaurants = () => {
-    let list = users.filter(u => u.role === 'manager');
+    let list = users.filter(u => u.role === 'manager').map(mgr => {
+      const rest = restaurants.find(r => (r.managerId?._id === mgr._id || r.managerId === mgr._id || r.email === mgr.email));
+      const isLocationUpdated = Boolean(mgr.locationUpdatedRecently || (rest && rest.locationUpdatedRecently));
+      const updateReason = mgr.locationUpdateReason || (rest && rest.locationUpdateReason) || '';
+      const effectiveStatus = (isLocationUpdated || mgr.status === 'pending' || (rest && rest.status === 'pending')) ? 'pending' : (mgr.status || rest?.status || 'approved');
+      
+      return {
+        ...mgr,
+        ...rest,
+        _id: mgr._id,
+        status: effectiveStatus,
+        locationUpdatedRecently: isLocationUpdated,
+        locationUpdateReason: updateReason,
+        restaurantName: rest?.name || mgr.restaurantName || "Unnamed Eatery",
+        restaurantAddress: rest?.address || mgr.restaurantAddress || mgr.address,
+        address: rest?.address || mgr.restaurantAddress || mgr.address
+      };
+    });
 
     if (globalSearch.trim()) {
       const q = globalSearch.toLowerCase();
@@ -1490,6 +1549,14 @@ function AdminDashboard() {
                     <button className={`menu-link ${activeMenuTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveMenuTab('payments')}>
                       <span className="menu-link-icon"><Icon name="payments" /></span>
                       <span className="menu-text">Payments & Ledger</span>
+                    </button>
+                  </li>
+                )}
+                {can('escrow_wallet') && (
+                  <li className="menu-item">
+                    <button className={`menu-link ${activeMenuTab === 'escrow_wallet' ? 'active' : ''}`} onClick={() => setActiveMenuTab('escrow_wallet')}>
+                      <span className="menu-link-icon"><Icon name="payments" /></span>
+                      <span className="menu-text">💰 Escrow Wallet</span>
                     </button>
                   </li>
                 )}
@@ -2301,9 +2368,15 @@ function AdminDashboard() {
                                 <td>⭐ {manager.rating ? Number(manager.rating).toFixed(1) : '0.0 (New)'}</td>
                                 <td style={{ fontWeight: '600' }}>{platformSettings.commission}%</td>
                                 <td>
-                                  <span className={`status-pill ${(manager.status || 'approved').toLowerCase()}`}>
-                                    {manager.status || 'approved'}
-                                  </span>
+                                  {manager.locationUpdatedRecently ? (
+                                    <span className="status-pill pending" style={{ background: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', display: 'inline-flex', alignItems: 'center', gap: '4px' }} title={manager.locationUpdateReason || 'Address updated by manager'}>
+                                      📍 Address Changed (Pending)
+                                    </span>
+                                  ) : (
+                                    <span className={`status-pill ${(manager.status || 'approved').toLowerCase()}`}>
+                                      {manager.status || 'approved'}
+                                    </span>
+                                  )}
                                 </td>
                                 <td style={{ textAlign: 'right' }}>
                                   <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSelectedRestaurant(manager)}>
@@ -2507,24 +2580,36 @@ function AdminDashboard() {
                           Rider Applications ({users.filter(u => u.status === 'pending' && u.role === 'rider').length})
                         </button>
                         <button className={`filter-chip ${restaurantFilter === 'pending' ? 'active' : ''}`} onClick={() => { setRestaurantFilter('pending'); setActiveMenuTab('restaurants'); }}>
-                          Restaurant Applications ({users.filter(u => u.status === 'pending' && u.role === 'manager').length})
+                          Restaurant Applications ({users.filter(u => (u.status === 'pending' || u.locationUpdatedRecently) && u.role === 'manager').length})
                         </button>
                       </div>
                     </div>
 
                     <div className="activity-grid">
-                      {users.filter(u => u.status === 'pending').map(pending => (
+                      {users.filter(u => u.status === 'pending' || u.locationUpdatedRecently).map(pending => (
                         <div className="chart-card" key={pending.email}>
                           <div className="chart-header">
                             <div>
                               <strong style={{ fontSize: '16px' }}>{pending.name}</strong>
                               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Role: {pending.role.toUpperCase()} | CNIC: {pending.cnicNumber || "Pending"}</p>
                             </div>
-                            <span className="status-pill pending">Pending Checks</span>
+                            <span className="status-pill pending">
+                              {pending.locationUpdatedRecently ? '📍 Address Change Pending' : 'Pending Checks'}
+                            </span>
                           </div>
+
+                          {pending.locationUpdatedRecently && (
+                            <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', color: '#B45309', padding: '10px 14px', borderRadius: '10px', fontSize: '12px', fontWeight: '600', marginTop: '10px' }}>
+                              📍 <strong>Address / Map Location Updated Recently</strong>
+                              <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
+                                {pending.locationUpdateReason || 'Manager updated restaurant address/map pin. Re-approval is required before customer orders resume.'}
+                              </p>
+                            </div>
+                          )}
+
                           <div style={{ flex: 1, padding: '10px 0' }}>
                             <p style={{ fontSize: '13px', margin: '0 0 10px 0' }}>
-                              {pending.role === 'manager' ? `Eatery: ${pending.restaurantName}` : `Vehicle details: ${pending.vehicleDetails}`}
+                              {pending.role === 'manager' ? `Eatery: ${pending.restaurantName || 'Restaurant'} (${pending.restaurantAddress || pending.address || 'Address Updated'})` : `Vehicle details: ${pending.vehicleDetails}`}
                             </p>
                             <div className="document-previews-grid">
                               <div className="document-preview-box" onClick={() => setZoomedDoc(pending.cnicFront || "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500")}>
@@ -2721,6 +2806,90 @@ function AdminDashboard() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ====================================================================
+                 VIEW: ESCROW WALLET MANAGEMENT
+                 ==================================================================== */}
+                {activeMenuTab === 'escrow_wallet' && (
+                  <div>
+                    <div className="page-header">
+                      <div className="page-title-desc">
+                        <h1>💰 Escrow Wallet & Temporary Funds Hold</h1>
+                        <p>Full control over customer order payments held temporarily until order delivery. Release to wallets or issue full card refunds.</p>
+                      </div>
+                    </div>
+
+                    <div className="ledger-header-box" style={{ marginBottom: '24px' }}>
+                      <div className="ledger-stat-card" style={{ borderLeft: '4px solid #F59E0B' }}>
+                        <strong>Total Funds Held in Escrow</strong>
+                        <p className="ledger-num" style={{ color: '#F59E0B' }}>
+                          Rs. {(escrowInfo.escrowBalance || 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="ledger-stat-card">
+                        <strong>Held Active Orders</strong>
+                        <p className="ledger-num">{escrowInfo.heldOrdersCount || escrowInfo.heldOrders?.length || 0}</p>
+                      </div>
+                    </div>
+
+                    <div className="premium-table-wrapper">
+                      <h3>Active Orders in Escrow Hold</h3>
+                      {(!escrowInfo.heldOrders || escrowInfo.heldOrders.length === 0) ? (
+                        <div style={{ padding: '32px', textAlign: 'center', color: '#9CA3AF' }}>
+                          No orders currently held in escrow.
+                        </div>
+                      ) : (
+                        <table className="premium-table">
+                          <thead>
+                            <tr>
+                              <th>Order Reference</th>
+                              <th>Customer</th>
+                              <th>Restaurant</th>
+                              <th>Assigned Rider</th>
+                              <th>Escrow Amount</th>
+                              <th>Status</th>
+                              <th style={{ textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {escrowInfo.heldOrders.map(ord => (
+                              <tr key={ord._id}>
+                                <td style={{ fontWeight: '700' }}>{ord.orderNumber}</td>
+                                <td>{ord.name || ord.customerId?.name}</td>
+                                <td>{ord.restaurantId?.name || 'Restaurant'}</td>
+                                <td>{ord.riderId?.name || 'Unassigned'}</td>
+                                <td style={{ fontWeight: '700', color: '#10B981' }}>Rs. {ord.totalAmount}</td>
+                                <td>
+                                  <span className={`status-pill ${ord.status}`}>
+                                    {ord.status}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReleaseEscrow(ord._id)}
+                                      style={{ backgroundColor: '#10B981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                      Release & Pay Out
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRefundEscrow(ord._id)}
+                                      style={{ backgroundColor: '#EF4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                      Refund to Card
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3569,7 +3738,7 @@ function AdminDashboard() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                 <div>
                   <strong>Customer</strong>
-                  <p>{selectedOrder.name || "Muhammad Saad"}</p>
+                  <p>{selectedOrder.name || "Name"}</p>
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{selectedOrder.phone}</span>
                 </div>
                 <div>
@@ -3689,6 +3858,20 @@ function AdminDashboard() {
             </div>
 
             <div className="modal-body-section">
+              {selectedRestaurant.locationUpdatedRecently && (
+                <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', color: '#B45309', padding: '14px', borderRadius: '12px', marginBottom: '20px' }}>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '14px' }}>📍 Address / Map Location Re-Approval Required</h4>
+                  <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.5' }}>
+                    {selectedRestaurant.locationUpdateReason || 'The restaurant manager updated their address or map GPS pin. This restaurant is currently hidden from customers until you re-approve it.'}
+                  </p>
+                  {selectedRestaurant.lat && selectedRestaurant.lng && (
+                    <span style={{ fontSize: '12px', display: 'block', marginTop: '6px', fontWeight: 'bold' }}>
+                      New Coordinates: Lat {selectedRestaurant.lat}, Lng {selectedRestaurant.lng}
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div>
                   <strong>Owner Name</strong>
@@ -4047,6 +4230,7 @@ function AdminDashboard() {
                     { key: 'verification', label: '🔍 Verification Center' },
                     { key: 'menu_categories', label: '🍽️ Categories' },
                     { key: 'payments', label: '💳 Payments & Ledger' },
+                    { key: 'escrow_wallet', label: '💰 Escrow Wallet' },
                     { key: 'promotions', label: '🏷️ Promotions' },
                     { key: 'analytics', label: '📈 Analytics' },
                     { key: 'support', label: '🎫 Customer Support' },
@@ -4248,6 +4432,18 @@ function AdminDashboard() {
                 🔒 Confirm Close & Apply Restrictions
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document / Image Enlarge Lightbox Modal */}
+      {zoomedDoc && (
+        <div className="doc-lightbox-overlay" onClick={() => setZoomedDoc(null)}>
+          <div className="doc-lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <button className="doc-lightbox-close" onClick={() => setZoomedDoc(null)} aria-label="Close Lightbox">
+              ✕
+            </button>
+            <img src={zoomedDoc} alt="Enlarged Document Preview" className="doc-lightbox-img" />
           </div>
         </div>
       )}

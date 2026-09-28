@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import BlockedTicketWidget from '../../components/BlockedTicketWidget/BlockedTicketWidget';
 import './RestaurantDashboard.css';
 
-// Quick selection templates for menu items to avoid manual URL input frustration
+// Image templates for quick menu item creation
 const IMAGE_TEMPLATES = [
   { name: 'Classic Naan', url: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=500&auto=format&fit=crop&q=80' },
   { name: 'Gourmet Burger', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=80' },
@@ -14,11 +14,89 @@ const IMAGE_TEMPLATES = [
   { name: 'Sparkling Drink', url: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=80' }
 ];
 
+// Dynamic Leaflet loader
+const loadLeaflet = (callback) => {
+  if (window.L) {
+    callback();
+    return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  document.head.appendChild(link);
+
+  const script = document.createElement('script');
+  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  script.onload = () => callback();
+  document.body.appendChild(script);
+};
+
+// Leaflet Location Picker Component for Manager
+function RestaurantLocationPickerMap({ initialLat, initialLng, onLocationSelect }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+
+  const defaultLat = initialLat || 33.6923;
+  const defaultLng = initialLng || 73.0105;
+
+  useEffect(() => {
+    loadLeaflet(() => {
+      if (!mapRef.current) return;
+      const L = window.L;
+
+      if (!mapInstanceRef.current) {
+        const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+        marker.bindPopup('📍 Drag pin or click map to set exact restaurant location').openPopup();
+
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng();
+          onLocationSelect([pos.lat, pos.lng]);
+        });
+
+        map.on('click', (e) => {
+          const { lat, lng } = e.latlng;
+          marker.setLatLng([lat, lng]);
+          onLocationSelect([lat, lng]);
+        });
+
+        mapInstanceRef.current = map;
+        markerRef.current = marker;
+      }
+    });
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div style={{ marginTop: '12px', marginBottom: '12px' }}>
+      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: '#374151' }}>
+        🗺️ Select Restaurant Location on Map
+      </label>
+      <div ref={mapRef} style={{ width: '100%', height: '220px', borderRadius: '12px', border: '1px solid #d1d5db', overflow: 'hidden' }} />
+      <span style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', display: 'block' }}>
+        Click anywhere on the map or drag the pin to set your exact GPS coordinates.
+      </span>
+    </div>
+  );
+}
+
 function RestaurantDashboard() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Wizard state for restaurant verification
+  // Verification Wizard State
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardData, setWizardData] = useState({
     cnicNumber: '',
@@ -26,6 +104,8 @@ function RestaurantDashboard() {
     cnicBack: '',
     restaurantName: '',
     restaurantAddress: '',
+    lat: 33.6923,
+    lng: 73.0105,
     city: '',
     mapsLocation: '',
     restaurantPhone: '',
@@ -43,8 +123,14 @@ function RestaurantDashboard() {
     accountNumber: ''
   });
   const [wizardError, setWizardError] = useState('');
-
   const [wizardFiles, setWizardFiles] = useState({});
+
+  // Handover OTP state
+  const [handoverInputOtp, setHandoverInputOtp] = useState('');
+
+  // Location Update Modal State
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [locationUpdateCoords, setLocationUpdateCoords] = useState([33.6923, 73.0105]);
 
   const formatCNIC = (val) => {
     const digits = val.replace(/\D/g, '').slice(0, 13);
@@ -106,7 +192,7 @@ function RestaurantDashboard() {
     }
   };
 
-  // Load user details and verify role/status on mount
+  // Auth check
   useEffect(() => {
     const fetchAuth = async () => {
       try {
@@ -123,24 +209,22 @@ function RestaurantDashboard() {
     fetchAuth();
   }, [navigate]);
 
-  // State definitions
+  // Main State
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [restaurantLoadError, setRestaurantLoadError] = useState(false);
   const [platformSettings, setPlatformSettings] = useState({ commission: 15 });
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
 
-  // Tab: 'orders' | 'menu'
-  const [activeTab, setActiveTab] = useState('orders');
-  // Order filter: 'all' | 'active' | 'past'
-  const [orderFilter, setOrderFilter] = useState('active');
-  // Menu Category filter: 'All' | specific
+  // Tabs
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'menu'
+  const [orderFilter, setOrderFilter] = useState('active'); // 'all' | 'active' | 'past'
   const [menuFilter, setMenuFilter] = useState('All');
 
   // Menu Modal State
   const [dbCategories, setDbCategories] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
+  const [modalMode, setModalMode] = useState('add');
   const [editingItem, setEditingItem] = useState(null);
   const [menuForm, setMenuForm] = useState({
     name: '',
@@ -152,60 +236,290 @@ function RestaurantDashboard() {
   });
   const [formError, setFormError] = useState('');
 
-  // Load baseline data from API
+  // Load baseline data
   useEffect(() => {
     const loadData = async () => {
       try {
         const cats = await api.getCategories();
         setDbCategories(cats || []);
-      } catch (err) {
-        console.error("Failed to load categories:", err);
-      }
+      } catch (err) {}
       try {
         const rest = await api.getMyRestaurant();
         setSelectedRestaurant(rest);
+        if (rest && rest.lat && rest.lng) {
+          setLocationUpdateCoords([rest.lat, rest.lng]);
+        }
         setRestaurantLoadError(false);
       } catch (err) {
-        console.error("Failed to load restaurant profile:", err);
         setRestaurantLoadError(true);
       }
       try {
         const settings = await api.getSettings();
         if (settings) setPlatformSettings(settings);
-      } catch (err) {
-        console.error("Failed to load platform settings:", err);
-      }
+      } catch (err) {}
       try {
         const resOrders = await api.getOrders();
         setOrders(resOrders);
-      } catch (err) {
-        console.error("Failed to load orders:", err);
-      }
+      } catch (err) {}
     };
     if (currentUser?.status === 'approved') {
       loadData();
     }
   }, [currentUser]);
 
-  // Poll for order changes periodically
+  // Interval polling
   useEffect(() => {
     if (currentUser?.status !== 'approved') return;
     const interval = setInterval(async () => {
       try {
         const resOrders = await api.getOrders();
         setOrders(resOrders);
-      } catch (err) {
-        // silently fail on interval
-      }
-    }, 5000);
+      } catch (err) {}
+    }, 4000);
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  // SKELETON LOADERS
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await api.updateOrderStatus(orderId, newStatus);
+      const resOrders = await api.getOrders();
+      setOrders(resOrders);
+    } catch (err) {
+      alert(err.message || 'Failed to update order status');
+    }
+  };
+
+  const handleVerifyHandoverOtp = async (orderId) => {
+    if (!handoverInputOtp.trim()) {
+      return alert("Please enter the Handover OTP provided by the rider.");
+    }
+    try {
+      await api.verifyHandoverOtp(orderId, handoverInputOtp.trim());
+      alert("Handover OTP verified successfully! Order status updated to Handed over to rider.");
+      setHandoverInputOtp('');
+      const resOrders = await api.getOrders();
+      setOrders(resOrders);
+    } catch (err) {
+      alert(err.message || "Incorrect Handover OTP.");
+    }
+  };
+
+  const handleSaveLocationUpdate = async () => {
+    if (!selectedRestaurant) return;
+    try {
+      await api.updateRestaurantLocation(selectedRestaurant._id, locationUpdateCoords[0], locationUpdateCoords[1]);
+      alert("Restaurant location updated! Your restaurant status is now Pending re-approval by Admin.");
+      setIsLocationModalOpen(false);
+      window.location.reload();
+    } catch (err) {
+      alert(err.message || "Failed to update location");
+    }
+  };
+
+  // Menu item CRUD handlers
+  const openMenuModal = (mode, item = null) => {
+    setModalMode(mode);
+    setFormError('');
+    if (mode === 'edit' && item) {
+      setEditingItem(item);
+      setMenuForm({
+        name: item.name,
+        price: item.price,
+        category: item.category,
+        description: item.description,
+        image: item.image,
+        imageFile: null
+      });
+    } else {
+      setEditingItem(null);
+      setMenuForm({
+        name: '',
+        price: '',
+        category: dbCategories[0]?.name || 'General',
+        description: '',
+        image: IMAGE_TEMPLATES[0].url,
+        imageFile: null
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSaveMenuItem = async (e) => {
+    e.preventDefault();
+    if (!menuForm.name.trim() || !menuForm.price || !menuForm.category) {
+      setFormError('Please fill in Name, Price, and Category.');
+      return;
+    }
+
+    try {
+      let res;
+      if (modalMode === 'add') {
+        const formData = new FormData();
+        formData.append('name', menuForm.name);
+        formData.append('price', menuForm.price);
+        formData.append('category', menuForm.category);
+        formData.append('description', menuForm.description);
+        if (menuForm.imageFile) {
+          formData.append('image', menuForm.imageFile);
+        } else {
+          formData.append('image', menuForm.image);
+        }
+        res = await api.addMenuItem(selectedRestaurant._id, formData);
+      } else {
+        const formData = new FormData();
+        formData.append('name', menuForm.name);
+        formData.append('price', menuForm.price);
+        formData.append('category', menuForm.category);
+        formData.append('description', menuForm.description);
+        if (menuForm.imageFile) {
+          formData.append('image', menuForm.imageFile);
+        } else {
+          formData.append('image', menuForm.image);
+        }
+        res = await api.updateMenuItem(selectedRestaurant._id, editingItem._id || editingItem.id, formData);
+      }
+      setSelectedRestaurant(res);
+      setIsModalOpen(false);
+    } catch (err) {
+      setFormError(err.message || 'Failed to save menu item');
+    }
+  };
+
+  const handleDeleteMenuItem = async (itemId) => {
+    if (!window.confirm("Are you sure you want to delete this menu item?")) return;
+    try {
+      const res = await api.deleteMenuItem(selectedRestaurant._id, itemId);
+      setSelectedRestaurant(res);
+    } catch (err) {
+      alert(err.message || 'Failed to delete item');
+    }
+  };
+
   if (!currentUser) {
+    return <div className="dashboard-loading">Loading portal configurations...</div>;
+  }
+
+  // Verification status views
+  if (currentUser && currentUser.status !== 'approved') {
+    const isPending = currentUser.status === 'pending';
+    const isRejected = currentUser.status === 'rejected';
+
     return (
-      <div className="dashboard-loading">
-        Loading portal configurations...
+      <div className="restaurant-portal-container">
+        <div className="status-card" style={{ maxWidth: '680px', margin: '60px auto', background: '#fff', borderRadius: '20px', padding: '36px', boxShadow: '0 10px 30px rgba(0,0,0,0.06)' }}>
+          {isPending ? (
+            <>
+              <div className="status-icon" style={{ fontSize: '48px', marginBottom: '16px' }}>⌛</div>
+              <h2 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--color-roasted)', marginBottom: '8px' }}>Manager Approval Pending</h2>
+              <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '24px' }}>
+                Your restaurant registration details and verification documents are under review by system admin.
+              </p>
+            </>
+          ) : isRejected ? (
+            <>
+              <div className="status-icon" style={{ fontSize: '48px', marginBottom: '16px' }}>❌</div>
+              <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#991B1B', marginBottom: '8px' }}>Registration Application Rejected</h2>
+              <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '16px' }}>Reason: "{currentUser.rejectionReason || 'Documents incomplete or invalid'}"</p>
+            </>
+          ) : (
+            <form onSubmit={handleWizardSubmit}>
+              <h2>Manager Verification Wizard</h2>
+              {/* Wizard Steps */}
+              {wizardStep === 1 && (
+                <div>
+                  <h3>Step 1: CNIC & Identity</h3>
+                  <div className="form-group-field" style={{ marginBottom: '12px' }}>
+                    <label>CNIC Number</label>
+                    <input type="text" placeholder="00000-0000000-0" value={wizardData.cnicNumber} onChange={(e) => setWizardData({ ...wizardData, cnicNumber: formatCNIC(e.target.value) })} required />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>CNIC Front</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'cnicFront')} required={!wizardData.cnicFront} />
+                    </div>
+                    <div className="form-group-field">
+                      <label>CNIC Back</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'cnicBack')} required={!wizardData.cnicBack} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 2 && (
+                <div>
+                  <h3>Step 2: Restaurant Profile & Map Location</h3>
+                  <div className="form-group-field" style={{ marginBottom: '12px' }}>
+                    <label>Restaurant Name</label>
+                    <input type="text" placeholder="e.g. KFC (F-10)" value={wizardData.restaurantName} onChange={(e) => setWizardData({ ...wizardData, restaurantName: e.target.value })} required />
+                  </div>
+                  <div className="form-group-field" style={{ marginBottom: '12px' }}>
+                    <label>Address & City</label>
+                    <input type="text" placeholder="Address" value={wizardData.restaurantAddress} onChange={(e) => setWizardData({ ...wizardData, restaurantAddress: e.target.value })} required />
+                    <input type="text" placeholder="City" value={wizardData.city} onChange={(e) => setWizardData({ ...wizardData, city: e.target.value })} required style={{ marginTop: '8px' }} />
+                  </div>
+
+                  <RestaurantLocationPickerMap
+                    initialLat={wizardData.lat}
+                    initialLng={wizardData.lng}
+                    onLocationSelect={(coords) => setWizardData(prev => ({ ...prev, lat: coords[0], lng: coords[1] }))}
+                  />
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Phone</label>
+                      <input type="text" placeholder="0300-0000000" value={wizardData.restaurantPhone} onChange={(e) => setWizardData({ ...wizardData, restaurantPhone: formatPhone(e.target.value) })} required />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Email</label>
+                      <input type="email" placeholder="Email" value={wizardData.restaurantEmail} onChange={(e) => setWizardData({ ...wizardData, restaurantEmail: e.target.value })} required />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 3 && (
+                <div>
+                  <h3>Step 3: Verification Documents & Bank Account</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Registration Cert</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'certDoc')} required={!wizardData.certDoc} />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Food Auth License</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'licenseDoc')} required={!wizardData.licenseDoc} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Bank Name</label>
+                      <input type="text" value={wizardData.bankName} onChange={(e) => setWizardData({ ...wizardData, bankName: e.target.value })} required />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Account / IBAN</label>
+                      <input type="text" value={wizardData.accountNumber} onChange={(e) => setWizardData({ ...wizardData, accountNumber: e.target.value })} required />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {wizardError && <p style={{ color: 'red', marginTop: '12px' }}>{wizardError}</p>}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                {wizardStep > 1 && <button type="button" className="sub-tab-btn" onClick={() => setWizardStep(wizardStep - 1)}>Back</button>}
+                {wizardStep < 3 ? (
+                  <button type="button" className="action-advance-btn btn-prepare" onClick={() => setWizardStep(wizardStep + 1)}>Next Step</button>
+                ) : (
+                  <button type="submit" className="action-advance-btn btn-complete">Submit Registration</button>
+                )}
+              </div>
+            </form>
+          )}
+
+          <button className="sub-tab-btn" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }} style={{ marginTop: '24px' }}>
+            Log Out
+          </button>
+        </div>
       </div>
     );
   }
@@ -216,655 +530,82 @@ function RestaurantDashboard() {
         <div className="dashboard-loading" style={{ flexDirection: 'column', gap: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '48px' }}>🏪</div>
           <h2 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--color-roasted)' }}>No Restaurant Found</h2>
-          <p style={{ maxWidth: '400px', lineHeight: '1.6', color: '#666' }}>Your account is approved but no restaurant is linked yet. Please contact the admin to set up your restaurant profile.</p>
-          <button className="btn-logout" style={{ maxWidth: '200px' }} onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }}>Log Out</button>
+          <p style={{ maxWidth: '400px', lineHeight: '1.6', color: '#666' }}>Your account is approved but no restaurant is linked yet. Please contact admin.</p>
+          <button className="sub-tab-btn" style={{ maxWidth: '200px' }} onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }}>Log Out</button>
         </div>
       );
     }
     return <div className="dashboard-loading">Loading portal configurations...</div>;
   }
 
-  // Filter orders for the selected restaurant (which is just 'orders' array from backend since API filters by manager)
   const restaurantOrders = orders;
-
-  // Compute Metrics
-  const completedOrders = restaurantOrders.filter(o => o.status === 'delivered');
-  const activeOrdersCount = restaurantOrders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length;
+  const completedOrders = restaurantOrders.filter(o => o.status === 'delivered' || o.status === 'completed');
+  const activeOrdersCount = restaurantOrders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'handed_over', 'out_for_delivery'].includes(o.status)).length;
   const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   const aov = completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0;
 
-  // Compute Menu Popularity distribution for dashboard chart based on ordered items
-  const categorySales = {};
-  completedOrders.forEach(order => {
-    order.items.forEach(item => {
-      // Find category of item from menu
-      const menuItem = selectedRestaurant.menu.find(m => m.id === item.id);
-      const cat = menuItem ? menuItem.category : 'General';
-      categorySales[cat] = (categorySales[cat] || 0) + item.quantity;
-    });
-  });
-
-  const maxSales = Math.max(...Object.values(categorySales), 1);
-
-  // Filtered orders list based on sub-tab
   const filteredOrders = restaurantOrders.filter(order => {
-    // Standardize status for checking
-    const s = order.status;
-    if (orderFilter === 'active') {
-      return ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(s);
-    }
-    if (orderFilter === 'past') {
-      return ['delivered', 'completed', 'cancelled'].includes(s);
-    }
-    return true; // 'all'
+    if (orderFilter === 'active') return ['pending', 'preparing', 'ready_for_pickup', 'handed_over', 'out_for_delivery'].includes(order.status);
+    if (orderFilter === 'past') return order.status === 'delivered' || order.status === 'completed' || order.status === 'cancelled';
+    return true;
   });
 
-  // Selected Order
-  const activeOrder = filteredOrders.find(o => o._id === selectedOrderId) || filteredOrders[0];
+  const activeOrder = restaurantOrders.find(o => o._id === selectedOrderId) || filteredOrders[0];
 
-  // Advance Order Lifecycle status
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    try {
-      const updatedOrder = await api.updateOrderStatus(orderId, newStatus, 'Status updated by manager');
-      setOrders(prev => prev.map(o => o._id === orderId ? updatedOrder : o));
-    } catch (err) {
-      console.error("Failed to update status", err);
-      alert("Could not update order status.");
-    }
-  };
-
-  // Get next step info based on current status
-  const getNextStatusConfig = (status) => {
-    switch (status) {
-      case 'pending':
-        return { label: '🍳 Confirm Order & Bake', next: 'preparing', class: 'btn-prepare' };
-      case 'preparing':
-        return { label: '📦 Mark Ready (Wait for Rider)', next: 'ready_for_pickup', class: 'btn-ready' };
-      case 'ready_for_pickup':
-        return null; // Rider dispatches the order usually, or manager could force it if they have their own rider
-      case 'out_for_delivery':
-        return null;
-      default:
-        return null;
-    }
-  };
-
-  // Toggle Open/Closed Status
-  const handleToggleOpenRestaurant = async () => {
-    if (!selectedRestaurant) return;
-    try {
-      const updated = await api.toggleRestaurantOpen(selectedRestaurant._id, !selectedRestaurant.isOpen);
-      setSelectedRestaurant(updated);
-    } catch (err) {
-      console.error("Failed to toggle restaurant status:", err);
-      alert("Could not update restaurant status.");
-    }
-  };
-
-  // MENU CRUD: Open Modal
-  const openMenuModal = (mode, item = null) => {
-    setModalMode(mode);
-    setEditingItem(item);
-    setFormError('');
-    const defaultCat = dbCategories.length > 0 ? dbCategories[0].name : (selectedRestaurant?.menu[0]?.category || 'Naan');
-    if (mode === 'edit' && item) {
-      setMenuForm({
-        name: item.name,
-        price: item.price,
-        category: item.category || defaultCat,
-        description: item.description,
-        image: item.image || '',
-        imageFile: null
-      });
-    } else {
-      setMenuForm({
-        name: '',
-        price: '',
-        category: defaultCat,
-        description: '',
-        image: '',
-        imageFile: null
-      });
-    }
-    setIsModalOpen(true);
-  };
-
-  // MENU CRUD: Save / Submit
-  const handleSaveMenuItem = async (e) => {
-    e.preventDefault();
-    setFormError('');
-
-    const { name, price, category, description, image, imageFile } = menuForm;
-    if (!name.trim() || !price || !category.trim() || !description.trim()) {
-      setFormError('Please fill in all required details.');
-      return;
-    }
-
-    if (modalMode === 'add' && !imageFile && !image) {
-      setFormError('Please upload an image from your device.');
-      return;
-    }
-
-    const priceNum = parseInt(price);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      setFormError('Please enter a valid price (greater than 0).');
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append('name', name.trim());
-      formData.append('price', priceNum);
-      formData.append('category', category.trim());
-      formData.append('description', description.trim());
-
-      if (imageFile) {
-        formData.append('image', imageFile);
-      } else if (image) {
-        formData.append('image', image);
-      }
-
-      let updatedRestaurant;
-      if (modalMode === 'add') {
-        updatedRestaurant = await api.addMenuItem(selectedRestaurant._id, formData);
-      } else if (modalMode === 'edit' && editingItem) {
-        updatedRestaurant = await api.updateMenuItem(selectedRestaurant._id, editingItem._id, formData);
-      }
-      setSelectedRestaurant(updatedRestaurant);
-      setIsModalOpen(false);
-    } catch (err) {
-      console.error(err);
-      setFormError('Failed to save menu item.');
-    }
-  };
-
-  // MENU CRUD: Delete Item
-  const handleDeleteMenuItem = async (itemId) => {
-    if (!window.confirm('Are you sure you want to remove this item from the restaurant menu?')) {
-      return;
-    }
-
-    try {
-      const updatedRestaurant = await api.deleteMenuItem(selectedRestaurant._id, itemId);
-      setSelectedRestaurant(updatedRestaurant);
-    } catch (err) {
-      console.error(err);
-      alert('Failed to delete menu item.');
-    }
-  };
-
-  // Categories list for menu display (guard against null selectedRestaurant for non-approved users)
-  const menuCategories = selectedRestaurant?.menu
-    ? ['All', ...new Set(selectedRestaurant.menu.map(m => m.category))]
-    : ['All'];
-  const filteredMenuItems = selectedRestaurant?.menu
-    ? selectedRestaurant.menu.filter(item => menuFilter === 'All' || item.category === menuFilter)
-    : [];
-
-  if (currentUser && currentUser.status !== 'approved') {
-    const isRevoked = currentUser.status === 'revoked';
-    const isRejected = currentUser.status === 'rejected';
-    const isPending = currentUser.status === 'pending';
-    const isUnverified = currentUser.status === 'unverified';
-
-    return (
-      <div className="dashboard-status-screen">
-        {isPending ? (
-          <div className="status-card" style={{ maxWidth: '600px' }}>
-            <div className="status-icon">⏳</div>
-            <h2>Restaurant Pending Approval</h2>
-            <p className="status-message" style={{ fontSize: '15px', color: '#666', lineHeight: '1.6', marginBottom: '24px' }}>
-              Your restaurant is currently being verified.<br />
-              <strong>Orders will become available once your account has been approved.</strong>
-            </p>
-            <div className="submitted-details-box" style={{ background: '#fcfaf7', border: '1px solid rgba(79,46,29,0.08)', borderRadius: '12px', padding: '20px', textAlign: 'left', marginBottom: '24px', fontSize: '13px' }}>
-              <h4 style={{ color: 'var(--color-roasted)', marginBottom: '10px', fontSize: '14px', fontWeight: '700' }}>Submitted Venue Details:</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div><strong>Owner Name:</strong> {currentUser.name}</div>
-                <div><strong>Restaurant Name:</strong> {currentUser.restaurantName}</div>
-                <div><strong>City:</strong> {currentUser.city || 'Submitted'}</div>
-                <div><strong>Verification Code:</strong> Pending Review</div>
-              </div>
-            </div>
-            <button className="btn-logout" onClick={() => {
-              localStorage.removeItem('naannow_token');
-              navigate('/login');
-            }}>
-              Log Out
-            </button>
-          </div>
-        ) : (isUnverified || isRejected || isRevoked) ? (
-          <div className="status-card" style={{ maxWidth: '720px', textAlign: 'left', boxSizing: 'border-box', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-              <div>
-                <span className="admin-badge" style={{ backgroundColor: 'rgba(229,121,25,0.08)' }}>Verification & Conflict Resolution Portal</span>
-                <h2 style={{ marginTop: '8px', fontSize: '22px', fontWeight: '800' }}>
-                  {isRevoked ? '🚫 Restaurant Approval Revoked' : 'Restaurant Profile Verification'}
-                </h2>
-              </div>
-            </div>
-
-            {isRevoked && (
-              <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '16px', borderRadius: '10px', color: '#b91c1c' }}>
-                <strong style={{ fontSize: '15px', display: 'block', marginBottom: '6px' }}>⚠️ Approval Status Revoked by Administrator:</strong>
-                <p style={{ fontSize: '14px', margin: 0, lineHeight: '1.5' }}>Reason for Revocation: "{currentUser.rejectionReason || 'Compliance conflict identified. Please resubmit verification documents to clear the conflict.'}"</p>
-                <p style={{ fontSize: '12px', marginTop: '10px', fontStyle: 'italic', color: '#7f1d1d' }}>Your restaurant is currently hidden from customer order listings until re-approved.</p>
-              </div>
-            )}
-
-            {isRejected && (
-              <div className="auth-error-alert" style={{ marginBottom: '20px', backgroundColor: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px', borderRadius: '10px', color: '#b91c1c' }}>
-                <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>⚠️ Venue Verification Rejected by Admin:</strong>
-                <p style={{ fontSize: '13px', margin: 0 }}>Reason: "{currentUser.rejectionReason || 'Please check and resubmit your details.'}"</p>
-              </div>
-            )}
-
-            <div className="wizard-progress-bar" style={{ display: 'flex', gap: '4px', marginBottom: '24px', height: '6px' }}>
-              <div style={{ flex: 1, backgroundColor: wizardStep >= 1 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
-              <div style={{ flex: 1, backgroundColor: wizardStep >= 2 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
-              <div style={{ flex: 1, backgroundColor: wizardStep >= 3 ? 'var(--color-tandoori)' : '#e5e7eb', borderRadius: '3px' }} />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#888', marginBottom: '24px', fontWeight: '600' }}>
-              <span style={{ color: wizardStep === 1 ? 'var(--color-tandoori)' : '#888' }}>1. Owner Details</span>
-              <span style={{ color: wizardStep === 2 ? 'var(--color-tandoori)' : '#888' }}>2. Restaurant & Branding</span>
-              <span style={{ color: wizardStep === 3 ? 'var(--color-tandoori)' : '#888' }}>3. Business Docs & Bank</span>
-            </div>
-
-            {wizardError && <div className="auth-error-alert" style={{ marginBottom: '16px' }}>{wizardError}</div>}
-
-            <form onSubmit={handleWizardSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {wizardStep === 1 && (
-                <>
-                  <div className="form-group-field">
-                    <label>Owner Full Name</label>
-                    <input
-                      type="text"
-                      value={currentUser.name}
-                      disabled
-                      style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
-                    />
-                  </div>
-                  <div className="form-group-field" style={{ paddingRight: '20px', boxSizing: 'border-box' }}>
-                    <label>Owner CNIC Number</label>
-                    <input
-                      type="text"
-                      placeholder="00000-0000000-0"
-                      value={wizardData.cnicNumber}
-                      onChange={(e) => setWizardData({ ...wizardData, cnicNumber: formatCNIC(e.target.value) })}
-                      required
-                    />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', paddingRight: '20px', width: '100%', boxSizing: 'border-box' }}>
-                    <div className="form-group-field" style={{ width: '100%', boxSizing: 'border-box' }}>
-                      <label>CNIC Front Image</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'cnicFront')}
-                        required={!wizardData.cnicFront}
-                        style={{ width: '100%', boxSizing: 'border-box' }}
-                      />
-                      {wizardData.cnicFront && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.cnicFront} alt="CNIC Front Preview" style={{ height: '55px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="form-group-field" style={{ width: '100%', boxSizing: 'border-box' }}>
-                      <label>CNIC Back Image</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'cnicBack')}
-                        required={!wizardData.cnicBack}
-                        style={{ width: '100%', boxSizing: 'border-box' }}
-                      />
-                      {wizardData.cnicBack && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.cnicBack} alt="CNIC Back Preview" style={{ height: '55px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {wizardStep === 2 && (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div className="form-group-field">
-                      <label>Restaurant Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. KFC (F-10)"
-                        value={wizardData.restaurantName}
-                        onChange={(e) => setWizardData({ ...wizardData, restaurantName: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="form-group-field">
-                      <label>City</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Islamabad"
-                        value={wizardData.city}
-                        onChange={(e) => setWizardData({ ...wizardData, city: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group-field">
-                    <label>Restaurant Address</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Plot 14-B, Markaz F-10"
-                      value={wizardData.restaurantAddress}
-                      onChange={(e) => setWizardData({ ...wizardData, restaurantAddress: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group-field">
-                    <label>Google Maps Location link (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="Maps URL"
-                      value={wizardData.mapsLocation}
-                      onChange={(e) => setWizardData({ ...wizardData, mapsLocation: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', boxSizing: 'border-box' }}>
-                    <div className="form-group-field">
-                      <label>Restaurant Phone</label>
-                      <input
-                        type="text"
-                        placeholder="0000-0000000"
-                        value={wizardData.restaurantPhone}
-                        onChange={(e) => setWizardData({ ...wizardData, restaurantPhone: formatPhone(e.target.value) })}
-                        required
-                      />
-                    </div>
-                    <div className="form-group-field">
-                      <label>Restaurant Email</label>
-                      <input
-                        type="email"
-                        placeholder="e.g. branch@restaurant.com"
-                        value={wizardData.restaurantEmail}
-                        onChange={(e) => setWizardData({ ...wizardData, restaurantEmail: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', width: '100%', boxSizing: 'border-box', padding: '0 8px' }}>
-                    <div className="form-group-field">
-                      <label>Restaurant Logo</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'logo')}
-                        required={!wizardData.logo}
-                      />
-                      {wizardData.logo && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.logo} alt="Logo Preview" style={{ height: '50px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'contain', padding: '4px' }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="form-group-field">
-                      <label>Cover Banner</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'cover')}
-                        required={!wizardData.cover}
-                      />
-                      {wizardData.cover && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.cover} alt="Cover Preview" style={{ height: '50px', borderRadius: '6px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {wizardStep === 3 && (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', boxSizing: 'border-box' }}>
-                    <div className="form-group-field">
-                      <label>Front View Photo</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'photoFront')}
-                        required={!wizardData.photoFront}
-                      />
-                      {wizardData.photoFront && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.photoFront} alt="Front Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="form-group-field">
-                      <label>Kitchen Photo</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'photoKitchen')}
-                        required={!wizardData.photoKitchen}
-                      />
-                      {wizardData.photoKitchen && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.photoKitchen} alt="Kitchen Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="form-group-field">
-                      <label>Dining Photo (Optional)</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'photoDining')}
-                      />
-                      {wizardData.photoDining && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.photoDining} alt="Dining Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', boxSizing: 'border-box' }}>
-                    <div className="form-group-field">
-                      <label>Registration Cert</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'certDoc')}
-                        required={!wizardData.certDoc}
-                      />
-                      {wizardData.certDoc && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.certDoc} alt="Cert Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="form-group-field">
-                      <label>Food Auth License</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'licenseDoc')}
-                        required={!wizardData.licenseDoc}
-                      />
-                      {wizardData.licenseDoc && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.licenseDoc} alt="License Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="form-group-field">
-                      <label>NTN Certificate (Optional)</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'ntnDoc')}
-                      />
-                      {wizardData.ntnDoc && (
-                        <div style={{ marginTop: '8px' }}>
-                          <img src={wizardData.ntnDoc} alt="NTN Preview" style={{ height: '45px', borderRadius: '4px', border: '1px solid #ddd', objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '10px', boxSizing: 'border-box' }}>
-                    <div className="form-group-field">
-                      <label>Bank Name</label>
-                      <input
-                        type="text"
-                        placeholder="HBL"
-                        value={wizardData.bankName}
-                        onChange={(e) => setWizardData({ ...wizardData, bankName: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="form-group-field">
-                      <label>Account Holder Name</label>
-                      <input
-                        type="text"
-                        placeholder="Owner Name"
-                        value={wizardData.holderName}
-                        onChange={(e) => setWizardData({ ...wizardData, holderName: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="form-group-field">
-                      <label>Account Number / IBAN</label>
-                      <input
-                        type="text"
-                        placeholder="IBAN"
-                        value={wizardData.accountNumber}
-                        onChange={(e) => setWizardData({ ...wizardData, accountNumber: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                {wizardStep > 1 && (
-                  <button type="button" className="btn-detail-view" onClick={() => setWizardStep(wizardStep - 1)} style={{ flex: 1, padding: '14px', borderRadius: '12px', fontWeight: '600' }}>
-                    Back
-                  </button>
-                )}
-                {wizardStep < 3 ? (
-                  <button type="button" className="btn-logout" onClick={() => {
-                    const { cnicNumber, cnicFront, cnicBack, restaurantName, restaurantAddress, city, restaurantPhone, restaurantEmail, logo, cover } = wizardData;
-                    if (wizardStep === 1 && (!cnicNumber || !cnicFront || !cnicBack)) {
-                      setWizardError('Please fill in all fields before proceeding.');
-                      return;
-                    }
-                    if (wizardStep === 2 && (!restaurantName || !restaurantAddress || !city || !restaurantPhone || !restaurantEmail || !logo || !cover)) {
-                      setWizardError('Please fill in all fields before proceeding.');
-                      return;
-                    }
-                    setWizardError('');
-                    setWizardStep(wizardStep + 1);
-                  }} style={{ flex: 1 }}>
-                    Next Step
-                  </button>
-                ) : (
-                  <button type="submit" className="btn-logout" style={{ flex: 1, backgroundColor: 'var(--color-coriander)' }}>
-                    Submit Verification
-                  </button>
-                )}
-                {isRejected && (
-                  <button type="button" className="btn-detail-view" onClick={handleResubmitAction} style={{ padding: '14px', borderRadius: '12px', fontWeight: '600' }}>
-                    Resubmit Documents
-                  </button>
-                )}
-              </div>
-            </form>
-            <button className="btn-logout" onClick={() => {
-              localStorage.removeItem('naannow_token');
-              navigate('/login');
-            }} style={{ marginTop: '24px', backgroundColor: '#e5e7eb', color: '#4b5563' }}>
-              Log Out
-            </button>
-          </div>
-        ) : (
-          <div className="status-card" style={{ maxWidth: '680px', textAlign: 'center' }}>
-            <div className="status-icon">🔒</div>
-            <h2 style={{ color: '#991b1b', marginBottom: '8px' }}>Restaurant Manager Account Suspended</h2>
-            <p className="status-message" style={{ fontSize: '15px', color: '#4b5563', lineHeight: '1.6', marginBottom: '20px' }}>
-              Your restaurant manager account has been suspended by system administration.
-            </p>
-            <div className="submitted-details-box" style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px', textAlign: 'left', marginBottom: '20px', fontSize: '14px', color: '#7f1d1d' }}>
-              <strong style={{ display: 'block', marginBottom: '4px', color: '#991b1b', textTransform: 'uppercase', fontSize: '12px' }}>Reason for Suspension:</strong>
-              "{currentUser.blockReason || 'Violation of platform terms or merchant guidelines.'}"
-            </div>
-
-            <BlockedTicketWidget user={currentUser} />
-
-            <button className="btn-logout" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }} style={{ marginTop: '24px' }}>
-              Sign Out & Return to Login
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const menuCategories = ['All', ...dbCategories.map(c => c.name)];
+  const filteredMenuItems = selectedRestaurant?.menu ? selectedRestaurant.menu.filter(item => {
+    if (menuFilter === 'All') return true;
+    return item.category === menuFilter;
+  }) : [];
 
   return (
     <div className="restaurant-portal-container">
-      {/* 1. Header Banner */}
-      <div
-        className="portal-header"
-        style={{
-          backgroundImage: `linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 100%), url(${selectedRestaurant.image})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      >
-        <div className="portal-meta-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <img src={selectedRestaurant.image} alt={`${selectedRestaurant.name} Cover`} className="portal-logo-img" />
+      {/* 1. Portal Header Bar */}
+      <div className="portal-header" style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.75)), url(${selectedRestaurant?.cover || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200'})` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <img src={selectedRestaurant?.logo || 'https://via.placeholder.com/85'} alt="Logo" className="portal-logo-img" />
           <div className="portal-meta">
-            <div className="portal-badge">🏪 Manager View</div>
-            <h1>{selectedRestaurant.name} Operations Hub</h1>
-            <p>Real-time orders queue and menu adjustments</p>
+            <span className="portal-badge">{selectedRestaurant?.cuisine || 'Hot Tandoori Outlet'}</span>
+            <h1>{selectedRestaurant?.name}</h1>
+            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+              <span>📍 {selectedRestaurant?.address} • {selectedRestaurant?.city}</span>
+              <button
+                type="button"
+                onClick={() => setIsLocationModalOpen(true)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.4)',
+                  color: '#fff',
+                  borderRadius: '20px',
+                  padding: '3px 10px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(5px)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                🗺️ Update Map Location
+              </button>
+            </p>
           </div>
         </div>
 
-        <div className="restaurant-selector-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div className="managing-venue-badge">
-            <span className="venue-logo">🍗</span> {selectedRestaurant.name}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', padding: '6px 14px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.2)' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: selectedRestaurant.isOpen !== false ? '#4ade80' : '#f87171' }}>
-              {selectedRestaurant.isOpen !== false ? '🟢 OPEN' : '🔴 CLOSED'}
-            </span>
-            <button
-              onClick={handleToggleOpenRestaurant}
-              style={{
-                backgroundColor: selectedRestaurant.isOpen !== false ? '#ef4444' : '#22c55e',
-                color: '#fff',
-                border: 'none',
-                padding: '6px 14px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                transition: '0.2s'
-              }}
-            >
-              {selectedRestaurant.isOpen !== false ? 'Close Restaurant' : 'Open Restaurant'}
-            </button>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            className="res-selector-dropdown"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            onClick={() => {
+              selectedRestaurant.isOpen = !selectedRestaurant.isOpen;
+              setSelectedRestaurant({ ...selectedRestaurant });
+            }}
+          >
+            {selectedRestaurant.isOpen !== false ? '🟢 Open for Orders' : '🔴 Closed'}
+          </button>
         </div>
       </div>
 
-      {/* 2. Top-level Analytics Metrics */}
+      {/* 2. Metrics Grid */}
       <div className="analytics-grid">
         <div className="metric-card sales">
           <div className="card-header">
@@ -912,44 +653,12 @@ function RestaurantDashboard() {
         </div>
       </div>
 
-      {/* Dashboard Visual Charts */}
-      {completedOrders.length > 0 && (
-        <div className="visuals-row">
-          <div className="visual-card">
-            <h3>🔥 Popular Menu Categories</h3>
-            <p className="subtitle">Visual representation of items sold from completed tickets</p>
-            <div className="bars-chart-container">
-              {Object.keys(categorySales).map(cat => {
-                const qty = categorySales[cat];
-                const percentage = Math.round((qty / maxSales) * 100);
-                return (
-                  <div key={cat} className="bar-row">
-                    <span className="bar-label">{cat}</span>
-                    <div className="bar-track">
-                      <div className="bar-fill" style={{ width: `${percentage}%` }}>
-                        <span className="bar-qty">{qty} sold</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Section Controls Tab Row */}
+      {/* 3. Section Tabs */}
       <div className="portal-tabs">
-        <button
-          className={`portal-tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveTab('orders')}
-        >
+        <button className={`portal-tab-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
           📋 Orders Manager ({filteredOrders.length})
         </button>
-        <button
-          className={`portal-tab-btn ${activeTab === 'menu' ? 'active' : ''}`}
-          onClick={() => setActiveTab('menu')}
-        >
+        <button className={`portal-tab-btn ${activeTab === 'menu' ? 'active' : ''}`} onClick={() => setActiveTab('menu')}>
           🍽️ Menu Configurator ({selectedRestaurant.menu.length})
         </button>
       </div>
@@ -957,27 +666,18 @@ function RestaurantDashboard() {
       {/* 4. Tab Layouts */}
       {activeTab === 'orders' ? (
         <div className="orders-workspace">
-          {/* Left Side: Orders List */}
+          {/* Left Side: Orders Queue */}
           <div className="orders-list-pane">
             <div className="pane-header">
               <h3>Order Queue</h3>
               <div className="order-sub-tabs">
-                <button
-                  className={`sub-tab-btn ${orderFilter === 'active' ? 'active' : ''}`}
-                  onClick={() => { setOrderFilter('active'); setSelectedOrderId(null); }}
-                >
-                  Active ({restaurantOrders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length})
+                <button className={`sub-tab-btn ${orderFilter === 'active' ? 'active' : ''}`} onClick={() => { setOrderFilter('active'); setSelectedOrderId(null); }}>
+                  Active ({restaurantOrders.filter(o => ['pending', 'preparing', 'ready_for_pickup', 'handed_over', 'out_for_delivery'].includes(o.status)).length})
                 </button>
-                <button
-                  className={`sub-tab-btn ${orderFilter === 'past' ? 'active' : ''}`}
-                  onClick={() => { setOrderFilter('past'); setSelectedOrderId(null); }}
-                >
-                  Completed ({completedOrders.length})
+                <button className={`sub-tab-btn ${orderFilter === 'past' ? 'active' : ''}`} onClick={() => { setOrderFilter('past'); setSelectedOrderId(null); }}>
+                  Past ({completedOrders.length})
                 </button>
-                <button
-                  className={`sub-tab-btn ${orderFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => { setOrderFilter('all'); setSelectedOrderId(null); }}
-                >
+                <button className={`sub-tab-btn ${orderFilter === 'all' ? 'active' : ''}`} onClick={() => { setOrderFilter('all'); setSelectedOrderId(null); }}>
                   All ({restaurantOrders.length})
                 </button>
               </div>
@@ -1005,10 +705,10 @@ function RestaurantDashboard() {
                           {order.status}
                         </span>
                       </div>
-                      <div className="card-customer">{order.customerId?.name || 'Customer'}</div>
+                      <div className="card-customer">{order.name || order.customerId?.name || 'Customer'}</div>
                       <div className="card-meta-row">
                         <span>Items: {order.items.reduce((sum, i) => sum + i.quantity, 0)}</span>
-                        <span>Rs. {order.grandTotal}</span>
+                        <span>Rs. {order.totalAmount}</span>
                       </div>
                     </div>
                   );
@@ -1024,96 +724,111 @@ function RestaurantDashboard() {
                 <div className="detail-pane-header">
                   <div>
                     <h2>Receipt Detail: {activeOrder.orderNumber}</h2>
-                    <p className="order-date-time">Placed: {new Date(activeOrder.date).toLocaleString()}</p>
+                    <p className="order-date-time">Placed: {new Date(activeOrder.createdAt).toLocaleString()}</p>
                   </div>
                   <span className={`status-badge-lbl large ${activeOrder.status.toLowerCase().replace(/\s/g, '-')}`}>
                     {activeOrder.status}
                   </span>
                 </div>
 
-                {/* Workflow action controller */}
+                {/* Workflow Status Controller */}
                 <div className="order-status-controller">
                   <h4>Pipeline Action</h4>
-                  {getNextStatusConfig(activeOrder.status) ? (
+                  
+                  {activeOrder.status === 'pending' && (
                     <div className="action-row">
-                      {activeOrder.status === 'preparing' && !activeOrder.riderId ? (
+                      <p>Customer placed this order. Click to mark cooking in progress:</p>
+                      <button className="action-advance-btn btn-prepare" onClick={() => handleUpdateOrderStatus(activeOrder._id, 'preparing')}>
+                        Start Cooking (Mark Preparing) 🍳
+                      </button>
+                    </div>
+                  )}
+
+                  {activeOrder.status === 'preparing' && (
+                    <div>
+                      <p style={{ color: '#D97706', fontWeight: '600', marginBottom: '10px' }}>
+                        🔍 Searching for rider — Cooking is in progress! (Food preparation is active).
+                      </p>
+                      <button className="action-advance-btn btn-ready" onClick={() => handleUpdateOrderStatus(activeOrder._id, 'ready_for_pickup')}>
+                        Mark Food Prepared & Packaged 📦
+                      </button>
+                    </div>
+                  )}
+
+                  {(activeOrder.status === 'ready_for_pickup' || (activeOrder.status === 'preparing' && activeOrder.riderId)) && activeOrder.status !== 'handed_over' && (
+                    <div style={{ marginTop: '12px', background: '#fff', padding: '14px', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#1F2937' }}>🤝 Rider Handover Verification</h4>
+                      {activeOrder.riderId ? (
                         <>
-                          <p style={{ color: '#d97706', fontWeight: '500' }}>
-                            ⚠️ Waiting for rider assignment. Kitchen preparation will begin as soon as a rider accepts the delivery.
+                          <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '10px' }}>
+                            Rider <strong>{activeOrder.riderId.name}</strong> ({activeOrder.riderId.bikeModel || 'Bike'} - {activeOrder.riderId.licensePlate || 'Plate'}) is assigned.
                           </p>
-                          <button
-                            className="action-advance-btn btn-prepare"
-                            disabled={true}
-                            style={{ opacity: 0.6, cursor: 'not-allowed', backgroundColor: '#9ca3af', border: 'none' }}
-                          >
-                            🔍 Finding Rider... (Cooking Paused)
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                              type="text"
+                              maxLength={6}
+                              placeholder="Enter 6-char Handover OTP from Rider"
+                              value={handoverInputOtp}
+                              onChange={(e) => setHandoverInputOtp(e.target.value.toUpperCase())}
+                              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', letterSpacing: '2px' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyHandoverOtp(activeOrder._id)}
+                              className="action-advance-btn btn-dispatch"
+                              style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                            >
+                              Verify OTP & Hand Over
+                            </button>
+                          </div>
                         </>
                       ) : (
-                        <>
-                          <p>
-                            {activeOrder.status === 'preparing'
-                              ? `✅ Rider Assigned (${activeOrder.riderId?.name || 'Raja Kamran'}). Start cooking immediately:`
-                              : "Advance this order to the next phase in the rider collection sequence:"}
-                          </p>
-                          <button
-                            className={`action-advance-btn ${getNextStatusConfig(activeOrder.status).class}`}
-                            onClick={() => handleUpdateOrderStatus(activeOrder._id, getNextStatusConfig(activeOrder.status).next)}
-                          >
-                            {getNextStatusConfig(activeOrder.status).label}
-                          </button>
-                        </>
+                        <p style={{ fontSize: '0.85rem', color: '#D97706' }}>
+                          Waiting for rider to accept order to generate Handover OTP...
+                        </p>
                       )}
                     </div>
-                  ) : activeOrder.status === 'completed' || activeOrder.status === 'delivered' ? (
+                  )}
+
+                  {activeOrder.status === 'handed_over' && (
+                    <div className="action-success-complete">
+                      <span>🤝 Order handed over to rider! Rider will mark Out for Delivery.</span>
+                    </div>
+                  )}
+
+                  {activeOrder.status === 'out_for_delivery' && (
+                    <div className="action-success-complete">
+                      <span>🛵 Order is currently Out for Delivery with rider.</span>
+                    </div>
+                  )}
+
+                  {(activeOrder.status === 'completed' || activeOrder.status === 'delivered') && (
                     <div className="action-success-complete">
                       <span>🎉 Order has been fully delivered and completed!</span>
-                    </div>
-                  ) : (
-                    <div className="action-success-complete">
-                      <span>Status: {activeOrder.status}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Customer Details */}
+                {/* Customer Credentials */}
                 <div className="details-section customer-info-sec">
                   <h3>Order Details</h3>
                   <div className="customer-details-grid">
                     <div>
                       <strong>Full Name:</strong>
-                      <p>{activeOrder.customerId?.name || 'Customer'}</p>
+                      <p>{activeOrder.name || activeOrder.customerId?.name || 'Customer'}</p>
                     </div>
                     <div>
-                      <strong>Contact:</strong>
-                      <p>{activeOrder.customerId?.phone || activeOrder.phone || '03001234567'}</p>
-                    </div>
-                    <div>
-                      <strong>Delivery Speed:</strong>
-                      <p>{activeOrder.deliverySpeed === 'priority' ? '⚡ Priority' : '🛵 Standard'}</p>
+                      <strong>Contact Phone:</strong>
+                      <p>{activeOrder.phone ? formatPhone(activeOrder.phone) : (activeOrder.customerId?.phone ? formatPhone(activeOrder.customerId.phone) : 'N/A')}</p>
                     </div>
                     <div>
                       <strong>Payment Mode:</strong>
-                      <p>{activeOrder.paymentMethod ? activeOrder.paymentMethod.toUpperCase() : 'COD'}</p>
-                    </div>
-                    <div>
-                      <strong>Rider Assigned:</strong>
-                      {activeOrder.riderId ? (
-                        <p style={{ color: '#10b981', fontWeight: '600' }}>
-                          🏍️ {activeOrder.riderId?.name || 'Raja Kamran'}
-                        </p>
-                      ) : activeOrder.status !== 'completed' && activeOrder.status !== 'cancelled' ? (
-                        <p style={{ color: '#d97706', fontWeight: '600' }}>
-                          🔍 Finding Rider...
-                        </p>
-                      ) : (
-                        <p>No rider assigned</p>
-                      )}
+                      <p>{activeOrder.paymentMethod || 'Credit / Debit Card'}</p>
                     </div>
                   </div>
                   <div className="customer-address-sec">
                     <strong>Delivery Address:</strong>
-                    <p>{activeOrder.address}</p>
+                    <p>{activeOrder.deliveryAddress}</p>
                   </div>
                   {activeOrder.instructions && (
                     <div className="customer-notes">
@@ -1123,12 +838,12 @@ function RestaurantDashboard() {
                   )}
                 </div>
 
-                {/* Receipt items list */}
+                {/* Receipt Items & Bill Breakdown */}
                 <div className="details-section items-info-sec">
                   <h3>Itemized Checklist</h3>
                   <div className="items-receipt-list">
                     {activeOrder.items.map((item, idx) => (
-                      <div key={item._id || idx} className="receipt-item-row">
+                      <div key={idx} className="receipt-item-row">
                         {item.image && <img src={item.image} alt={item.name} className="receipt-item-img" />}
                         <div className="item-details-lbl">
                           <h4>{item.name}</h4>
@@ -1142,95 +857,86 @@ function RestaurantDashboard() {
                     ))}
                   </div>
 
-                  <div className="totals-table">
-                    <div className="totals-row">
-                      <span>Subtotal:</span>
-                      <span>Rs. {activeOrder.subtotal}</span>
-                    </div>
-                    {activeOrder.discount > 0 && (
-                      <div className="totals-row discount">
-                        <span>Promo Discount:</span>
-                        <span>-Rs. {activeOrder.discount}</span>
+                  {(() => {
+                    const subtotal = activeOrder.subtotal || activeOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+                    const deliveryFee = activeOrder.deliveryFee || 150;
+                    const platformFee = activeOrder.platformFee || 30;
+                    const grandTotal = activeOrder.totalAmount || (subtotal + deliveryFee + platformFee);
+
+                    return (
+                      <div className="totals-table">
+                        <div className="totals-row">
+                          <span>Subtotal:</span>
+                          <span>Rs. {subtotal}</span>
+                        </div>
+                        <div className="totals-row">
+                          <span>Delivery Charges:</span>
+                          <span>Rs. {deliveryFee}</span>
+                        </div>
+                        <div className="totals-row">
+                          <span>Platform Fee:</span>
+                          <span>Rs. {platformFee}</span>
+                        </div>
+                        <div className="totals-row grand-total-row">
+                          <span>Grand Total:</span>
+                          <span>Rs. {grandTotal}</span>
+                        </div>
                       </div>
-                    )}
-                    <div className="totals-row">
-                      <span>Delivery Fee:</span>
-                      <span>Rs. {activeOrder.deliveryFee}</span>
-                    </div>
-                    <div className="totals-row">
-                      <span>Platform Fee:</span>
-                      <span>Rs. {activeOrder.platformFee}</span>
-                    </div>
-                    <div className="totals-row grand-total-row">
-                      <span>Grand Total:</span>
-                      <span>Rs. {activeOrder.grandTotal}</span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
               </div>
             ) : (
               <div className="details-empty-state">
                 <div className="chef-icon">👨‍🍳</div>
                 <h3>Order Pane</h3>
-                <p>Select an active ticket from the left panel to begin baking and status synchronization.</p>
+                <p>Select an active ticket from the left panel to view receipt details.</p>
               </div>
             )}
           </div>
         </div>
       ) : (
+        /* Menu Workspace Configurator */
         <div className="menu-workspace">
-          {/* Menu top actions */}
-          <div className="menu-workspace-header">
-            <div className="category-tabs-row">
+          <div className="menu-workspace-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div className="category-tabs-row" style={{ display: 'flex', gap: '8px' }}>
               {menuCategories.map(cat => (
                 <button
                   key={cat}
-                  className={`menu-cat-btn ${menuFilter === cat ? 'active' : ''}`}
+                  className={`sub-tab-btn ${menuFilter === cat ? 'active' : ''}`}
                   onClick={() => setMenuFilter(cat)}
+                  style={{ padding: '8px 16px', fontSize: '0.9rem' }}
                 >
                   {cat}
                 </button>
               ))}
             </div>
-            <button className="add-item-btn" onClick={() => openMenuModal('add')}>
-              ➕ Add New Item
+            <button className="action-advance-btn btn-prepare" onClick={() => openMenuModal('add')} style={{ padding: '10px 20px' }}>
+              ➕ Add New Menu Item
             </button>
           </div>
 
-          {/* Menu items listing */}
           {filteredMenuItems.length === 0 ? (
-            <div className="empty-menu-state">
+            <div className="empty-orders-pane">
               <div className="empty-icon">🍽️</div>
               <h4>No items in this category</h4>
-              <p>Add fresh items using the "Add New Item" button above.</p>
+              <p>Add fresh items using the "Add New Menu Item" button above.</p>
             </div>
           ) : (
-            <div className="dashboard-menu-grid">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
               {filteredMenuItems.map(item => (
-                <div key={item.id} className="dash-menu-card">
-                  <div className="img-container">
-                    <img src={item.image} alt={item.name} />
-                    <span className="category-badge">{item.category}</span>
-                  </div>
-                  <div className="dash-menu-card-details">
-                    <div className="card-title-price">
-                      <h4>{item.name}</h4>
-                      <span className="price">Rs. {item.price}</span>
-                    </div>
-                    <p className="desc">{item.description}</p>
-                    <div className="action-row-btns">
-                      <button
-                        className="btn-edit-item"
-                        onClick={() => openMenuModal('edit', item)}
-                      >
-                        ✏️ Edit
-                      </button>
-                      <button
-                        className="btn-delete-item"
-                        onClick={() => handleDeleteMenuItem(item.id)}
-                      >
-                        🗑️ Delete
-                      </button>
+                <div key={item._id || item.id} style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #f0f0eb' }}>
+                  <img src={item.image || IMAGE_TEMPLATES[0].url} alt={item.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+                  <div style={{ padding: '16px' }}>
+                    <span className="portal-badge" style={{ fontSize: '0.7rem', marginBottom: '6px' }}>{item.category}</span>
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: '700', margin: '4px 0', color: 'var(--color-roasted)' }}>{item.name}</h4>
+                    <p style={{ fontSize: '0.85rem', color: '#888', marginBottom: '12px' }}>{item.description}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--color-tandoori)' }}>Rs. {item.price}</span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button type="button" onClick={() => openMenuModal('edit', item)} style={{ background: '#f0f0eb', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>✏️ Edit</button>
+                        <button type="button" onClick={() => handleDeleteMenuItem(item._id || item.id)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>🗑️ Delete</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1240,142 +946,74 @@ function RestaurantDashboard() {
         </div>
       )}
 
-      {/* CRUD Add/Edit Dialog Modal Popup */}
+      {/* Menu Item CRUD Modal */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content-card menu-config-modal">
-            <div className="modal-header menu-modal-header">
-              <div className="modal-title-wrap">
-                <span className="modal-title-badge">Menu Configurator</span>
-                <h2>{modalMode === 'add' ? '✨ Add New Menu Item' : '✏️ Edit Menu Item'}</h2>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: '#fff', padding: '28px', borderRadius: '20px', maxWidth: '480px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ marginBottom: '16px', fontSize: '1.3rem', color: 'var(--color-roasted)' }}>
+              {modalMode === 'add' ? '✨ Add New Menu Item' : '✏️ Edit Menu Item'}
+            </h3>
+            <form onSubmit={handleSaveMenuItem}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '4px' }}>Item Name *</label>
+                <input type="text" value={menuForm.name} onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} />
               </div>
-              <button className="close-modal-x" onClick={() => setIsModalOpen(false)} aria-label="Close modal">×</button>
-            </div>
-
-            <form onSubmit={handleSaveMenuItem} className="modal-form">
-              {formError && <div className="form-error-banner">⚠ {formError}</div>}
-
-              <div className="form-group">
-                <label htmlFor="item-name">Item Name *</label>
-                <input
-                  type="text"
-                  id="item-name"
-                  value={menuForm.name}
-                  onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })}
-                  placeholder="e.g. Special Garlic Cheese Naan"
-                  required
-                />
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '4px' }}>Price (Rs.) *</label>
+                <input type="number" value={menuForm.price} onChange={(e) => setMenuForm({ ...menuForm, price: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} />
               </div>
-
-              <div className="form-row-grid">
-                <div className="form-group">
-                  <label htmlFor="item-price">Price (Rs.) *</label>
-                  <input
-                    type="number"
-                    id="item-price"
-                    value={menuForm.price}
-                    onChange={(e) => setMenuForm({ ...menuForm, price: e.target.value })}
-                    placeholder="e.g. 250"
-                    min="1"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="item-category">Category *</label>
-                  <select
-                    id="item-category"
-                    className="menu-category-select"
-                    value={menuForm.category}
-                    onChange={(e) => setMenuForm({ ...menuForm, category: e.target.value })}
-                    required
-                  >
-                    {dbCategories.length > 0 ? (
-                      dbCategories.map(c => (
-                        <option key={c._id || c.name} value={c.name}>
-                          {c.icon ? `${c.icon} ` : ''}{c.name}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="Naan">🫓 Naan</option>
-                        <option value="Breads">🍞 Breads</option>
-                        <option value="Burgers">🍔 Burgers</option>
-                        <option value="BBQ">🍢 BBQ</option>
-                        <option value="Curries">🍲 Curries</option>
-                        <option value="Rice">🍚 Rice</option>
-                        <option value="Desserts">🍰 Desserts</option>
-                        <option value="Beverages">🥤 Beverages</option>
-                      </>
-                    )}
-                  </select>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '4px' }}>Category *</label>
+                <select value={menuForm.category} onChange={(e) => setMenuForm({ ...menuForm, category: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }}>
+                  {dbCategories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '4px' }}>Description</label>
+                <textarea rows="2" value={menuForm.description} onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '4px' }}>Item Image URL</label>
+                <input type="text" value={menuForm.image} onChange={(e) => setMenuForm({ ...menuForm, image: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '8px' }} />
+                <span style={{ fontSize: '0.75rem', color: '#888' }}>Or choose a template image below:</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '6px' }}>
+                  {IMAGE_TEMPLATES.map(t => (
+                    <button type="button" key={t.name} onClick={() => setMenuForm({ ...menuForm, image: t.url })} style={{ border: menuForm.image === t.url ? '2px solid var(--color-tandoori)' : '1px solid #ccc', borderRadius: '6px', padding: '4px', cursor: 'pointer', background: '#fff' }}>
+                      <img src={t.url} alt={t.name} style={{ width: '100%', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
+                      <span style={{ fontSize: '0.65rem', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{t.name}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="item-desc">Item Description *</label>
-                <textarea
-                  id="item-desc"
-                  value={menuForm.description}
-                  onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })}
-                  placeholder="Describe delicious details, fresh ingredients, or portion size..."
-                  rows="3"
-                  required
-                ></textarea>
-              </div>
+              {formError && <p style={{ color: 'red', fontSize: '0.85rem', marginBottom: '12px' }}>{formError}</p>}
 
-              <div className="form-group">
-                <label htmlFor="item-file">Item Image (Upload From Device) *</label>
-                <div className="file-upload-zone">
-                  <input
-                    type="file"
-                    id="item-file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setMenuForm(prev => ({
-                          ...prev,
-                          imageFile: file,
-                          imagePreview: URL.createObjectURL(file)
-                        }));
-                      }
-                    }}
-                  />
-                  <div className="upload-prompt">
-                    <span className="upload-icon">📸</span>
-                    <span className="upload-text">Click or drag image file here</span>
-                    <span className="upload-subtext">Supports PNG, JPG, WEBP (Max 5MB)</span>
-                  </div>
-                </div>
-                {(menuForm.imagePreview || menuForm.image) && (
-                  <div className="image-preview-container">
-                    <img
-                      src={menuForm.imagePreview || menuForm.image}
-                      alt="Menu Item Preview"
-                      className="preview-img"
-                    />
-                    <div className="preview-label">
-                      <strong>Image Selected</strong>
-                      <span>Ready to display on menu</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-action-row">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-save">
-                  {modalMode === 'add' ? '➕ Add to Menu' : '💾 Save Changes'}
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="sub-tab-btn" style={{ padding: '8px 16px' }}>Cancel</button>
+                <button type="submit" className="action-advance-btn btn-prepare" style={{ padding: '8px 20px' }}>Save Item</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Location Update Modal */}
+      {isLocationModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '20px', maxWidth: '500px', width: '90%' }}>
+            <h3 style={{ color: 'var(--color-roasted)', marginBottom: '4px' }}>Update Restaurant Location on Map</h3>
+            <p style={{ fontSize: '0.8rem', color: '#D97706', marginBottom: '16px' }}>
+              ⚠️ Updating your location will reset your approval status to Pending for Admin re-approval.
+            </p>
+            <RestaurantLocationPickerMap
+              initialLat={locationUpdateCoords[0]}
+              initialLng={locationUpdateCoords[1]}
+              onLocationSelect={(coords) => setLocationUpdateCoords(coords)}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+              <button type="button" onClick={() => setIsLocationModalOpen(false)} className="sub-tab-btn" style={{ padding: '8px 16px' }}>Cancel</button>
+              <button type="button" onClick={handleSaveLocationUpdate} className="action-advance-btn btn-prepare" style={{ padding: '8px 20px' }}>Save Location</button>
+            </div>
           </div>
         </div>
       )}

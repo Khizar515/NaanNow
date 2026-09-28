@@ -19,6 +19,7 @@ const staffRoleSchema = new mongoose.Schema({
       'support',
       'notifications',
       'staff',
+      'escrow_wallet',
       'settings'
     ]
   }],

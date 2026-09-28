@@ -63,6 +63,8 @@ router.put('/:id/status', auth, restrictTo('admin'), async (req, res) => {
     if (status === 'approved') {
       user.rejectionReason = ''; // Clear rejection reason on approve
       user.blockReason = '';
+      user.locationUpdatedRecently = false;
+      user.locationUpdateReason = '';
     }
 
     if (status === 'blocked' && blockReason) {
@@ -85,11 +87,15 @@ router.put('/:id/status', auth, restrictTo('admin'), async (req, res) => {
             logo: user.logo,
             image: user.cover,
             cuisine: "Multiple Cuisines",
-            status: 'approved'
+            status: 'approved',
+            locationUpdatedRecently: false,
+            locationUpdateReason: ''
           });
           await rest.save();
         } else {
           rest.status = 'approved';
+          rest.locationUpdatedRecently = false;
+          rest.locationUpdateReason = '';
           await rest.save();
         }
       } else if (status === 'blocked') {

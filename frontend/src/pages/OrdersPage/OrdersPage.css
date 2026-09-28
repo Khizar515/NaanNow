@@ -387,7 +387,7 @@
   overflow: hidden;
 }
 
-/* Receipt jagged cut effect (Optional styling via background) */
+/* Receipt jagged cut effect (Optional styling via background)
 .order-details-card::before {
   content: '';
   position: absolute;
@@ -398,7 +398,7 @@
   background: linear-gradient(-135deg, var(--color-tandoori) 2px, transparent 0) 0 0,
     linear-gradient(135deg, var(--color-tandoori) 2px, transparent 0) 0 0;
   background-size: 8px 4px;
-}
+} */
 
 .detail-header {
   display: flex;
@@ -581,7 +581,7 @@
 
 /* Receipt items table */
 .receipt-items-section {
-  border-bottom: 1px dashed rgba(79, 46, 29, 0.1);
+  /* border-bottom: 1px dashed rgba(79, 46, 29, 0.1); */
   padding-bottom: 16px;
   margin-bottom: 16px;
 }
@@ -623,8 +623,8 @@
 
 /* Bill Breakdown Totals */
 .receipt-totals-section {
-  border-bottom: 2px dashed rgba(79, 46, 29, 0.1);
-  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(79, 46, 29, 0.1);
+  padding-bottom: 7px;
   margin-bottom: 20px;
 }
 
@@ -647,7 +647,7 @@
   color: var(--color-roasted);
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid rgba(79, 46, 29, 0.08);
+  /* border-top: 1px solid rgba(79, 46, 29, 0.08); */
 }
 
 .grand-total-row span:last-child {

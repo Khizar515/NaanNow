@@ -17,6 +17,7 @@ const withdrawalRoutes = require('./routes/withdrawals');
 const settingsRoutes = require('./routes/settings');
 const categoryRoutes = require('./routes/categories');
 const staffRoutes = require('./routes/staff');
+const escrowRoutes = require('./routes/escrow');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/escrow', escrowRoutes);
 
 // Root route
 app.get('/', (req, res) => {

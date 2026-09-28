@@ -14,6 +14,16 @@ const userSchema = new mongoose.Schema({
   phone: { type: String },
   profilePic: { type: String },
   address: { type: String },
+  favorites: [{ type: String }],
+  cart: [{
+    _id: String,
+    name: String,
+    price: Number,
+    image: String,
+    restaurantId: String,
+    restaurantName: String,
+    quantity: Number
+  }],
 
   // Rider specific
   vehicleDetails: { type: String },
@@ -60,6 +70,8 @@ const userSchema = new mongoose.Schema({
   blockReason: { type: String },
   rating: { type: Number, default: 0 },
   walletBalance: { type: Number, default: 0 },
+  locationUpdatedRecently: { type: Boolean, default: false },
+  locationUpdateReason: { type: String, default: '' },
 
   // Unban appeal ticket restriction settings set by admin
   unbanRestriction: {

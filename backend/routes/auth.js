@@ -98,13 +98,15 @@ router.get('/me', auth, async (req, res) => {
 // @desc    Update user profile
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, phone, address, favorites, cart } = req.body;
     let user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (name) user.name = name;
-    if (phone) user.phone = phone;
-    if (address) user.address = address;
+    if (name !== undefined) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
+    if (favorites !== undefined) user.favorites = favorites;
+    if (cart !== undefined) user.cart = cart;
 
     await user.save();
     res.json(user);

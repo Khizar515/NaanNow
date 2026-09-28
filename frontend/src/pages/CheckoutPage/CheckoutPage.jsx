@@ -1,12 +1,115 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { CartContext } from '../../components/Context/CartContext';
+import { useAuth } from '../../context/AuthContext';
+import { formatPhone } from '../../utils/formatters';
 import './CheckoutPage.css';
+
+// Dynamic Leaflet Loader
+const loadLeaflet = (callback) => {
+  if (window.L) {
+    callback();
+    return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  document.head.appendChild(link);
+
+  const script = document.createElement('script');
+  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  script.onload = () => callback();
+  document.body.appendChild(script);
+};
+
+// Haversine distance calculator
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round((R * c) * 10) / 10;
+}
+
+// Leaflet Map Picker Component for Checkout
+function CheckoutLocationPickerMap({ deliveryCoords, onLocationSelect }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+
+  const defaultLat = deliveryCoords ? deliveryCoords[0] : 33.6844;
+  const defaultLng = deliveryCoords ? deliveryCoords[1] : 73.0479;
+
+  useEffect(() => {
+    loadLeaflet(() => {
+      if (!mapRef.current) return;
+      const L = window.L;
+
+      if (!mapInstanceRef.current) {
+        const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+        marker.bindPopup('📍 Drop pin for exact delivery location').openPopup();
+
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng();
+          onLocationSelect([pos.lat, pos.lng]);
+        });
+
+        map.on('click', (e) => {
+          const { lat, lng } = e.latlng;
+          marker.setLatLng([lat, lng]);
+          onLocationSelect([lat, lng]);
+        });
+
+        mapInstanceRef.current = map;
+        markerRef.current = marker;
+      }
+    });
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (deliveryCoords && mapInstanceRef.current && markerRef.current) {
+      const [lat, lng] = deliveryCoords;
+      markerRef.current.setLatLng([lat, lng]);
+      mapInstanceRef.current.setView([lat, lng], 15);
+    }
+  }, [deliveryCoords]);
+
+  return (
+    <div className="map-picker-container" style={{ marginTop: '16px', marginBottom: '16px' }}>
+      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: '#374151' }}>
+        🗺️ Select Delivery Location on Map (Pin Point Location)
+      </label>
+      <div ref={mapRef} style={{ width: '100%', height: '220px', borderRadius: '12px', border: '1px solid #d1d5db', overflow: 'hidden' }} />
+      <span style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px', display: 'block' }}>
+        Click anywhere on the map or drag the pin to mark your exact delivery location.
+      </span>
+    </div>
+  );
+}
 
 function CheckoutPage() {
   const navigate = useNavigate();
   const { cartItems, clearCart } = useContext(CartContext);
+  const { user: currentUser } = useAuth();
 
   // Form states
   const [formData, setFormData] = useState({
@@ -14,17 +117,20 @@ function CheckoutPage() {
     phone: '',
     address: '',
     instructions: '',
-    deliverySpeed: 'standard',
   });
 
-  const [paymentMethod, setPaymentMethod] = useState('cod'); // cod | card | wallet
-  const [cardData, setCardData] = useState({
-    cardholder: '',
-    number: '',
-    expiry: '',
-    cvv: '',
-  });
-  const [walletPhone, setWalletPhone] = useState('');
+  // Location & Delivery Fee States
+  const [perKmRate, setPerKmRate] = useState(150);
+  const [deliveryFee, setDeliveryFee] = useState(150);
+  const [calculatedDistance, setCalculatedDistance] = useState(null);
+  const [restaurantCoords, setRestaurantCoords] = useState(null); // [lat, lng]
+  const [deliveryCoords, setDeliveryCoords] = useState(null); // [lat, lng]
+  const [userInteractedWithMap, setUserInteractedWithMap] = useState(false);
+
+  // Saved Cards & Payment Verification
+  const [savedCards, setSavedCards] = useState([]);
+  const [selectedCardId, setSelectedCardId] = useState('');
+  const [cardPin, setCardPin] = useState('');
   const [errors, setErrors] = useState({});
 
   // Promo code states
@@ -35,9 +141,116 @@ function CheckoutPage() {
   // Order status states
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
-  const [orderStep, setOrderStep] = useState(1);
   const [orderId, setOrderId] = useState('');
-  const [countdown, setCountdown] = useState(30);
+  const [customerOtp, setCustomerOtp] = useState('');
+
+  // Pre-fill user profile data if available
+  useEffect(() => {
+    if (currentUser) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || currentUser.name || '',
+        phone: prev.phone || (currentUser.phone ? formatPhone(currentUser.phone) : ''),
+        address: prev.address || currentUser.address || ''
+      }));
+    }
+  }, [currentUser]);
+
+  // Load user saved cards
+  useEffect(() => {
+    api.getCards().then(cards => {
+      setSavedCards(cards);
+      if (cards.length > 0) {
+        setSelectedCardId(cards[0]._id);
+      }
+    }).catch(err => console.error("Failed to load cards:", err));
+  }, []);
+
+  // Load platform settings for per-km delivery rate
+  useEffect(() => {
+    api.getSettings().then(st => {
+      if (st && st.deliveryCharges) {
+        setPerKmRate(Number(st.deliveryCharges));
+      }
+    }).catch(() => { });
+  }, []);
+
+  // Fetch restaurant coords accurately from DB
+  useEffect(() => {
+    const firstItem = cartItems[0];
+    if (firstItem?.restaurantId) {
+      api.getRestaurantById(firstItem.restaurantId).then(res => {
+        if (res && res.lat && res.lng) {
+          setRestaurantCoords([res.lat, res.lng]);
+        } else if (res && res.address) {
+          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(res.address + ', Pakistan')}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data && data.length > 0) {
+                setRestaurantCoords([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+              } else {
+                setRestaurantCoords([33.6923, 73.0105]); // Default F-10 Markaz
+              }
+            }).catch(() => setRestaurantCoords([33.6923, 73.0105]));
+        } else {
+          setRestaurantCoords([33.6923, 73.0105]);
+        }
+      }).catch(() => setRestaurantCoords([33.6923, 73.0105]));
+    }
+  }, [cartItems]);
+
+  // Calculate distance-based delivery fee (min Rs 150)
+  useEffect(() => {
+    if (restaurantCoords && deliveryCoords) {
+      const dist = calculateDistanceKm(restaurantCoords[0], restaurantCoords[1], deliveryCoords[0], deliveryCoords[1]);
+      if (dist) {
+        setCalculatedDistance(dist);
+        const calc = Math.round(dist * perKmRate);
+        setDeliveryFee(Math.max(150, calc));
+      } else {
+        setCalculatedDistance(null);
+        setDeliveryFee(150);
+      }
+    } else {
+      setCalculatedDistance(null);
+      setDeliveryFee(150);
+    }
+  }, [restaurantCoords, deliveryCoords, perKmRate]);
+
+  const handleAddressBlur = () => {
+    if (formData.address.trim() && !userInteractedWithMap) {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address + ', Pakistan')}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lng = parseFloat(data[0].lon);
+            setDeliveryCoords([lat, lng]);
+          }
+        })
+        .catch(() => { });
+    }
+  };
+
+  const handleMapLocationSelect = (coords) => {
+    setDeliveryCoords(coords);
+    setUserInteractedWithMap(true);
+
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords[0]}&lon=${coords[1]}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.display_name) {
+          const shortAddr = data.display_name.split(',').slice(0, 4).join(',');
+          setFormData(prev => ({ ...prev, address: shortAddr }));
+        }
+      })
+      .catch(() => { });
+  };
+
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhone(e.target.value);
+    setFormData({ ...formData, phone: formatted });
+  };
 
   // Calculate prices
   const subtotal = cartItems.reduce(
@@ -45,7 +258,6 @@ function CheckoutPage() {
     0
   );
 
-  const deliveryFee = formData.deliverySpeed === 'priority' ? 250 : 150;
   const platformFee = cartItems.length > 0 ? 30 : 0;
 
   let discount = 0;
@@ -59,7 +271,6 @@ function CheckoutPage() {
 
   const grandTotal = Math.max(0, subtotal + deliveryFee + platformFee - discount);
 
-  // Handle promo code application
   const handleApplyPromo = (e) => {
     e.preventDefault();
     setPromoError('');
@@ -90,66 +301,26 @@ function CheckoutPage() {
     setAppliedPromo(null);
   };
 
-  // Card input formatting helpers
-  const handleCardNumberChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').substring(0, 16);
-    // Format as 0000 0000 0000 0000
-    const formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ');
-    setCardData({ ...cardData, number: formatted });
-  };
-
-  const handleCardExpiryChange = (e) => {
-    let value = e.target.value.replace(/\D/g, '').substring(0, 4);
-    if (value.length > 2) {
-      value = `${value.substring(0, 2)}/${value.substring(2)}`;
-    }
-    setCardData({ ...cardData, expiry: value });
-  };
-
-  const handleCardCvvChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').substring(0, 3);
-    setCardData({ ...cardData, cvv: value });
-  };
-
-  const handleWalletPhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').substring(0, 11);
-    setWalletPhone(value);
-  };
-
   // Validate form details
   const validateForm = () => {
     const tempErrors = {};
     if (!formData.name.trim()) tempErrors.name = 'Full name is required';
-    
-    // Pakistani mobile phone formatting: 10 to 11 digits
+
+    const rawPhone = formData.phone.replace(/\D/g, '');
     if (!formData.phone.trim()) {
       tempErrors.phone = 'Phone number is required';
-    } else if (!/^\d{10,11}$/.test(formData.phone.replace(/\D/g, ''))) {
+    } else if (!/^\d{10,11}$/.test(rawPhone)) {
       tempErrors.phone = 'Please enter a valid phone number (10-11 digits)';
     }
 
     if (!formData.address.trim()) tempErrors.address = 'Delivery address is required';
 
-    if (paymentMethod === 'card') {
-      if (!cardData.cardholder.trim()) tempErrors.cardholder = 'Cardholder name is required';
-      if (!/^\d{4}\s\d{4}\s\d{4}\s\d{4}$/.test(cardData.number) && cardData.number.replace(/\s/g, '').length !== 16) {
-        tempErrors.cardNumber = 'Please enter a valid 16-digit card number';
-      }
-      if (!/^\d{2}\/\d{2}$/.test(cardData.expiry)) {
-        tempErrors.cardExpiry = 'Expiry must be MM/YY';
-      } else {
-        const [month, year] = cardData.expiry.split('/').map(Number);
-        if (month < 1 || month > 12) {
-          tempErrors.cardExpiry = 'Invalid month';
-        }
-      }
-      if (cardData.cvv.length !== 3) tempErrors.cardCvv = 'CVV must be 3 digits';
+    if (!selectedCardId) {
+      tempErrors.card = 'Please select a card from your saved profile cards';
     }
 
-    if (paymentMethod === 'wallet') {
-      if (!/^\d{11}$/.test(walletPhone)) {
-        tempErrors.walletPhone = 'Please enter a valid 11-digit wallet number';
-      }
+    if (!cardPin.trim()) {
+      tempErrors.pin = 'Card PIN is required to verify ownership';
     }
 
     setErrors(tempErrors);
@@ -160,13 +331,25 @@ function CheckoutPage() {
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
-      // Scroll to errors if any
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     setIsPlacingOrder(true);
-    
+
+    let finalCoords = deliveryCoords;
+    if (!finalCoords && formData.address.trim()) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address + ', Pakistan')}`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          finalCoords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        }
+      } catch (err) {
+        console.error('Geocode search failed on submit:', err);
+      }
+    }
+
     const firstItem = cartItems[0];
     const resId = firstItem?.restaurantId;
 
@@ -178,62 +361,37 @@ function CheckoutPage() {
         quantity: item.quantity
       })),
       totalAmount: grandTotal,
+      subtotal,
+      platformFee,
+      cardId: selectedCardId,
+      pin: cardPin,
       deliveryAddress: formData.address,
-      paymentMethod,
-      deliverySpeed: formData.deliverySpeed,
+      paymentMethod: 'Credit / Debit Card',
       instructions: formData.instructions,
       phone: formData.phone,
-      name: formData.name
+      name: formData.name,
+      deliveryLat: finalCoords ? finalCoords[0] : null,
+      deliveryLng: finalCoords ? finalCoords[1] : null,
+      deliveryFee: deliveryFee
     };
 
     try {
       const createdOrder = await api.createOrder(orderData);
       setOrderId(createdOrder.orderNumber);
-      
-      // Simulate baking state sequence
+      setCustomerOtp(createdOrder.customerOtp || 'SEC123');
+
       setTimeout(() => {
         setIsPlacingOrder(false);
         setOrderPlaced(true);
         clearCart();
-        
-        // After placing, we just show the success screen here which does countdowns,
-        // so no immediate navigate is needed unless desired.
-        // navigate('/orders');
-      }, 2500);
+      }, 2000);
     } catch (err) {
       console.error("Failed to create order:", err);
       setIsPlacingOrder(false);
-      alert("Failed to place order. Please try again.");
+      alert(err.message || "Failed to place order. Please check card PIN and balance.");
     }
   };
 
-  // Track delivery sequence progress
-  useEffect(() => {
-    if (!orderPlaced) return;
-
-    // Transition from Preheating (Step 1) to Baking (Step 2)
-    const tandoorTimer = setTimeout(() => {
-      setOrderStep(2);
-    }, 4000);
-
-    // Transition from Baking (Step 2) to Rider Delivering (Step 3)
-    const deliveryTimer = setTimeout(() => {
-      setOrderStep(3);
-    }, 9000);
-
-    // Simulated real-time estimated time countdown
-    const countdownInterval = setInterval(() => {
-      setCountdown((prev) => (prev > 5 ? prev - 1 : prev));
-    }, 6000);
-
-    return () => {
-      clearTimeout(tandoorTimer);
-      clearTimeout(deliveryTimer);
-      clearInterval(countdownInterval);
-    };
-  }, [orderPlaced]);
-
-  // Render empty cart fallback page
   if (cartItems.length === 0 && !orderPlaced && !isPlacingOrder) {
     return (
       <div className="checkout-empty-container">
@@ -249,7 +407,6 @@ function CheckoutPage() {
     );
   }
 
-  // Render loading placeholder while baking/placing order
   if (isPlacingOrder) {
     return (
       <div className="checkout-loading-container">
@@ -261,8 +418,8 @@ function CheckoutPage() {
           </div>
           <div className="dough-spin">🍞</div>
         </div>
-        <h2>Baking Your Order...</h2>
-        <p>Sending your request to the NaanNow tandoor. Please do not refresh or close this page.</p>
+        <h2>Verifying Card & Baking Order...</h2>
+        <p>Validating your card credentials with profile cards and starting prep. Please wait.</p>
       </div>
     );
   }
@@ -277,64 +434,97 @@ function CheckoutPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path>
             </svg>
           </div>
-          <h2>Bake & Order Placed!</h2>
+          <h2>Order Placed & Payment Escrowed!</h2>
           <p className="order-id">Order Reference: <span>{orderId}</span></p>
-          <div className="delivery-etd">
-            <span className="etd-label">Estimated Delivery Time</span>
-            <span className="etd-value">{countdown} mins</span>
+
+          {/* Customer OTP Box */}
+          <div className="customer-otp-card" style={{
+            background: 'linear-gradient(135deg, #111827 0%, #1F2937 100%)',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '12px',
+            marginTop: '16px',
+            textAlign: 'center',
+            border: '2px dashed #E57919'
+          }}>
+            <span style={{ fontSize: '13px', color: '#9CA3AF', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              🔐 Your Security Delivery OTP
+            </span>
+            <span style={{ fontSize: '28px', fontWeight: '800', color: '#F59E0B', letterSpacing: '4px', display: 'block', margin: '6px 0' }}>
+              {customerOtp}
+            </span>
+            <span style={{ fontSize: '12px', color: '#D1D5DB' }}>
+              Only share this code with your rider when your order arrives at your gate.
+            </span>
           </div>
         </div>
 
-        {/* Dynamic tracking steps */}
-        <div className="tracking-timeline-card">
-          <h3>Order Progress</h3>
+        {/* 6 Standardized Tracking steps */}
+        <div className="tracking-timeline-card" style={{ marginTop: '24px' }}>
+          <h3>Order Status Progress</h3>
           <div className="timeline-steps">
-            <div className={`timeline-step ${orderStep >= 1 ? 'active' : ''} ${orderStep === 1 ? 'current' : ''}`}>
-              <div className="step-icon">🥣</div>
+            <div className="timeline-step active current">
+              <div className="step-icon">📋</div>
               <div className="step-details">
-                <h4>Order Received & Preheating</h4>
-                <p>{orderStep === 1 ? 'Preheating tandoor & preparing dough...' : 'Completed'}</p>
+                <h4>1. Placed</h4>
+                <p>Order submitted & payment verified into escrow.</p>
               </div>
-              <div className="step-status-bar"></div>
             </div>
-
-            <div className={`timeline-step ${orderStep >= 2 ? 'active' : ''} ${orderStep === 2 ? 'current' : ''}`}>
-              <div className="step-icon">🔥</div>
+            <div className="timeline-step">
+              <div className="step-icon">🍳</div>
               <div className="step-details">
-                <h4>Baking Your Naan</h4>
-                <p>{orderStep === 2 ? 'Naan is in the clay oven, cooking to crispy perfection...' : orderStep > 2 ? 'Completed' : 'Pending tandoor prep'}</p>
+                <h4>2. Preparing</h4>
+                <p>Restaurant is preparing your food.</p>
               </div>
-              <div className="step-status-bar"></div>
             </div>
-
-            <div className={`timeline-step ${orderStep >= 3 ? 'active' : ''} ${orderStep === 3 ? 'current' : ''}`}>
+            <div className="timeline-step">
+              <div className="step-icon">📦</div>
+              <div className="step-details">
+                <h4>3. Prepared</h4>
+                <p>Food is packed and ready for rider.</p>
+              </div>
+            </div>
+            <div className="timeline-step">
+              <div className="step-icon">🤝</div>
+              <div className="step-details">
+                <h4>4. Handed over to rider</h4>
+                <p>Rider verified handover OTP at restaurant.</p>
+              </div>
+            </div>
+            <div className="timeline-step">
               <div className="step-icon">🛵</div>
               <div className="step-details">
-                <h4>Rider Dispatching</h4>
-                <p>{orderStep === 3 ? 'Rider is carrying your warm food box directly to your location!' : 'Pending bakery completion'}</p>
+                <h4>5. Out for delivery</h4>
+                <p>Rider is driving to your location.</p>
+              </div>
+            </div>
+            <div className="timeline-step">
+              <div className="step-icon">✅</div>
+              <div className="step-details">
+                <h4>6. Delivered</h4>
+                <p>Food delivered safely to doorstep.</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Delivery Details Summary Card */}
-        <div className="summary-details-card">
+        <div className="summary-details-card" style={{ marginTop: '24px' }}>
           <h3>Delivery Address Details</h3>
-          <p><strong>Rider Destination:</strong> {formData.address}</p>
+          <p><strong>Destination:</strong> {formData.address}</p>
           <p><strong>Customer Name:</strong> {formData.name}</p>
           <p><strong>Contact Phone:</strong> {formData.phone}</p>
           {formData.instructions && <p><strong>Delivery Note:</strong> {formData.instructions}</p>}
-          <p><strong>Payment Mode:</strong> {paymentMethod === 'cod' ? 'Cash on Delivery (COD)' : paymentMethod === 'card' ? 'Debit/Credit Card' : 'Mobile Wallet'}</p>
+          <p><strong>Payment Mode:</strong> Profile Card (Verified)</p>
         </div>
 
-        <button className="finish-checkout-btn" onClick={() => navigate('/')}>
-          Back to Main Menu
+        <button className="finish-checkout-btn" onClick={() => navigate('/orders')}>
+          Track Order on My Orders Page
         </button>
       </div>
     );
   }
 
-  // Render normal checkout form layout
   return (
     <div className="checkout-page-container">
       {/* Breadcrumb row */}
@@ -344,7 +534,7 @@ function CheckoutPage() {
           <span className="breadcrumb-separator">/</span>
           <span className="breadcrumb-current">Checkout</span>
         </div>
-        
+
         <button className="back-home-btn" onClick={() => navigate('/')}>
           ← Back to Shopping
         </button>
@@ -355,7 +545,7 @@ function CheckoutPage() {
       <form className="checkout-layout-grid" onSubmit={handlePlaceOrder}>
         {/* Left Form Column */}
         <div className="checkout-forms-column">
-          
+
           {/* Section 1: Delivery Information */}
           <div className="checkout-section-card">
             <div className="section-title-row">
@@ -364,76 +554,57 @@ function CheckoutPage() {
             </div>
 
             <div className="form-fields-grid">
-              <div className="form-group full-width">
-                <label htmlFor="name">Receiver Name</label>
+              <div className="form-group half-width">
+                <label htmlFor="name">Receiver Name *</label>
                 <input
                   type="text"
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Muhammad Saad"
+                  placeholder="Full Name"
                   className={errors.name ? 'error-input' : ''}
                 />
                 {errors.name && <span className="field-error-message">{errors.name}</span>}
               </div>
 
               <div className="form-group half-width">
-                <label htmlFor="phone">Phone Number</label>
+                <label htmlFor="phone">Phone Number *</label>
                 <input
                   type="tel"
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="e.g. 03001234567"
+                  onChange={handlePhoneChange}
+                  placeholder="e.g. 0300-1234567"
                   className={errors.phone ? 'error-input' : ''}
                 />
                 {errors.phone && <span className="field-error-message">{errors.phone}</span>}
               </div>
 
-              <div className="form-group half-width">
-                <label>Delivery Speed</label>
-                <div className="speed-selector-group">
-                  <label className={`speed-option ${formData.deliverySpeed === 'standard' ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="deliverySpeed"
-                      value="standard"
-                      checked={formData.deliverySpeed === 'standard'}
-                      onChange={() => setFormData({ ...formData, deliverySpeed: 'standard' })}
-                    />
-                    <div className="speed-label-text">
-                      <span>Standard</span>
-                      <small>Rs 150</small>
-                    </div>
-                  </label>
-
-                  <label className={`speed-option ${formData.deliverySpeed === 'priority' ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="deliverySpeed"
-                      value="priority"
-                      checked={formData.deliverySpeed === 'priority'}
-                      onChange={() => setFormData({ ...formData, deliverySpeed: 'priority' })}
-                    />
-                    <div className="speed-label-text">
-                      <span>Priority</span>
-                      <small>Rs 250</small>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
               <div className="form-group full-width">
-                <label htmlFor="address">Delivery Address</label>
+                <label htmlFor="address">Delivery Address *</label>
                 <textarea
                   id="address"
                   rows="3"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onBlur={handleAddressBlur}
                   placeholder="Street No, House No, Sector/Area, City (e.g. House 42B, Street 11, F-10/2, Islamabad)"
                   className={errors.address ? 'error-input' : ''}
                 />
                 {errors.address && <span className="field-error-message">{errors.address}</span>}
+              </div>
+
+              {/* Interactive OpenStreetMap Picker */}
+              <div className="form-group full-width">
+                <CheckoutLocationPickerMap
+                  deliveryCoords={deliveryCoords}
+                  onLocationSelect={handleMapLocationSelect}
+                />
+                {calculatedDistance && (
+                  <div style={{ marginTop: '8px', fontSize: '13px', color: '#10B981', fontWeight: 'bold' }}>
+                    📏 Distance to Restaurant: {calculatedDistance} km (Delivery fee: Rs {deliveryFee})
+                  </div>
+                )}
               </div>
 
               <div className="form-group full-width">
@@ -449,121 +620,62 @@ function CheckoutPage() {
             </div>
           </div>
 
-          {/* Section 2: Payment Details */}
+          {/* Section 2: Payment Details (Profile Cards Only) */}
           <div className="checkout-section-card">
             <div className="section-title-row">
               <span className="section-number">2</span>
-              <h2>Choose Payment Method</h2>
+              <h2>Pay for Order (Select Profile Card)</h2>
             </div>
+            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px' }}>
+              Select one of your saved cards from your profile. Unregistered or unknown cards are not allowed.
+            </p>
 
-            <div className="payment-method-tabs">
-              <button
-                type="button"
-                className={`payment-tab ${paymentMethod === 'cod' ? 'active' : ''}`}
-                onClick={() => setPaymentMethod('cod')}
-              >
-                <span className="payment-icon">💵</span>
-                Cash on Delivery
-              </button>
-
-              <button
-                type="button"
-                className={`payment-tab ${paymentMethod === 'card' ? 'active' : ''}`}
-                onClick={() => setPaymentMethod('card')}
-              >
-                <span className="payment-icon">💳</span>
-                Credit/Debit Card
-              </button>
-
-              <button
-                type="button"
-                className={`payment-tab ${paymentMethod === 'wallet' ? 'active' : ''}`}
-                onClick={() => setPaymentMethod('wallet')}
-              >
-                <span className="payment-icon">📱</span>
-                Mobile Wallet
-              </button>
-            </div>
-
-            {/* Cash on Delivery Details */}
-            {paymentMethod === 'cod' && (
-              <div className="payment-description-box">
-                <p>Pay with cash when the rider delivers your piping hot Naans directly to your doorstep. Please try to keep exact change handy!</p>
+            {savedCards.length === 0 ? (
+              <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '8px', color: '#991B1B' }}>
+                ⚠️ You have no active cards saved in your profile.
+                <button
+                  type="button"
+                  style={{ marginLeft: '10px', textDecoration: 'underline', color: '#991B1B', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={() => navigate('/profile')}
+                >
+                  Click here to add a card to your profile
+                </button>
               </div>
-            )}
-
-            {/* Credit/Debit Card Form */}
-            {paymentMethod === 'card' && (
-              <div className="card-form-inputs">
+            ) : (
+              <div className="card-selection-area">
                 <div className="form-group full-width">
-                  <label htmlFor="cardholder">Cardholder Name</label>
-                  <input
-                    type="text"
-                    id="cardholder"
-                    value={cardData.cardholder}
-                    onChange={(e) => setCardData({ ...cardData, cardholder: e.target.value })}
-                    placeholder="e.g. Muhammad Saad"
-                    className={errors.cardholder ? 'error-input' : ''}
-                  />
-                  {errors.cardholder && <span className="field-error-message">{errors.cardholder}</span>}
+                  <label htmlFor="savedCardSelect">Choose Saved Card *</label>
+                  <select
+                    id="savedCardSelect"
+                    value={selectedCardId}
+                    onChange={(e) => setSelectedCardId(e.target.value)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px' }}
+                  >
+                    {savedCards.map(card => (
+                      <option key={card._id} value={card._id}>
+                        💳 Card ending in {card.cardNumber.slice(-4)} (Exp: {card.expiryDate}) — Available Balance: Rs {card.balance}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.card && <span className="field-error-message">{errors.card}</span>}
                 </div>
 
-                <div className="form-group full-width">
-                  <label htmlFor="cardNumber">Card Number</label>
-                  <input
-                    type="text"
-                    id="cardNumber"
-                    value={cardData.number}
-                    onChange={handleCardNumberChange}
-                    placeholder="xxxx xxxx xxxx xxxx"
-                    className={errors.cardNumber ? 'error-input' : ''}
-                  />
-                  {errors.cardNumber && <span className="field-error-message">{errors.cardNumber}</span>}
-                </div>
-
-                <div className="form-group half-width">
-                  <label htmlFor="cardExpiry">Expiration Date</label>
-                  <input
-                    type="text"
-                    id="cardExpiry"
-                    value={cardData.expiry}
-                    onChange={handleCardExpiryChange}
-                    placeholder="MM/YY"
-                    className={errors.cardExpiry ? 'error-input' : ''}
-                  />
-                  {errors.cardExpiry && <span className="field-error-message">{errors.cardExpiry}</span>}
-                </div>
-
-                <div className="form-group half-width">
-                  <label htmlFor="cardCvv">CVV / CVC Code</label>
+                <div className="form-group half-width" style={{ marginTop: '16px' }}>
+                  <label htmlFor="cardPin">Enter Card Security PIN *</label>
                   <input
                     type="password"
-                    id="cardCvv"
-                    value={cardData.cvv}
-                    onChange={handleCardCvvChange}
-                    placeholder="123"
-                    className={errors.cardCvv ? 'error-input' : ''}
+                    id="cardPin"
+                    maxLength={4}
+                    value={cardPin}
+                    onChange={(e) => setCardPin(e.target.value)}
+                    placeholder="Enter 4-digit PIN (default 1234)"
+                    className={errors.pin ? 'error-input' : ''}
+                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }}
                   />
-                  {errors.cardCvv && <span className="field-error-message">{errors.cardCvv}</span>}
-                </div>
-              </div>
-            )}
-
-            {/* Mobile Wallet Form */}
-            {paymentMethod === 'wallet' && (
-              <div className="wallet-form-inputs">
-                <p className="wallet-instructions">Enter your account number. We will send a security OTP prompt to authorize mobile wallet debit.</p>
-                <div className="form-group full-width">
-                  <label htmlFor="walletPhone">EasyPaisa / JazzCash Mobile Number</label>
-                  <input
-                    type="tel"
-                    id="walletPhone"
-                    value={walletPhone}
-                    onChange={handleWalletPhoneChange}
-                    placeholder="e.g. 03211234567"
-                    className={errors.walletPhone ? 'error-input' : ''}
-                  />
-                  {errors.walletPhone && <span className="field-error-message">{errors.walletPhone}</span>}
+                  {errors.pin && <span className="field-error-message">{errors.pin}</span>}
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginTop: '4px' }}>
+                    Required to confirm cardholder identity before deducting funds.
+                  </span>
                 </div>
               </div>
             )}
@@ -574,11 +686,10 @@ function CheckoutPage() {
         <div className="checkout-summary-column">
           <div className="summary-sticky-card">
             <h3>Basket Summary</h3>
-            
-            {/* Items review block */}
+
             <div className="checkout-items-review">
               {cartItems.map((item) => (
-                <div className="review-item-row" key={item.id}>
+                <div className="review-item-row" key={item.id || item._id}>
                   <img src={item.image} alt={item.name} className="review-item-img" />
                   <div className="review-item-info">
                     <h4>{item.name}</h4>
@@ -591,7 +702,6 @@ function CheckoutPage() {
               ))}
             </div>
 
-            {/* Voucher input form */}
             <div className="promo-input-section">
               {appliedPromo ? (
                 <div className="promo-badge-applied">
@@ -618,40 +728,37 @@ function CheckoutPage() {
               {promoError && <p className="promo-error-message">{promoError}</p>}
             </div>
 
-            {/* Summary calculation rows */}
             <div className="summary-calculation-rows">
               <div className="calc-row">
                 <span>Subtotal</span>
                 <span>Rs {subtotal}</span>
               </div>
-              
+
               <div className="calc-row">
-                <span>Delivery Charge</span>
+                <span>Delivery Fee</span>
                 <span>Rs {deliveryFee}</span>
               </div>
 
               <div className="calc-row">
-                <span>Service/Platform Fee</span>
+                <span>Platform Fee</span>
                 <span>Rs {platformFee}</span>
               </div>
 
               {appliedPromo && (
                 <div className="calc-row discount-row">
-                  <span>Promo Discount ({appliedPromo.code})</span>
+                  <span>Discount ({appliedPromo.code})</span>
                   <span>- Rs {discount}</span>
                 </div>
               )}
 
-              <hr className="divider-line" />
-
               <div className="calc-row grand-total-row">
-                <span>Total Amount</span>
+                <span>Grand Total</span>
                 <span>Rs {grandTotal}</span>
               </div>
             </div>
 
-            <button type="submit" className="submit-order-btn">
-              Bake & Place Order
+            <button type="submit" className="place-order-submit-btn" disabled={isPlacingOrder || savedCards.length === 0}>
+              Verify PIN & Place Order
             </button>
           </div>
         </div>
