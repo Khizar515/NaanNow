@@ -739,9 +739,8 @@
 @media (max-width: 1024px) {
   .orders-layout-grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 24px;
   }
-
   .order-details-column {
     position: relative;
     top: 0;
@@ -750,30 +749,54 @@
 
 @media (max-width: 768px) {
   .orders-page-container {
-    padding: 20px 4%;
+    padding: 16px 4% 40px 4%;
   }
-
   .orders-title-section h1 {
-    font-size: 26px;
+    font-size: 22px;
   }
-
   .orders-header-bar {
     margin-bottom: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
-
   .orders-section-card {
     padding: 16px;
+    border-radius: 14px;
   }
-
   .order-details-card {
-    padding: 20px;
+    padding: 18px;
+    border-radius: 14px;
   }
-
+  .order-card-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+  .btn-track-order,
+  .btn-reorder {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    padding: 11px;
+  }
   .stepper-steps-row {
     padding: 0 2%;
   }
-
   .bubble-label {
     font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .orders-page-container {
+    padding: 12px 12px 30px 12px;
+  }
+  .back-home-btn {
+    width: 100%;
+    text-align: center;
+  }
+  .order-item-row {
+    font-size: 13px;
   }
 }

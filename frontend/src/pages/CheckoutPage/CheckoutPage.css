@@ -911,6 +911,10 @@
 
 /* Responsive Styles */
 @media (max-width: 900px) {
+  .checkout-page-container {
+    padding: 24px 4% 60px 4%;
+  }
+
   .checkout-layout-grid {
     grid-template-columns: 1fr;
     gap: 24px;
@@ -923,26 +927,35 @@
 
 @media (max-width: 580px) {
   .checkout-page-container {
-    padding: 24px 4%;
+    padding: 16px 12px 40px 12px;
   }
   
   .checkout-title {
-    font-size: 1.6rem;
-    margin-bottom: 24px;
+    font-size: 1.4rem;
+    margin-bottom: 18px;
   }
 
   .checkout-section-card {
-    padding: 20px;
+    padding: 16px;
+    border-radius: 14px;
+    margin-bottom: 16px;
   }
 
   .form-fields-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 14px;
   }
   
   .form-group.full-width,
   .form-group.half-width {
-    grid-column: span 2;
+    grid-column: 1 / -1;
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px;
+    padding: 11px 13px;
   }
 
   .payment-method-tabs {
@@ -953,14 +966,27 @@
   .payment-tab {
     flex-direction: row;
     justify-content: flex-start;
-    padding: 12px;
+    padding: 12px 14px;
+    gap: 10px;
   }
 
   .card-form-inputs {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
   
   .card-form-inputs .form-group.half-width {
-    grid-column: span 2;
+    grid-column: 1 / -1;
+  }
+
+  .order-summary-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .place-order-btn {
+    padding: 14px;
+    font-size: 15px;
+    border-radius: 12px;
   }
 }

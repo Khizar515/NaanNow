@@ -645,7 +645,7 @@
 @media (max-width: 1024px) {
   .menu-container {
     flex-direction: column;
-    gap: 30px;
+    gap: 24px;
   }
 
   .menu-controls {
@@ -655,56 +655,121 @@
   }
 
   .categories-list {
-    padding: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
   }
 
   .categories-buttons {
+    display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
+    overflow-x: auto;
+    gap: 8px;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .categories-buttons::-webkit-scrollbar {
+    display: none;
   }
 
   .category-tab-btn {
-    padding: 8px 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 8px 16px;
     font-size: 0.85rem;
+    border-radius: 20px;
   }
 }
 
 @media (max-width: 768px) {
   .restaurant-hero {
     height: auto;
-    min-height: 280px;
-    padding: 20px;
+    min-height: 220px;
+    padding: 16px;
+    border-radius: 14px;
   }
 
   .hero-content {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 14px;
   }
 
   .hero-info-card {
-    padding: 16px 20px;
+    padding: 14px 16px;
+    border-radius: 12px;
     width: 100%;
   }
 
   .restaurant-title {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
   }
 
   .restaurant-meta-row {
     flex-wrap: wrap;
     font-size: 0.8rem;
+    gap: 8px;
   }
 
   .hero-fav-btn {
     align-self: flex-end;
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
   }
 
   .hero-fav-btn svg {
     width: 20px;
     height: 20px;
+  }
+
+  .menu-items-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .restaurant-page-container {
+    padding: 0 12px 60px 12px;
+  }
+
+  .restaurant-header-bar {
+    margin-bottom: 14px;
+  }
+
+  .menu-items-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .menu-item-card {
+    border-radius: 14px;
+  }
+
+  .menu-item-image-wrapper {
+    height: 170px;
+  }
+
+  .menu-item-details {
+    padding: 14px;
+  }
+
+  .menu-item-name {
+    font-size: 15px;
+  }
+
+  .menu-item-description {
+    font-size: 12px;
+  }
+
+  .menu-item-price {
+    font-size: 15px;
+  }
+
+  .add-to-cart-btn {
+    padding: 8px 16px;
+    font-size: 13px;
   }
 }

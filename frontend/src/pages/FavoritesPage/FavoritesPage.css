@@ -77,17 +77,23 @@
 /* Extra mobile styles */
 @media (max-width: 768px) {
   .favorites-page-container {
-    padding: 16px 5% 40px 5%;
+    padding: 16px 4% 40px 4%;
   }
 
   .favorites-header-bar {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 14px;
   }
 
   .back-home-btn {
     align-self: stretch;
     text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .favorites-page-container {
+    padding: 12px 12px 30px 12px;
   }
 }

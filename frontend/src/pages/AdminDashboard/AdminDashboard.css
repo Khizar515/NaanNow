@@ -2011,3 +2011,15 @@
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   border: 2px solid rgba(255, 255, 255, 0.15);
 }
+
+/* Global table responsive wrapper safeguard */
+.dashboard-table-container,
+.orders-table-wrapper,
+.users-table-container,
+.admin-table-container,
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: block;
+}

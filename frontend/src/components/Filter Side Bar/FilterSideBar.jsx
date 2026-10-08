@@ -3,6 +3,7 @@ import './FilterSideBar.css';
 
 const FilterSidebar = ({ filterState = {}, setFilterState }) => {
   const [showAllCuisines, setShowAllCuisines] = useState(false);
+  const [isMobileExpanded, setIsMobileExpanded] = useState(false);
 
   // Defaults fallback to avoid crashing if prop not provided
   const f = filterState.sortBy ? filterState : {
@@ -29,6 +30,15 @@ const FilterSidebar = ({ filterState = {}, setFilterState }) => {
     });
   };
 
+  const activeCount = (f.sortBy && f.sortBy !== 'Relevance' ? 1 : 0) +
+    (f.ratings4Plus ? 1 : 0) +
+    (f.superRestaurant ? 1 : 0) +
+    (f.offers?.freeDelivery ? 1 : 0) +
+    (f.offers?.acceptsVouchers ? 1 : 0) +
+    (f.offers?.deals ? 1 : 0) +
+    (f.cuisines?.length || 0) +
+    (f.priceTier ? 1 : 0);
+
   // Sample data for cuisines based on your image
   const cuisines = [
     'American', 'BBQ', 'Beverages', 'Biryani', 'Burgers', 
@@ -38,10 +48,46 @@ const FilterSidebar = ({ filterState = {}, setFilterState }) => {
   const displayedCuisines = showAllCuisines ? cuisines : cuisines.slice(0, 5);
 
   return (
-    <aside className="filter-sidebar">
-      <div className="filter-header">
-        <h2>Filter</h2>
-        <button className="clear-btn" onClick={handleClearAll}>Clear all</button>
+    <aside className={`filter-sidebar ${isMobileExpanded ? 'mobile-expanded' : ''}`}>
+      <div className="filter-header" onClick={() => setIsMobileExpanded(!isMobileExpanded)}>
+        <div className="filter-title-group">
+          <svg className="filter-funnel-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          <h2>Filter & Sort</h2>
+          {activeCount > 0 && <span className="filter-active-count">{activeCount}</span>}
+        </div>
+
+        <div className="filter-header-right">
+          {activeCount > 0 && (
+            <button 
+              className="clear-btn" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClearAll();
+              }}
+            >
+              Clear all
+            </button>
+          )}
+          <button 
+            type="button" 
+            className="filter-toggle-caret" 
+            aria-label="Toggle Filter Options"
+          >
+            <svg 
+              width="18" 
+              height="18" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2.5" 
+              viewBox="0 0 24 24"
+              style={{ transform: isMobileExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="filter-scroll-area">

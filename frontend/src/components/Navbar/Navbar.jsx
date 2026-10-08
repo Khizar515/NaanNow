@@ -217,15 +217,15 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
 
 
         {/* Mobile Profile Icon (Visible only on mobile, Left side) */}
-        <button className="icon-btn mobile-only" onClick={() => navigate('/profile')}>
+        <button className="icon-btn mobile-only mobile-profile-btn" onClick={() => navigate('/profile')} aria-label="User Profile">
           {currentUser && (currentUser.profilePic || currentUser.avatar) ? (
             <img
               src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`}
               alt={currentUser.name}
-              style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+              className="mobile-profile-avatar"
             />
           ) : (
-            <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--color-tandoori)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>
+            <div className="mobile-profile-avatar-placeholder">
               {currentUser?.name ? currentUser.name[0].toUpperCase() : '👤'}
             </div>
           )}

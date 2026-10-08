@@ -243,3 +243,66 @@
   color: #fff;
   border-color: #333;
 }
+
+/* --- RESPONSIVE ENHANCEMENTS FOR FILTER SIDEBAR --- */
+.filter-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-active-count {
+  background-color: var(--color-tandoori, #E57919);
+  color: white;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.filter-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-toggle-caret {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-roasted, #4F2E1D);
+  padding: 4px;
+}
+
+@media (max-width: 1024px) {
+  .filter-sidebar {
+    height: auto;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .filter-header {
+    cursor: pointer;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    user-select: none;
+  }
+
+  .filter-toggle-caret {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* By default on mobile / tablet, collapse the scroll area */
+  .filter-sidebar:not(.mobile-expanded) .filter-scroll-area {
+    display: none;
+  }
+
+  .filter-sidebar.mobile-expanded .filter-scroll-area {
+    display: block;
+    max-height: 60vh;
+    padding: 12px 18px 20px 18px;
+  }
+}

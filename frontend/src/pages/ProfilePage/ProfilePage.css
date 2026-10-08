@@ -851,7 +851,6 @@
     grid-template-columns: 240px 1fr;
     gap: 20px;
   }
-
   .payments-grid {
     grid-template-columns: 1fr;
     gap: 24px;
@@ -860,77 +859,84 @@
 
 @media (max-width: 768px) {
   .profile-container {
-    margin: 20px auto;
+    margin: 10px auto;
+    padding: 16px 4% 40px 4%;
   }
-
   .profile-wrapper {
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: 18px;
   }
-
   .profile-sidebar {
-    padding: 24px 16px;
+    padding: 18px 14px;
+    border-radius: 14px;
   }
-
   .sidebar-tabs {
     flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+    gap: 6px;
+    justify-content: flex-start;
   }
-
+  .sidebar-tabs::-webkit-scrollbar {
+    display: none;
+  }
   .sidebar-tab-btn {
     width: auto;
-    padding: 10px 14px;
+    padding: 9px 14px;
     font-size: 13px;
+    flex-shrink: 0;
   }
-
   .content-card {
-    padding: 20px;
+    padding: 18px 16px;
+    border-radius: 14px;
   }
-
   .form-row-2 {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
-
   .profile-notification {
-    left: 20px;
-    right: 20px;
-    top: auto;
-    bottom: 20px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
     text-align: center;
   }
-
-  /* Responsive orders logic: hide table and show cards */
   .desktop-orders-table {
     display: none;
   }
-
   .mobile-orders-list {
     display: flex;
   }
-
-  /* Digital credit card preview scaling */
   .digital-card {
     max-width: 100%;
   }
 }
 
 @media (max-width: 480px) {
-  .sidebar-tab-btn {
-    flex: 1 1 calc(50% - 8px);
-    justify-content: center;
+  .profile-container {
+    padding: 12px 12px 30px 12px;
   }
-
+  .sidebar-tab-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
   .details-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
   }
-
   .details-row .value {
     text-align: left;
     word-break: break-all;
+  }
+  .form-group input,
+  .form-group select {
+    font-size: 16px;
+  }
+  .save-profile-btn {
+    width: 100%;
+    padding: 13px;
   }
 }
