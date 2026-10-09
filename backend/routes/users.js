@@ -70,13 +70,22 @@ router.put('/:id/status', auth, restrictTo('admin'), async (req, res) => {
     if (status === 'blocked' && blockReason) {
       user.blockReason = blockReason;
     }
-    
+
     // Auto create/update restaurant if manager status changes
     if (user.role === 'manager') {
       const Restaurant = require('../models/Restaurant');
       let rest = await Restaurant.findOne({ managerId: user._id });
       if (status === 'approved') {
         if (!rest) {
+          let lat = 0, lng = 0;
+          if (user.mapsLocation) {
+            try {
+              const coords = JSON.parse(user.mapsLocation);
+              lat = coords[0];
+              lng = coords[1];
+            } catch(e) {}
+          }
+          
           rest = new Restaurant({
             name: user.restaurantName || `${user.name}'s Restaurant`,
             managerId: user._id,
@@ -89,7 +98,9 @@ router.put('/:id/status', auth, restrictTo('admin'), async (req, res) => {
             cuisine: "Multiple Cuisines",
             status: 'approved',
             locationUpdatedRecently: false,
-            locationUpdateReason: ''
+            locationUpdateReason: '',
+            lat,
+            lng
           });
           await rest.save();
         } else {
@@ -125,7 +136,7 @@ router.put('/:id/reject', auth, restrictTo('admin'), async (req, res) => {
     user.status = 'rejected';
     user.rejectionReason = reason;
     await user.save();
-    
+
     if (user.role === 'manager') {
       const Restaurant = require('../models/Restaurant');
       await Restaurant.findOneAndUpdate({ managerId: user._id }, { status: 'rejected' });
@@ -149,7 +160,7 @@ router.put('/:id/revoke', auth, restrictTo('admin'), async (req, res) => {
     user.status = 'revoked';
     user.rejectionReason = reason || 'Approval status revoked by administrator.';
     await user.save();
-    
+
     if (user.role === 'manager') {
       const Restaurant = require('../models/Restaurant');
       await Restaurant.findOneAndUpdate({ managerId: user._id }, { status: 'revoked' });
@@ -206,11 +217,11 @@ router.post('/upload-docs', auth, upload.fields([
     }
 
     // Save any text fields sent with form data
-    const textFields = ['dob', 'address', 'cnicNumber', 'licenseNumber', 'bikeRegistration', 
-                        'bikeModel', 'bikeColor', 'bankName', 'accountNumber', 'walletNumber',
-                        'restaurantName', 'restaurantAddress', 'city', 'mapsLocation', 
-                        'restaurantPhone', 'restaurantEmail', 'holderName', 'vehicleDetails', 'licensePlate'];
-    
+    const textFields = ['dob', 'address', 'cnicNumber', 'licenseNumber', 'bikeRegistration',
+      'bikeModel', 'bikeColor', 'bankName', 'accountNumber', 'walletNumber',
+      'restaurantName', 'restaurantAddress', 'city', 'mapsLocation',
+      'restaurantPhone', 'restaurantEmail', 'holderName', 'vehicleDetails', 'licensePlate'];
+
     textFields.forEach(field => {
       if (req.body[field] !== undefined) {
         user[field] = req.body[field];

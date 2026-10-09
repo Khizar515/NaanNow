@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { CartContext } from '../../components/Context/CartContext';
@@ -31,6 +31,16 @@ function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [dismissedPopups, setDismissedPopups] = useState([]);
+  const detailsColumnRef = useRef(null);
+
+  // Auto-scroll to details column on mobile when selection changes
+  useEffect(() => {
+    if (selectedOrderId && detailsColumnRef.current) {
+      if (window.innerWidth <= 1024) {
+        detailsColumnRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [selectedOrderId]);
 
   // Rating Modal state
   const [ratingOrder, setRatingOrder] = useState(null);
@@ -98,7 +108,9 @@ function OrdersPage() {
           _id: item._id,
           name: item.name,
           price: item.price,
-          image: item.image || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000"
+          image: item.image || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000",
+          restaurantId: order.restaurantId?._id || order.restaurantId,
+          restaurantName: order.restaurantId?.name || "NaanNow Kitchen"
         });
       }
     });
@@ -278,7 +290,7 @@ function OrdersPage() {
 
           {/* Right Column: Current Detail & 6-Step Stepper */}
           {selectedOrder && (
-            <div className="order-details-column">
+            <div className="order-details-column" ref={detailsColumnRef}>
               <div className="order-details-card">
 
                 {/* Header info */}

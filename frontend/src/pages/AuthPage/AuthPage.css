@@ -132,6 +132,7 @@
 }
 
 .auth-card-body {
+  padding-top: 5rem;
   width: 100%;
   max-width: 420px;
 }

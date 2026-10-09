@@ -4,16 +4,6 @@ import { api } from '../../api';
 import BlockedTicketWidget from '../../components/BlockedTicketWidget/BlockedTicketWidget';
 import './RestaurantDashboard.css';
 
-// Image templates for quick menu item creation
-const IMAGE_TEMPLATES = [
-  { name: 'Classic Naan', url: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=500&auto=format&fit=crop&q=80' },
-  { name: 'Gourmet Burger', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=80' },
-  { name: 'Sizzling Kabab / BBQ', url: 'https://images.unsplash.com/photo-1601050690597-df056fb4ce78?w=500&auto=format&fit=crop&q=80' },
-  { name: 'Alfredo Pasta', url: 'https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=500&auto=format&fit=crop&q=80' },
-  { name: 'Decadent Dessert', url: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=500&auto=format&fit=crop&q=80' },
-  { name: 'Sparkling Drink', url: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=80' }
-];
-
 // Dynamic Leaflet loader
 const loadLeaflet = (callback) => {
   if (window.L) {
@@ -114,7 +104,6 @@ function RestaurantDashboard() {
     cover: '',
     photoFront: '',
     photoKitchen: '',
-    photoDining: '',
     certDoc: '',
     licenseDoc: '',
     ntnDoc: '',
@@ -175,6 +164,9 @@ function RestaurantDashboard() {
 
     try {
       const formData = new FormData();
+      if (wizardData.lat && wizardData.lng) {
+        wizardData.mapsLocation = JSON.stringify([wizardData.lat, wizardData.lng]);
+      }
       Object.keys(wizardData).forEach(key => {
         if (wizardFiles[key]) {
           formData.append(key, wizardFiles[key]);
@@ -242,7 +234,7 @@ function RestaurantDashboard() {
       try {
         const cats = await api.getCategories();
         setDbCategories(cats || []);
-      } catch (err) {}
+      } catch (err) { }
       try {
         const rest = await api.getMyRestaurant();
         setSelectedRestaurant(rest);
@@ -256,11 +248,11 @@ function RestaurantDashboard() {
       try {
         const settings = await api.getSettings();
         if (settings) setPlatformSettings(settings);
-      } catch (err) {}
+      } catch (err) { }
       try {
         const resOrders = await api.getOrders();
         setOrders(resOrders);
-      } catch (err) {}
+      } catch (err) { }
     };
     if (currentUser?.status === 'approved') {
       loadData();
@@ -274,7 +266,7 @@ function RestaurantDashboard() {
       try {
         const resOrders = await api.getOrders();
         setOrders(resOrders);
-      } catch (err) {}
+      } catch (err) { }
     }, 4000);
     return () => clearInterval(interval);
   }, [currentUser]);
@@ -337,7 +329,7 @@ function RestaurantDashboard() {
         price: '',
         category: dbCategories[0]?.name || 'General',
         description: '',
-        image: IMAGE_TEMPLATES[0].url,
+        image: '',
         imageFile: null
       });
     }
@@ -406,7 +398,7 @@ function RestaurantDashboard() {
 
     return (
       <div className="restaurant-portal-container">
-        <div className="status-card" style={{ maxWidth: '680px', margin: '60px auto', background: '#fff', borderRadius: '20px', padding: '36px', boxShadow: '0 10px 30px rgba(0,0,0,0.06)' }}>
+        <div className="status-card" style={{ maxWidth: '900px', margin: '60px auto', background: '#fff', borderRadius: '20px', padding: '36px', boxShadow: '0 10px 30px rgba(0,0,0,0.06)' }}>
           {isPending ? (
             <>
               <div className="status-icon" style={{ fontSize: '48px', marginBottom: '16px' }}>⌛</div>
@@ -474,6 +466,28 @@ function RestaurantDashboard() {
                       <input type="email" placeholder="Email" value={wizardData.restaurantEmail} onChange={(e) => setWizardData({ ...wizardData, restaurantEmail: e.target.value })} required />
                     </div>
                   </div>
+
+                  <h4 style={{ marginTop: '16px', marginBottom: '8px', fontSize: '15px' }}>Branding & Store Photos</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Restaurant Logo</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'logo')} required={!wizardData.logo} />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Cover Banner</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'cover')} required={!wizardData.cover} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Store Front Photo</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'photoFront')} required={!wizardData.photoFront} />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Kitchen Photo</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'photoKitchen')} required={!wizardData.photoKitchen} />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -490,15 +504,19 @@ function RestaurantDashboard() {
                       <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'licenseDoc')} required={!wizardData.licenseDoc} />
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="form-group-field">
                       <label>Bank Name</label>
-                      <input type="text" value={wizardData.bankName} onChange={(e) => setWizardData({ ...wizardData, bankName: e.target.value })} required />
+                      <input type="text" placeholder="e.g. HBL" value={wizardData.bankName} onChange={(e) => setWizardData({ ...wizardData, bankName: e.target.value })} required />
                     </div>
                     <div className="form-group-field">
-                      <label>Account / IBAN</label>
-                      <input type="text" value={wizardData.accountNumber} onChange={(e) => setWizardData({ ...wizardData, accountNumber: e.target.value })} required />
+                      <label>Account Holder Name</label>
+                      <input type="text" placeholder="e.g. John Doe" value={wizardData.holderName} onChange={(e) => setWizardData({ ...wizardData, holderName: e.target.value })} required />
                     </div>
+                  </div>
+                  <div className="form-group-field">
+                    <label>Account / IBAN Number</label>
+                    <input type="text" placeholder="PK00HABB00..." value={wizardData.accountNumber} onChange={(e) => setWizardData({ ...wizardData, accountNumber: e.target.value })} required />
                   </div>
                 </div>
               )}
@@ -595,9 +613,15 @@ function RestaurantDashboard() {
           <button
             className="res-selector-dropdown"
             style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-            onClick={() => {
-              selectedRestaurant.isOpen = !selectedRestaurant.isOpen;
-              setSelectedRestaurant({ ...selectedRestaurant });
+            onClick={async () => {
+              try {
+                const updated = await api.toggleRestaurantOpen(selectedRestaurant._id, !selectedRestaurant.isOpen);
+                setSelectedRestaurant(updated);
+              } catch (err) {
+                alert(err.message || 'Failed to toggle open status');
+                // Revert local state if API fails
+                setSelectedRestaurant({ ...selectedRestaurant });
+              }
             }}
           >
             {selectedRestaurant.isOpen !== false ? '🟢 Open for Orders' : '🔴 Closed'}
@@ -734,7 +758,7 @@ function RestaurantDashboard() {
                 {/* Workflow Status Controller */}
                 <div className="order-status-controller">
                   <h4>Pipeline Action</h4>
-                  
+
                   {activeOrder.status === 'pending' && (
                     <div className="action-row">
                       <p>Customer placed this order. Click to mark cooking in progress:</p>
@@ -926,7 +950,7 @@ function RestaurantDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
               {filteredMenuItems.map(item => (
                 <div key={item._id || item.id} style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #f0f0eb' }}>
-                  <img src={item.image || IMAGE_TEMPLATES[0].url} alt={item.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+                  <img src={item.image || 'https://via.placeholder.com/500x300?text=Food'} alt={item.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
                   <div style={{ padding: '16px' }}>
                     <span className="portal-badge" style={{ fontSize: '0.7rem', marginBottom: '6px' }}>{item.category}</span>
                     <h4 style={{ fontSize: '1.05rem', fontWeight: '700', margin: '4px 0', color: 'var(--color-roasted)' }}>{item.name}</h4>
@@ -973,17 +997,23 @@ function RestaurantDashboard() {
                 <textarea rows="2" value={menuForm.description} onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} />
               </div>
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '4px' }}>Item Image URL</label>
-                <input type="text" value={menuForm.image} onChange={(e) => setMenuForm({ ...menuForm, image: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '8px' }} />
-                <span style={{ fontSize: '0.75rem', color: '#888' }}>Or choose a template image below:</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '6px' }}>
-                  {IMAGE_TEMPLATES.map(t => (
-                    <button type="button" key={t.name} onClick={() => setMenuForm({ ...menuForm, image: t.url })} style={{ border: menuForm.image === t.url ? '2px solid var(--color-tandoori)' : '1px solid #ccc', borderRadius: '6px', padding: '4px', cursor: 'pointer', background: '#fff' }}>
-                      <img src={t.url} alt={t.name} style={{ width: '100%', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
-                      <span style={{ fontSize: '0.65rem', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{t.name}</span>
-                    </button>
-                  ))}
-                </div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '4px' }}>Item Image</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setMenuForm({ ...menuForm, imageFile: file, image: URL.createObjectURL(file) });
+                    }
+                  }} 
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '8px', background: '#fff' }} 
+                />
+                {menuForm.image && (
+                  <div style={{ marginTop: '8px', textAlign: 'left' }}>
+                    <img src={menuForm.image} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ccc' }} />
+                  </div>
+                )}
               </div>
 
               {formError && <p style={{ color: 'red', fontSize: '0.85rem', marginBottom: '12px' }}>{formError}</p>}

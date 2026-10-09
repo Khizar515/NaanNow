@@ -261,6 +261,75 @@ function RiderDashboard() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
 
+  // Wizard state for unverified riders
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardData, setWizardData] = useState({
+    dob: '',
+    cnicNumber: '',
+    cnicFront: '',
+    cnicBack: '',
+    avatar: '',
+    vehicleDetails: '',
+    licensePlate: '',
+    licenseNumber: '',
+    licenseImage: '',
+    bikeRegistration: '',
+    bankName: '',
+    accountNumber: '',
+    walletNumber: ''
+  });
+  const [wizardError, setWizardError] = useState('');
+  const [wizardFiles, setWizardFiles] = useState({});
+
+  const formatCNIC = (val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 13);
+    if (digits.length <= 5) return digits;
+    if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+  };
+
+  const handleFileChange = (e, field) => {
+    const file = e.target.files[0];
+    if (file) {
+      setWizardFiles(prev => ({ ...prev, [field]: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setWizardData(prev => ({ ...prev, [field]: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleWizardSubmit = async (e) => {
+    e.preventDefault();
+    setWizardError('');
+
+    const { dob, cnicNumber, cnicFront, cnicBack, avatar, vehicleDetails, licensePlate, licenseNumber, licenseImage, bankName, accountNumber, walletNumber } = wizardData;
+
+    if (!dob || !cnicNumber || !cnicFront || !cnicBack || !avatar || !vehicleDetails || !licensePlate || !licenseNumber || !licenseImage || !bankName || !accountNumber || !walletNumber) {
+      setWizardError('Please fill in all required fields and upload all requested documents.');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      Object.keys(wizardData).forEach(key => {
+        if (wizardFiles[key]) {
+          formData.append(key, wizardFiles[key]);
+        } else if (wizardData[key]) {
+          formData.append(key, wizardData[key]);
+        }
+      });
+
+      const updatedUser = await api.uploadDocs(formData);
+      setCurrentUser(updatedUser);
+      alert('Verification submitted successfully! Wait for Admin approval.');
+    } catch (err) {
+      console.error(err);
+      setWizardError('Failed to submit verification.');
+    }
+  };
+
   // Orders state
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('available'); // 'available' | 'active' | 'history'
@@ -400,6 +469,132 @@ function RiderDashboard() {
 
   if (!currentUser) return <div className="dashboard-loading">Loading portal configurations...</div>;
 
+  if (currentUser && currentUser.status !== 'approved') {
+    const isPending = currentUser.status === 'pending';
+    const isRejected = currentUser.status === 'rejected';
+
+    return (
+      <div className="rider-dashboard-page">
+        <div className="status-card" style={{ maxWidth: '900px', margin: '60px auto', background: '#fff', borderRadius: '20px', padding: '36px', boxShadow: '0 10px 30px rgba(0,0,0,0.06)' }}>
+          {isPending ? (
+            <>
+              <div className="status-icon" style={{ fontSize: '48px', marginBottom: '16px' }}>⌛</div>
+              <h2 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--color-roasted)', marginBottom: '8px' }}>Rider Approval Pending</h2>
+              <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '24px' }}>
+                Your rider application and verification documents are under review by system admin.
+              </p>
+            </>
+          ) : isRejected ? (
+            <>
+              <div className="status-icon" style={{ fontSize: '48px', marginBottom: '16px' }}>❌</div>
+              <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#991B1B', marginBottom: '8px' }}>Application Rejected</h2>
+              <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '16px' }}>Reason: "{currentUser.rejectionReason || 'Documents incomplete or invalid'}"</p>
+            </>
+          ) : (
+            <form onSubmit={handleWizardSubmit}>
+              <h2>Rider Onboarding Wizard</h2>
+
+              {wizardStep === 1 && (
+                <div>
+                  <h3>Step 1: Personal Info & CNIC</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Date of Birth</label>
+                      <input type="date" value={wizardData.dob} onChange={(e) => setWizardData({ ...wizardData, dob: e.target.value })} required />
+                    </div>
+                    <div className="form-group-field">
+                      <label>CNIC Number</label>
+                      <input type="text" placeholder="00000-0000000-0" value={wizardData.cnicNumber} onChange={(e) => setWizardData({ ...wizardData, cnicNumber: formatCNIC(e.target.value) })} required />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="form-group-field">
+                      <label>CNIC Front {wizardData.cnicFront && <span style={{ color: '#10B981', fontSize: '0.85rem' }}>✅ Attached</span>}</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'cnicFront')} required={!wizardData.cnicFront} />
+                    </div>
+                    <div className="form-group-field">
+                      <label>CNIC Back {wizardData.cnicBack && <span style={{ color: '#10B981', fontSize: '0.85rem' }}>✅ Attached</span>}</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'cnicBack')} required={!wizardData.cnicBack} />
+                    </div>
+                  </div>
+                  <div className="form-group-field">
+                    <label>Selfie (Profile Picture) {wizardData.avatar && <span style={{ color: '#10B981', fontSize: '0.85rem' }}>✅ Attached</span>}</label>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'avatar')} required={!wizardData.avatar} />
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 2 && (
+                <div>
+                  <h3>Step 2: Vehicle & Driving License</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Vehicle Make & Model</label>
+                      <input type="text" placeholder="e.g. Honda CD-70 2023" value={wizardData.vehicleDetails} onChange={(e) => setWizardData({ ...wizardData, vehicleDetails: e.target.value })} required />
+                    </div>
+                    <div className="form-group-field">
+                      <label>License Plate</label>
+                      <input type="text" placeholder="e.g. ICT-9821" value={wizardData.licensePlate} onChange={(e) => setWizardData({ ...wizardData, licensePlate: e.target.value })} required />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Driving License Number</label>
+                      <input type="text" value={wizardData.licenseNumber} onChange={(e) => setWizardData({ ...wizardData, licenseNumber: e.target.value })} required />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Driving License Image {wizardData.licenseImage && <span style={{ color: '#10B981', fontSize: '0.85rem' }}>✅ Attached</span>}</label>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'licenseImage')} required={!wizardData.licenseImage} />
+                    </div>
+                  </div>
+                  {/* <div className="form-group-field">
+                    <label>Vehicle Registration Number</label>
+                    <input type="text" placeholder="e.g. ABC-1234" value={wizardData.bikeRegistration} onChange={(e) => setWizardData({ ...wizardData, bikeRegistration: e.target.value })} required />
+                  </div> */}
+                </div>
+              )}
+
+              {wizardStep === 3 && (
+                <div>
+                  <h3>Step 3: Earnings Payout details</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="form-group-field">
+                      <label>Bank / Wallet Name</label>
+                      <input type="text" placeholder="e.g. Meezan / JazzCash" value={wizardData.bankName} onChange={(e) => setWizardData({ ...wizardData, bankName: e.target.value })} required />
+                    </div>
+                    <div className="form-group-field">
+                      <label>Wallet / Mobile Number</label>
+                      <input type="text" placeholder="e.g. 03000000000" value={wizardData.walletNumber} onChange={(e) => setWizardData({ ...wizardData, walletNumber: e.target.value })} required />
+                    </div>
+                  </div>
+                  <div className="form-group-field">
+                    <label>IBAN / Account Number</label>
+                    <input type="text" placeholder="PK00MEZN..." value={wizardData.accountNumber} onChange={(e) => setWizardData({ ...wizardData, accountNumber: e.target.value })} required />
+                  </div>
+                </div>
+              )}
+
+              {wizardError && <p style={{ color: 'red', marginTop: '12px' }}>{wizardError}</p>}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                {wizardStep > 1 && <button type="button" className="sub-tab-btn" style={{ padding: '8px 20px', fontSize: '15px' }} onClick={() => setWizardStep(wizardStep - 1)}>Back</button>}
+                {wizardStep < 3 ? (
+                  <button type="button" className="action-advance-btn btn-prepare" style={{ padding: '8px 20px', fontSize: '15px' }} onClick={() => setWizardStep(wizardStep + 1)}>Next Step</button>
+                ) : (
+                  <button type="submit" className="action-advance-btn btn-complete" style={{ padding: '8px 20px', fontSize: '15px' }}>Submit Application</button>
+                )}
+              </div>
+            </form>
+          )}
+
+          <button className="sub-tab-btn" onClick={() => { localStorage.removeItem('naannow_token'); navigate('/login'); }} style={{ marginTop: '24px' }}>
+            Log Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rider-dashboard-page">
       <div className="rider-dashboard-container">
@@ -417,6 +612,30 @@ function RiderDashboard() {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button
+              onClick={async () => {
+                try {
+                  const updated = await api.toggleRiderOnline(!currentUser.isOnline);
+                  setCurrentUser(prev => ({ ...prev, isOnline: updated.isOnline }));
+                } catch (err) {
+                  alert(err.message || 'Failed to toggle online status');
+                }
+              }}
+              style={{
+                background: currentUser.isOnline ? '#10B981' : '#EF4444',
+                color: '#fff',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                border: 'none',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {currentUser.isOnline ? '🟢 Online & Working' : '🔴 Offline'}
+            </button>
             <div className="wallet-pill" style={{ background: '#10B981', color: '#fff', padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold' }}>
               💰 Wallet: Rs. {(currentUser.walletBalance || 0).toLocaleString()}
             </div>
