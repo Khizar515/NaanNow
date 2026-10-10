@@ -252,11 +252,13 @@ function RiderDashboard() {
   const availableOrders = orders.filter(
     o => ['pending', 'preparing', 'ready_for_pickup'].includes(o.status) && !o.riderId
   );
+  // riderId may be a populated object { _id, name, ... } or a raw ObjectId string
+  const getRiderId = (riderId) => riderId?._id?.toString() ?? riderId?.toString();
   const activeOrders = orders.filter(
-    o => ['ready_for_pickup', 'out_for_delivery'].includes(o.status) && o.riderId?._id === currentUser?._id
+    o => ['ready_for_pickup', 'out_for_delivery'].includes(o.status) && getRiderId(o.riderId) === currentUser?._id?.toString()
   );
   const completedOrders = orders.filter(
-    o => ['delivered', 'completed'].includes(o.status) && o.riderId?._id === currentUser?._id
+    o => ['delivered', 'completed'].includes(o.status) && getRiderId(o.riderId) === currentUser?._id?.toString()
   );
 
   // Compute completed earnings

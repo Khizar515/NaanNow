@@ -481,7 +481,7 @@ function AdminDashboard() {
         api.getWithdrawals().catch(() => []),
         api.getSettings().catch(() => platformSettings)
       ]);
-      
+
       setUsers(usersData);
       setOrders(ordersData);
       setRestaurants(restaurantsData);
@@ -1999,8 +1999,8 @@ function AdminDashboard() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                          <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleApproveUser(pending.email, pending.role)}>Approve</button>
-                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenReject(pending.email, pending.name, pending.role)}>Reject Checks</button>
+                          <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleApproveUser(pending._id, pending.role)}>Approve</button>
+                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleOpenReject(pending._id, pending.name, pending.role)}>Reject Checks</button>
                         </div>
                       </div>
                     ))}
@@ -2775,15 +2775,15 @@ function AdminDashboard() {
             <div className="modal-footer-section">
               {selectedRestaurant.status === 'pending' && (
                 <>
-                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRestaurant.email, 'manager')}>Approve Eatery Partner</button>
-                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRestaurant.email, selectedRestaurant.restaurantName, 'manager')}>Reject Application</button>
+                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRestaurant._id, 'manager')}>Approve Eatery Partner</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRestaurant._id, selectedRestaurant.restaurantName, 'manager')}>Reject Application</button>
                 </>
               )}
               {selectedRestaurant.status === 'approved' && (
-                <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRestaurant.email, 'manager')}>Suspend Account</button>
+                <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRestaurant._id, 'manager')}>Suspend Account</button>
               )}
               {selectedRestaurant.status === 'blocked' && (
-                <button className="btn-primary" onClick={() => handleUnblockUser(selectedRestaurant.email, 'manager')}>Activate Account</button>
+                <button className="btn-primary" onClick={() => handleUnblockUser(selectedRestaurant._id, 'manager')}>Activate Account</button>
               )}
               <button className="btn-secondary" onClick={() => setSelectedRestaurant(null)}>Close</button>
             </div>
@@ -2870,15 +2870,15 @@ function AdminDashboard() {
             <div className="modal-footer-section">
               {selectedRider.status === 'pending' && (
                 <>
-                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRider.email, 'rider')}>Approve Rider Partner</button>
-                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRider.email, selectedRider.name, 'rider')}>Reject Application</button>
+                  <button className="btn-primary" onClick={() => handleApproveUser(selectedRider._id, 'rider')}>Approve Rider Partner</button>
+                  <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleOpenReject(selectedRider._id, selectedRider.name, 'rider')}>Reject Application</button>
                 </>
               )}
               {selectedRider.status === 'approved' && (
-                <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRider.email, 'rider')}>Suspend Rider</button>
+                <button className="btn-secondary" style={{ color: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedRider._id, 'rider')}>Suspend Rider</button>
               )}
               {selectedRider.status === 'blocked' && (
-                <button className="btn-primary" onClick={() => handleUnblockUser(selectedRider.email, 'rider')}>Reactivate Rider</button>
+                <button className="btn-primary" onClick={() => handleUnblockUser(selectedRider._id, 'rider')}>Reactivate Rider</button>
               )}
               <button className="btn-secondary" onClick={() => setSelectedRider(null)}>Close</button>
             </div>
@@ -2925,9 +2925,9 @@ function AdminDashboard() {
 
             <div className="modal-footer-section">
               {selectedCustomer.status === 'blocked' ? (
-                <button className="btn-primary" onClick={() => handleUnblockUser(selectedCustomer.email, 'customer')}>Activate Account</button>
+                <button className="btn-primary" onClick={() => handleUnblockUser(selectedCustomer._id, 'customer')}>Activate Account</button>
               ) : (
-                <button className="btn-secondary" style={{ color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedCustomer.email, 'customer')}>Suspend / Flag Account</button>
+                <button className="btn-secondary" style={{ color: 'var(--error-color)', borderColor: 'var(--error-color)' }} onClick={() => handleSuspendUser(selectedCustomer._id, 'customer')}>Suspend / Flag Account</button>
               )}
               <button className="btn-secondary" onClick={() => setSelectedCustomer(null)}>Close</button>
             </div>

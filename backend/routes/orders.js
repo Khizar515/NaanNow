@@ -198,7 +198,13 @@ router.put('/:id/assign', auth, restrictTo('rider'), async (req, res) => {
     order.status = 'out_for_delivery';
     await order.save();
 
-    res.json(order);
+    // Re-fetch with riderId populated so the frontend filter works correctly
+    const populated = await Order.findById(order._id)
+      .populate('restaurantId', 'name address city mapsLocation')
+      .populate('customerId', 'name phone')
+      .populate('riderId', 'name phone vehicleDetails');
+
+    res.json(populated);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
