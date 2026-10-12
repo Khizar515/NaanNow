@@ -14,7 +14,7 @@ function ProfilePage() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  
+
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [editAddress, setEditAddress] = useState('');
 
@@ -304,7 +304,7 @@ function ProfilePage() {
   };
 
   if (!user) {
-    return <div className="profile-container"><div style={{padding: '100px', textAlign:'center'}}>Please log in to view profile.</div></div>;
+    return <div className="profile-container"><div style={{ padding: '100px', textAlign: 'center' }}>Please log in to view profile.</div></div>;
   }
 
   const getAvatarUrl = () => {
@@ -338,17 +338,17 @@ function ProfilePage() {
               <div className="avatar-overlay" onClick={() => fileInputRef.current.click()}>
                 <span>Change Image</span>
               </div>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                style={{ display: 'none' }} 
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
                 accept="image/*"
-                onChange={handleAvatarChange} 
+                onChange={handleAvatarChange}
               />
             </div>
             <h2>{user.name}</h2>
             <p className="sidebar-email">{user.email}</p>
-            <span className="member-tag">Member since {new Date(user.createdAt || Date.now()).toLocaleDateString('en-US', {month: 'short', year:'numeric'})}</span>
+            <span className="member-tag">Member since {new Date(user.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
             {(isStaffUser || user?.role === 'admin') && (
               <button
                 className="btn-primary"
@@ -615,37 +615,38 @@ function ProfilePage() {
                     {paymentMethods.map(card => {
                       const brand = card.cardNumber.startsWith('4') ? 'Visa' : 'Mastercard';
                       return (
-                      <div key={card._id} className="saved-card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div className="card-info-left">
-                          <div className={`card-icon-avatar ${brand.toLowerCase()}`}>
-                            {brand === 'Visa' ? 'V' : brand === 'Mastercard' ? 'M' : '💳'}
+                        <div key={card._id} className="saved-card-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div className="card-info-left">
+                            <div className={`card-icon-avatar ${brand.toLowerCase()}`}>
+                              {brand === 'Visa' ? 'V' : brand === 'Mastercard' ? 'M' : '💳'}
+                            </div>
+                            <div className="card-digits-details">
+                              <span className="card-name-brand">{brand} ending in •••• {card.cardNumber.slice(-4)}</span>
+                              <span className="card-expiry-span">
+                                Expires {card.expiryDate} • Balance: <strong style={{ color: 'var(--color-tandoori)' }}>Rs. {(card.balance || 0).toLocaleString()}</strong>
+                                <span style={{ marginLeft: '10px', color: '#10B981', fontWeight: 'bold' }}>🔑 PIN: {card.pin || '1234'}</span>
+                              </span>
+                            </div>
                           </div>
-                          <div className="card-digits-details">
-                            <span className="card-name-brand">{brand} ending in •••• {card.cardNumber.slice(-4)}</span>
-                            <span className="card-expiry-span">
-                              Expires {card.expiryDate} • Balance: <strong style={{ color: 'var(--color-tandoori)' }}>Rs. {(card.balance || 0).toLocaleString()}</strong>
-                              <span style={{ marginLeft: '10px', color: '#10B981', fontWeight: 'bold' }}>🔑 PIN: {card.pin || '1234'}</span>
-                            </span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px' }}
+                              onClick={() => { setTopUpModalCard(card); setTopUpAmount(''); }}
+                            >
+                              💳 Top Up
+                            </button>
+                            <button className="btn-icon-danger" onClick={() => handleDeleteCard(card._id)} title="Remove Card">
+                              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              </svg>
+                            </button>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button 
-                            type="button" 
-                            className="btn-secondary" 
-                            style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px' }} 
-                            onClick={() => { setTopUpModalCard(card); setTopUpAmount(''); }}
-                          >
-                            💳 Top Up
-                          </button>
-                          <button className="btn-icon-danger" onClick={() => handleDeleteCard(card._id)} title="Remove Card">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    )})}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -687,7 +688,7 @@ function ProfilePage() {
                         </tr>
                       ))}
                       {orders.length === 0 && (
-                        <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px'}}>No orders found.</td></tr>
+                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>No orders found.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -711,7 +712,7 @@ function ProfilePage() {
                     </div>
                   ))}
                   {orders.length === 0 && (
-                     <div style={{textAlign: 'center', padding: '20px'}}>No orders found.</div>
+                    <div style={{ textAlign: 'center', padding: '20px' }}>No orders found.</div>
                   )}
                 </div>
 

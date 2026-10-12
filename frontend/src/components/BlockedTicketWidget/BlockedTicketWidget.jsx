@@ -46,7 +46,7 @@ function BlockedTicketWidget({ user }) {
       : Date.now();
     setLastReadMap(prev => {
       const updated = { ...prev, [ticketId]: Math.max(prev[ticketId] || 0, latestTime) };
-      try { localStorage.setItem('naannow_ticket_last_read', JSON.stringify(updated)); } catch {}
+      try { localStorage.setItem('naannow_ticket_last_read', JSON.stringify(updated)); } catch { }
       return updated;
     });
   };
@@ -268,7 +268,7 @@ function BlockedTicketWidget({ user }) {
 
       {/* 2-COLUMN SIDEBAR LAYOUT */}
       <div className="widget-2col-container">
-        
+
         {/* LEFT SIDEBAR: TICKET LIST */}
         <div className="widget-left-sidebar">
           <div className="sidebar-top-actions">

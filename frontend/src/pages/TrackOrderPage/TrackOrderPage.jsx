@@ -287,65 +287,42 @@ function TrackOrderPage() {
           <div className="track-map-column">
             
             {/* 6 Levels Stepper Progress */}
-            <div className="status-progress-card" style={{ marginBottom: '24px' }}>
+            <div className="status-progress-card">
               <h3>Delivery Status ({progInfo.status})</h3>
               
-              <div className="stepper-horizontal" style={{ marginTop: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px', textAlign: 'center' }}>
-                  {[
-                    { num: 1, label: 'Placed', icon: '📋' },
-                    { num: 2, label: 'Preparing', icon: '🍳' },
-                    { num: 3, label: 'Prepared', icon: '📦' },
-                    { num: 4, label: 'Handed Over', icon: '🤝' },
-                    { num: 5, label: 'Out for Delivery', icon: '🛵' },
-                    { num: 6, label: 'Delivered', icon: '✅' }
-                  ].map(s => (
+              <div className="tracking-stepper-grid">
+                {[
+                  { num: 1, label: 'Placed', icon: '📋' },
+                  { num: 2, label: 'Preparing', icon: '🍳' },
+                  { num: 3, label: 'Prepared', icon: '📦' },
+                  { num: 4, label: 'Handed Over', icon: '🤝' },
+                  { num: 5, label: 'Out for Delivery', icon: '🛵' },
+                  { num: 6, label: 'Delivered', icon: '✅' }
+                ].map(s => {
+                  const isDone = progInfo.step > s.num;
+                  const isCurrent = progInfo.step === s.num;
+                  return (
                     <div 
                       key={s.num} 
-                      style={{ 
-                        opacity: progInfo.step >= s.num ? 1 : 0.4,
-                        background: progInfo.step >= s.num ? '#FEF3C7' : '#F3F4F6',
-                        border: progInfo.step === s.num ? '2px solid #F59E0B' : '1px solid #E5E7EB',
-                        borderRadius: '8px',
-                        padding: '8px 2px'
-                      }}
+                      className={`tracking-step-item ${isCurrent ? 'current' : isDone ? 'done' : 'upcoming'}`}
                     >
-                      <div style={{ fontSize: '18px' }}>{s.icon}</div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px', color: '#1F2937' }}>
-                        {s.label}
-                      </div>
+                      <div className="tracking-step-icon">{s.icon}</div>
+                      <div className="tracking-step-label">{s.label}</div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Map Container */}
-            <div className="map-wrapper-card" style={{ position: 'relative' }}>
-              <div id="map-tracker" style={{ height: '360px' }}></div>
+            <div className="map-wrapper-card">
+              <div id="map-tracker"></div>
               
               {/* Recenter Button Overlay */}
               <button
                 type="button"
+                className="btn-recenter-map"
                 onClick={handleRecenterMap}
-                style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  zIndex: 1000,
-                  backgroundColor: '#ffffff',
-                  color: '#1F2937',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '8px 14px',
-                  fontWeight: 'bold',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
               >
                 🎯 Recenter to Rider
               </button>
@@ -430,50 +407,53 @@ function TrackOrderPage() {
                   </button>
                 </div>
 
-                {/* Dynamic Async Chat Module */}
-                <div className="chat-wrapper-card">
-                  <div className="chat-header">
-                    <h4>Message Center</h4>
-                    <span className="chat-badge-lbl">Rider Chat</span>
-                  </div>
-                  
-                  {/* Message List */}
-                  <div className="chat-messages-container" ref={chatContainerRef} style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {/* Async Chat Drawer (matching Rider side chat design) */}
+                <div className="chat-drawer-user" style={{ background: '#ffffff', padding: '18px', borderRadius: '16px', border: '1px solid #E5E7EB', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: '#4F2E1D' }}>Chat with Rider</h3>
+                  <div ref={chatContainerRef} style={{ maxHeight: '220px', minHeight: '120px', overflowY: 'auto', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {messages.length === 0 ? (
-                      <p style={{ textAlign: 'center', color: '#9CA3AF', fontSize: '13px', marginTop: '20px' }}>
+                      <p style={{ textAlign: 'center', color: '#9CA3AF', fontSize: '13px', margin: 'auto 0' }}>
                         No messages yet. Send a message to your rider below.
                       </p>
                     ) : (
-                      messages.map((msg, idx) => (
-                        <div key={idx} className={`message-bubble-wrapper ${msg.sender}`}>
-                          <div className="bubble">
-                            <p className="msg-text">{msg.text}</p>
-                            <span className="msg-time">{new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      messages.map((msg, idx) => {
+                        const isMyMessage = msg.sender === 'customer' || msg.sender === 'user';
+                        return (
+                          <div key={idx} style={{ textAlign: isMyMessage ? 'right' : 'left', margin: '2px 0' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '8px 14px',
+                              borderRadius: '8px',
+                              background: isMyMessage ? '#E57919' : '#E5E7EB',
+                              color: isMyMessage ? '#fff' : '#111',
+                              fontSize: '13.5px',
+                              fontWeight: isMyMessage ? '600' : '500',
+                              maxWidth: '80%',
+                              wordBreak: 'break-word',
+                              textAlign: 'left'
+                            }}>
+                              {msg.text}
+                            </span>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
-
-                  {/* Chat Input with Visible Send Icon */}
-                  <form className="chat-input-form" onSubmit={handleSendMessage}>
+                  <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <input
                       type="text"
-                      placeholder="Type a message to rider..."
+                      placeholder="Type reply..."
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       disabled={order.status === 'delivered' || order.status === 'completed'}
+                      style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', border: '2px solid #111', fontSize: '14px', outline: 'none', background: '#fff' }}
                     />
-                    <button 
-                      type="submit" 
-                      className="btn-send-message"
+                    <button
+                      type="submit"
                       disabled={!inputText.trim() || order.status === 'delivered' || order.status === 'completed'}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E57919', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 14px', cursor: 'pointer' }}
+                      style={{ background: '#E57919', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 22px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}
                     >
-                      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                      </svg>
+                      Send
                     </button>
                   </form>
                 </div>

@@ -318,37 +318,31 @@ function OrdersPage() {
                       </div>
 
                       {/* 6 Levels Visual Stepper */}
-                      <div className="stepper-visual-container" style={{ marginTop: '6px', marginBottom: '60px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '4px', textAlign: 'center' }}>
-                          {[
-                            { num: 1, label: 'Placed', icon: '📋' },
-                            { num: 2, label: 'Preparing', icon: '🍳' },
-                            { num: 3, label: 'Prepared', icon: '📦' },
-                            { num: 4, label: 'Handed Over', icon: '🤝' },
-                            { num: 5, label: 'Out for Delivery', icon: '🛵' },
-                            { num: 6, label: 'Delivered', icon: '✅' }
-                          ].map(s => (
+                      <div className="order-stepper-grid">
+                        {[
+                          { num: 1, label: 'Placed', icon: '📋' },
+                          { num: 2, label: 'Preparing', icon: '🍳' },
+                          { num: 3, label: 'Prepared', icon: '📦' },
+                          { num: 4, label: 'Handed Over', icon: '🤝' },
+                          { num: 5, label: 'Out for Delivery', icon: '🛵' },
+                          { num: 6, label: 'Delivered', icon: '✅' }
+                        ].map(s => {
+                          const isDone = prog.step > s.num;
+                          const isCurrent = prog.step === s.num;
+                          return (
                             <div
                               key={s.num}
-                              style={{
-                                opacity: prog.step >= s.num ? 1 : 0.4,
-                                background: prog.step >= s.num ? '#FEF3C7' : '#F3F4F6',
-                                border: prog.step === s.num ? '2px solid #F59E0B' : '1px solid #E5E7EB',
-                                borderRadius: '8px',
-                                padding: '6px 2px'
-                              }}
+                              className={`stepper-step-item ${isCurrent ? 'current' : isDone ? 'done' : 'upcoming'}`}
                             >
-                              <div style={{ fontSize: '16px' }}>{s.icon}</div>
-                              <div style={{ fontSize: '10px', fontWeight: 'bold', marginTop: '2px', color: '#1F2937' }}>
-                                {s.label}
-                              </div>
+                              <div className="stepper-step-icon">{s.icon}</div>
+                              <div className="stepper-step-label">{s.label}</div>
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
 
-                      <div className="status-explainer-card" style={{ padding: '10px 14px', background: '#FFFBEB', borderLeft: '4px solid #F59E0B', borderRadius: '6px' }}>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#92400E' }}>
+                      <div className="status-explainer-card">
+                        <p>
                           {prog.text}
                         </p>
                       </div>

@@ -220,9 +220,9 @@ function BigScreenMapModal({ order, onClose }) {
 
   return (
     <div className="modal-overlay" style={{ zIndex: 99999 }}>
-      <div className="modal-content-card big-screen-map-dialog" style={{ maxWidth: '900px', width: '95vw', padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
+      <div className="modal-content-card big-screen-map-dialog">
+        <div className="modal-map-header">
+          <div className="modal-map-header-title">
             <h3 style={{ margin: 0, color: 'var(--color-roasted)' }}>
               🗺️ Delivery Route Map — Order #{order.orderNumber}
             </h3>
@@ -230,7 +230,7 @@ function BigScreenMapModal({ order, onClose }) {
               Pick Up: {order.restaurantId?.name} ➔ Drop Off: {order.deliveryAddress} ({distance} km)
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="modal-map-header-actions">
             <button
               type="button"
               className="btn-big-screen-map"
@@ -242,9 +242,9 @@ function BigScreenMapModal({ order, onClose }) {
           </div>
         </div>
 
-        <div ref={mapRef} style={{ width: '100%', height: '480px', borderRadius: '16px', border: '1px solid #d1d5db', overflow: 'hidden' }} />
+        <div ref={mapRef} className="big-screen-leaflet-map" />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+        <div className="modal-map-footer">
           <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#10B981' }}>
             Delivery Fee Payout: Rs. {order.deliveryFee || 150}
           </span>
@@ -253,7 +253,7 @@ function BigScreenMapModal({ order, onClose }) {
           </button>
         </div>
       </div>
-    </div >
+    </div>
   );
 }
 
@@ -611,7 +611,7 @@ function RiderDashboard() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div className="rider-header-actions">
             <button
               onClick={async () => {
                 try {
@@ -701,7 +701,7 @@ function RiderDashboard() {
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+              <div className="rider-jobs-grid">
                 {availableOrders.map(order => (
                   <div key={order._id} className="order-card-rider">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -755,12 +755,31 @@ function RiderDashboard() {
                 <p>Accept an order from the Available Jobs tab to begin your delivery route.</p>
               </div>
             ) : (
-              <div className="active-delivery-card" style={{ background: '#fff', padding: '24px', borderRadius: '16px', border: '1px solid #e5e7eb' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h2>Active Order #{currentActiveOrder.orderNumber}</h2>
-                  <span style={{ background: '#E57919', color: '#fff', padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', fontSize: '13px' }}>
-                    {currentActiveOrder.status}
-                  </span>
+              <div className="active-delivery-card" style={{ background: '#fff', padding: '20px', borderRadius: '16px', border: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <h2 style={{ margin: 0, fontSize: '20px' }}>Active Order #{currentActiveOrder.orderNumber}</h2>
+                    <span style={{ background: '#E57919', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '12px' }}>
+                      {currentActiveOrder.status}
+                    </span>
+                  </div>
+                  <a
+                    href={`/track-order/${currentActiveOrder._id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-big-screen-map"
+                    style={{ textDecoration: 'none', background: '#FDF2E9', color: '#E57919', border: '1px solid #FCD34D', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '12.5px' }}
+                  >
+                    🎯 Open Live Tracking View
+                  </a>
+                </div>
+
+                {/* Live Route Tracking Map for Rider */}
+                <div style={{ marginBottom: '18px' }}>
+                  <AvailableOrderMapCard
+                    order={currentActiveOrder}
+                    onOpenBigScreen={(ord) => setBigScreenOrder(ord)}
+                  />
                 </div>
 
                 {/* Handover OTP Notice */}
@@ -809,19 +828,19 @@ function RiderDashboard() {
                       <p style={{ fontSize: '13px', color: '#92400E', marginBottom: '12px' }}>
                         Ask customer for their 6-character Security Delivery OTP upon arrival:
                       </p>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div className="otp-verification-row">
                         <input
                           type="text"
                           maxLength={6}
                           placeholder="Enter Customer Delivery OTP"
                           value={deliveryInputOtp}
                           onChange={(e) => setDeliveryInputOtp(e.target.value.toUpperCase())}
-                          style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', letterSpacing: '2px', width: '220px' }}
+                          className="otp-input-control"
                         />
                         <button
                           type="button"
                           onClick={() => handleVerifyDeliveryOtp(currentActiveOrder._id)}
-                          style={{ backgroundColor: '#10B981', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                          className="btn-verify-delivery-otp"
                         >
                           Verify Customer OTP & Mark Delivered ✅
                         </button>
@@ -831,7 +850,7 @@ function RiderDashboard() {
                 </div>
 
                 {/* Customer Details & Chat */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div className="active-order-details-split">
                   <div>
                     <h4>Delivery Credentials</h4>
                     <p><strong>Customer Name:</strong> {currentActiveOrder.name || currentActiveOrder.customerId?.name}</p>

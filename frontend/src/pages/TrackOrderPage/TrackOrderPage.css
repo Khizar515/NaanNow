@@ -7,12 +7,17 @@
   background-color: var(--color-dough);
   font-family: 'Poppins', sans-serif;
   color: var(--color-roasted);
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: clip;
 }
 
 .track-order-container {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Header Section */
@@ -266,106 +271,100 @@
   padding: 24px;
   box-shadow: 0 10px 30px rgba(79, 46, 29, 0.08);
   border: 1px solid rgba(79, 46, 29, 0.1);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .status-progress-card h3 {
   font-size: 18px;
   font-weight: 700;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  color: var(--color-roasted);
 }
 
-.stepper-horizontal {
-  position: relative;
-  margin: 10px 0 20px;
+.tracking-stepper-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.stepper-line {
-  position: absolute;
-  top: 20px;
-  left: 12%;
-  width: 76%;
-  height: 4px;
-  background-color: #eee;
-  z-index: 1;
-}
-
-.stepper-fill {
-  height: 100%;
-  background-color: var(--color-tandoori);
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.steps-row {
-  display: flex;
-  justify-content: space-between;
-  position: relative;
-  z-index: 2;
-}
-
-.step-item {
+.tracking-step-item {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  padding: 12px 6px;
+  border-radius: 12px;
   text-align: center;
-  width: 24%;
+  background: #fdfaf7;
+  border: 1.5px solid rgba(79, 46, 29, 0.1);
+  transition: all 0.25s ease;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
-.step-circle {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background-color: white;
-  border: 3px solid #eee;
+.tracking-step-item.done {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.tracking-step-item.current {
+  background: #fffbeb;
+  border: 2px solid var(--color-tandoori);
+  color: var(--color-roasted);
+  box-shadow: 0 4px 14px rgba(229, 121, 25, 0.25);
+  transform: translateY(-2px);
+}
+
+.tracking-step-item.upcoming {
+  background: #fafaf9;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  opacity: 0.75;
+}
+
+.tracking-step-icon {
+  font-size: 24px;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.tracking-step-label {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  word-break: break-word;
+}
+
+/* Recenter Button */
+.btn-recenter-map {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
+  background-color: #ffffff;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: bold;
-  transition: all 0.3s ease;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.step-text {
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #888;
-  transition: color 0.3s ease;
-}
-
-/* Stepper state modifiers */
-.tracker-step-done .step-circle {
-  border-color: var(--color-tandoori);
-  background-color: #FFF2E6;
-}
-
-.tracker-step-done .step-text {
-  color: var(--color-roasted);
-  font-weight: 600;
-}
-
-.tracker-step-active .step-circle {
-  border-color: var(--color-tandoori);
-  background-color: var(--color-tandoori);
-  color: white;
-  box-shadow: 0 0 15px rgba(229, 121, 25, 0.4);
-  transform: scale(1.1);
-}
-
-.tracker-step-active .step-text {
-  color: var(--color-tandoori);
-  font-weight: 700;
-}
-
-.progress-note {
-  background-color: #F0EAE1;
-  border-left: 4px solid var(--color-tandoori);
-  padding: 12px 16px;
-  border-radius: 4px 8px 8px 4px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--color-roasted);
-  margin-top: 16px;
-  font-weight: 500;
+.btn-recenter-map:hover {
+  background-color: #f3f4f6;
+  transform: translateY(-1px);
 }
 
 /* RIDER CARD */
@@ -456,217 +455,20 @@
   transform: scale(1.02);
 }
 
-/* CHAT BOX MODULE */
-.chat-wrapper-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(79, 46, 29, 0.08);
-  border: 1px solid rgba(79, 46, 29, 0.1);
-  display: flex;
-  flex-direction: column;
-  height: 380px;
-  overflow: hidden;
+/* CHAT BOX MODULE (Identical to Rider Side Chat) */
+.chat-drawer-user {
+  background: #F9FAFB;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  padding: 14px;
+  box-shadow: 0 4px 15px rgba(79, 46, 29, 0.04);
 }
 
-.chat-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(79, 46, 29, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #F0EAE1;
-}
-
-.chat-header h4 {
+.chat-drawer-user h4 {
   font-size: 15px;
   font-weight: 700;
-}
-
-.chat-badge-lbl {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-coriander);
-  background-color: #EBF5E6;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.chat-messages-container {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background-color: #EFEAE2;
-}
-
-/* Scrollbar styling */
-.chat-messages-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-messages-container::-webkit-scrollbar-thumb {
-  background: rgba(79, 46, 29, 0.15);
-  border-radius: 3px;
-}
-
-/* Chat bubble styling */
-.message-bubble-wrapper {
-  display: flex;
-  width: 100%;
-}
-
-.message-bubble-wrapper.user {
-  justify-content: flex-end;
-}
-
-.message-bubble-wrapper.rider {
-  justify-content: flex-start;
-}
-
-.bubble {
-  max-width: 75%;
-  padding: 10px 14px;
-  border-radius: 14px;
-  position: relative;
-  font-size: 13.5px;
-  line-height: 1.45;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-}
-
-.user .bubble {
-  background-color: var(--color-tandoori);
-  color: white;
-  border-bottom-right-radius: 2px;
-}
-
-.rider .bubble {
-  background-color: var(--color-roasted);
-  color: var(--color-dough);
-  border-bottom-left-radius: 2px;
-}
-
-.msg-text {
-  word-wrap: break-word;
-}
-
-.msg-time {
-  display: block;
-  font-size: 9.5px;
-  margin-top: 4px;
-  text-align: right;
-  opacity: 0.65;
-}
-
-.user .msg-time {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.rider .msg-time {
-  color: rgba(250, 250, 245, 0.65);
-}
-
-/* Typing animation */
-.typing-bubble {
-  padding: 12px 16px;
-}
-
-.typing-indicator {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 10px;
-}
-
-.typing-indicator span {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--color-dough);
-  opacity: 0.7;
-  animation: bounce-dots 1.3s infinite ease-in-out;
-}
-
-.typing-indicator span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-indicator span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes bounce-dots {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-    opacity: 0.9;
-  }
-}
-
-/* Chat Input Bar */
-.chat-input-form {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(79, 46, 29, 0.1);
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  background-color: #F0EAE1;
-}
-
-.chat-input-form input {
-  flex: 1;
-  border: 1px solid rgba(79, 46, 29, 0.12);
-  outline: none;
-  font-family: inherit;
-  font-size: 13.5px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background-color: white;
-  transition: border-color 0.2s;
-}
-
-.chat-input-form input:focus {
-  border-color: var(--color-tandoori);
-}
-
-.chat-input-form input:disabled {
-  background-color: #f7f7f7;
-  color: #bbb;
-  cursor: not-allowed;
-  border-color: #e0e0e0;
-}
-
-.btn-send-message {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background-color: var(--color-tandoori);
-  color: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-send-message:hover:not(:disabled) {
-  background-color: var(--color-roasted);
-  transform: translateY(-1px);
-}
-
-.btn-send-message:disabled {
-  background-color: #e0e0e0;
-  color: #aaa;
-  cursor: not-allowed;
+  color: #1F2937;
+  margin: 0 0 10px 0;
 }
 
 /* FALLBACK VIEW */
@@ -762,67 +564,65 @@
 
 @media (max-width: 768px) {
   .track-order-page {
-    padding: 16px 4% 40px 4%;
+    padding: 16px 12px 40px 12px;
   }
   .track-page-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  .map-overlay-banner {
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    min-width: unset;
-  }
-  .stepper-container {
-    padding: 18px 8px;
-    overflow-x: auto;
-  }
-  .stepper-steps-row {
-    position: relative;
-    display: flex;
-    justify-content: space-between;
-    min-width: 260px;
-  }
-  .stepper-line {
-    left: 12%;
-    width: 76%;
-  }
-  .step-node {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  .step-circle {
-    width: 34px;
-    height: 34px;
+  .btn-back {
+    padding: 8px 14px;
     font-size: 13px;
   }
-  .step-text {
-    font-size: 10px;
-    text-align: center;
-    white-space: nowrap;
+  .order-summary-title h2 {
+    font-size: 20px;
+    line-height: 1.3;
+  }
+  .tracking-stepper-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .tracking-step-item {
+    padding: 10px 4px;
+    border-radius: 10px;
+  }
+  .tracking-step-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .tracking-step-label {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .map-wrapper-card {
+    height: 320px;
+  }
+  .btn-recenter-map {
+    top: 10px;
+    right: 10px;
+    padding: 6px 10px;
+    font-size: 11.5px;
   }
   .rider-card {
     flex-direction: column;
-    gap: 14px;
     align-items: stretch;
-    text-align: center;
+    gap: 14px;
     padding: 16px;
   }
   .rider-avatar-row {
-    flex-direction: column;
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
   }
   .btn-call {
-    justify-content: center;
     width: 100%;
+    justify-content: center;
     padding: 12px;
   }
-  .map-wrapper-card {
-    height: 280px;
+  .chat-wrapper-card {
+    height: 340px;
   }
   .rating-feedback-card {
     padding: 18px 16px;
@@ -834,15 +634,50 @@
 
 @media (max-width: 480px) {
   .track-order-page {
-    padding: 12px 12px 30px 12px;
+    padding: 10px 8px 30px 8px;
   }
-  .step-circle {
-    width: 28px;
-    height: 28px;
-    font-size: 11px;
+  .status-progress-card {
+    padding: 14px 10px;
+    border-radius: 12px;
   }
-  .step-text {
-    font-size: 9px;
+  .status-progress-card h3 {
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+  .tracking-stepper-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .tracking-step-item {
+    padding: 8px 2px;
+    border-radius: 8px;
+  }
+  .tracking-step-icon {
+    font-size: 18px;
+    margin-bottom: 2px;
+  }
+  .tracking-step-label {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+  .map-wrapper-card {
+    height: 270px;
+    border-radius: 12px;
+  }
+  .btn-recenter-map {
+    top: 8px;
+    right: 8px;
+    padding: 5px 8px;
+    font-size: 10.5px;
+    border-radius: 6px;
+  }
+  .rider-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+  .chat-wrapper-card {
+    border-radius: 12px;
+    height: 310px;
   }
 }
 

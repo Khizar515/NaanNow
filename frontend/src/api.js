@@ -32,7 +32,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(userData)
     });
-    if (!res.ok){
+    if (!res.ok) {
       //throw new Error((await res.json()).message || await res.text());
       const isJson = res.headers.get('content-type')?.includes('application/json');
       const data = isJson ? await res.json() : null;
