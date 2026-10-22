@@ -51,6 +51,7 @@ function TrackOrderPage() {
 
   const [order, setOrder] = useState(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [orderLoaded, setOrderLoaded] = useState(false); // flips true once on first fetch
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
 
@@ -90,6 +91,8 @@ function TrackOrderPage() {
           if (found.messages) {
             setMessages(found.messages);
           }
+          // Only flip once — triggers map init exactly one time
+          setOrderLoaded(prev => prev ? prev : true);
         }
       } catch (err) {
         console.error("Failed to fetch order:", err);
@@ -105,75 +108,84 @@ function TrackOrderPage() {
   useEffect(() => {
     if (!leafletLoaded || !order || mapInitRef.current) return;
 
-    const L = window.L;
+    // Defer map init by one tick so #map-tracker is guaranteed to be in the DOM
+    // after React finishes rendering (fixes blank map on client-side navigation)
+    const initTimer = setTimeout(() => {
+      const L = window.L;
 
-    const resLat = order.restaurantId?.lat || 33.6923;
-    const resLng = order.restaurantId?.lng || 73.0105;
-    const custLat = order.deliveryLat || 33.6823;
-    const custLng = order.deliveryLng || 73.0305;
+      const resLat = order.restaurantId?.lat || 33.6923;
+      const resLng = order.restaurantId?.lng || 73.0105;
+      const custLat = order.deliveryLat || 33.6823;
+      const custLng = order.deliveryLng || 73.0305;
 
-    const map = L.map('map-tracker', {
-      zoomControl: false,
-      attributionControl: false
-    }).setView([resLat, resLng], 13);
+      const map = L.map('map-tracker', {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([resLat, resLng], 13);
 
-    mapRef.current = map;
-    mapInitRef.current = true;
+      mapRef.current = map;
+      mapInitRef.current = true;
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+      // Force Leaflet to recalculate container dimensions
+      // (fixes grey/blank tiles when container was hidden or animated)
+      setTimeout(() => map.invalidateSize(), 100);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    const restaurantIcon = L.divIcon({
-      html: `<div class="map-marker-pin restaurant-pin">🔥<div class="pulse-ring"></div></div>`,
-      className: 'custom-div-icon',
-      iconSize: [40, 40],
-      iconAnchor: [20, 20]
-    });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(map);
 
-    const customerIcon = L.divIcon({
-      html: `<div class="map-marker-pin customer-pin">🏠<div class="pulse-ring"></div></div>`,
-      className: 'custom-div-icon',
-      iconSize: [40, 40],
-      iconAnchor: [20, 20]
-    });
+      const restaurantIcon = L.divIcon({
+        html: `<div class="map-marker-pin restaurant-pin">🔥<div class="pulse-ring"></div></div>`,
+        className: 'custom-div-icon',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
 
-    const riderIcon = L.divIcon({
-      html: `<div class="map-marker-pin rider-pin">🛵<div class="rider-pulse"></div></div>`,
-      className: 'custom-div-icon',
-      iconSize: [46, 46],
-      iconAnchor: [23, 23]
-    });
+      const customerIcon = L.divIcon({
+        html: `<div class="map-marker-pin customer-pin">🏠<div class="pulse-ring"></div></div>`,
+        className: 'custom-div-icon',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
 
-    L.marker([resLat, resLng], { icon: restaurantIcon }).addTo(map)
-      .bindPopup(`<b>${order.restaurantId?.name || 'Restaurant'}</b>`);
+      const riderIcon = L.divIcon({
+        html: `<div class="map-marker-pin rider-pin">🛵<div class="rider-pulse"></div></div>`,
+        className: 'custom-div-icon',
+        iconSize: [46, 46],
+        iconAnchor: [23, 23]
+      });
 
-    L.marker([custLat, custLng], { icon: customerIcon }).addTo(map)
-      .bindPopup(`<b>Delivery Address</b><br/>${order.deliveryAddress}`);
+      L.marker([resLat, resLng], { icon: restaurantIcon }).addTo(map)
+        .bindPopup(`<b>${order.restaurantId?.name || 'Restaurant'}</b>`);
 
-    const polyline = L.polyline([[resLat, resLng], [custLat, custLng]], {
-      color: '#E57919',
-      weight: 4,
-      opacity: 0.8,
-      dashArray: '8, 12'
-    }).addTo(map);
+      L.marker([custLat, custLng], { icon: customerIcon }).addTo(map)
+        .bindPopup(`<b>Delivery Address</b><br/>${order.deliveryAddress}`);
 
-    const initialRiderPos = order.riderLat && order.riderLng ? [order.riderLat, order.riderLng] : [resLat, resLng];
-    const riderMarker = L.marker(initialRiderPos, { icon: riderIcon }).addTo(map);
-    riderMarkerRef.current = riderMarker;
+      const polyline = L.polyline([[resLat, resLng], [custLat, custLng]], {
+        color: '#E57919',
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '8, 12'
+      }).addTo(map);
 
-    map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+      const initialRiderPos = order.riderLat && order.riderLng ? [order.riderLat, order.riderLng] : [resLat, resLng];
+      const riderMarker = L.marker(initialRiderPos, { icon: riderIcon }).addTo(map);
+      riderMarkerRef.current = riderMarker;
+
+      map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+    }, 0);
 
     return () => {
+      clearTimeout(initTimer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
         mapInitRef.current = false;
       }
     };
-  }, [leafletLoaded, orderId]);
+  }, [leafletLoaded, orderLoaded, orderId]);
 
   // Update Rider Location marker ONLY (without recentering map automatically)
   useEffect(() => {

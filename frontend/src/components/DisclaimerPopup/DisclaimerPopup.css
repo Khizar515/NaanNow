@@ -1,0 +1,335 @@
+/* ── Backdrop ─────────────────────────────────────────────── */
+.dp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(79, 46, 29, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 48px;
+  overflow-y: auto;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ── Modal Shell ──────────────────────────────────────────── */
+.dp-modal {
+  background: #ffffff;
+  border: 1px solid rgba(79, 46, 29, 0.08);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 820px;
+  box-shadow: 0 20px 60px rgba(79, 46, 29, 0.18);
+  overflow: hidden;
+  animation: dp-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes dp-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.dp-header {
+  background: #FAFAF5;
+  border-bottom: 1px solid rgba(79, 46, 29, 0.08);
+  padding: 28px 36px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dp-logo-area {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dp-logo-img {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
+}
+
+.dp-logo-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dp-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #E57919;
+  margin: 0;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.dp-badge {
+  display: inline-block;
+  background: rgba(229, 121, 25, 0.1);
+  border: 1px solid rgba(229, 121, 25, 0.35);
+  color: #E57919;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: 20px;
+  width: fit-content;
+}
+
+.dp-subtitle {
+  color: #6b5040;
+  font-size: 13.5px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Disclaimer Section ───────────────────────────────────── */
+.dp-disclaimer-section {
+  padding: 24px 36px;
+  border-bottom: 1px solid rgba(79, 46, 29, 0.07);
+}
+
+.dp-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #4F2E1D;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dp-disclaimer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dp-disclaimer-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #FAFAF5;
+  border: 1px solid rgba(79, 46, 29, 0.07);
+  border-left: 3px solid #E57919;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #4F2E1D;
+  line-height: 1.55;
+}
+
+.dp-disc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #E57919;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.dp-disclaimer-list strong {
+  color: #4F2E1D;
+  font-weight: 700;
+}
+
+/* ── Accounts Section ─────────────────────────────────────── */
+.dp-accounts-section {
+  padding: 24px 36px;
+  border-bottom: 1px solid rgba(79, 46, 29, 0.07);
+  background: #FAFAF5;
+}
+
+.dp-accounts-hint {
+  font-size: 12px;
+  color: #9b7b68;
+  margin: -8px 0 16px;
+}
+
+.dp-accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 12px;
+}
+
+/* ── Credential Card ──────────────────────────────────────── */
+.dp-cred-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(79, 46, 29, 0.1);
+  border-top: 3px solid #E57919;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(79, 46, 29, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dp-cred-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79, 46, 29, 0.12);
+}
+
+.dp-cred-role {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 2px;
+}
+
+.dp-cred-role-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #E57919;
+}
+
+.dp-cred-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dp-cred-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9b7b68;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.dp-cred-value {
+  font-size: 11.5px;
+  color: #4F2E1D;
+  word-break: break-all;
+  font-family: 'Courier New', Courier, monospace;
+  background: #FAFAF5;
+  border: 1px solid rgba(79, 46, 29, 0.08);
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+
+/* ── Copy Button ──────────────────────────────────────────── */
+.dp-copy-btn {
+  margin-top: 4px;
+  width: 100%;
+  background: #fff;
+  border: 1.5px solid rgba(229, 121, 25, 0.3);
+  color: #E57919;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.dp-copy-btn:hover {
+  background: rgba(229, 121, 25, 0.08);
+  border-color: #E57919;
+}
+
+.dp-copy-btn.copied {
+  background: rgba(92, 161, 54, 0.1);
+  border-color: #5CA136;
+  color: #5CA136;
+}
+
+/* ── Footer / Accept ──────────────────────────────────────── */
+.dp-footer {
+  padding: 24px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+}
+
+.dp-accept-btn {
+  background-color: #E57919;
+  color: #ffffff;
+  font-family: 'Poppins', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 40px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 14px rgba(229, 121, 25, 0.28);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  width: 100%;
+  max-width: 380px;
+}
+
+.dp-accept-btn:hover {
+  background-color: #d1640c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(229, 121, 25, 0.38);
+}
+
+.dp-accept-btn:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(229, 121, 25, 0.2);
+}
+
+.dp-footer-note {
+  font-size: 11px;
+  color: #9b7b68;
+  text-align: center;
+  margin: 0;
+  max-width: 440px;
+  line-height: 1.6;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .dp-backdrop {
+    padding: 16px 12px 36px;
+  }
+
+  .dp-header,
+  .dp-disclaimer-section,
+  .dp-accounts-section,
+  .dp-footer {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .dp-title {
+    font-size: 20px;
+  }
+
+  .dp-logo-img {
+    height: 40px;
+  }
+
+  .dp-accounts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dp-accept-btn {
+    font-size: 14px;
+    padding: 13px 24px;
+  }
+}
+
+@media (max-width: 360px) {
+  .dp-accounts-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

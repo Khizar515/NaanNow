@@ -15,6 +15,7 @@ import AuthPage from './pages/AuthPage/AuthPage';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import BlockedPage from './pages/BlockedPage/BlockedPage';
+import DisclaimerPopup from './components/DisclaimerPopup/DisclaimerPopup';
 import { useAuth } from './context/AuthContext';
 import './index.css'; // The CSS file for the layout below
 
@@ -32,6 +33,7 @@ function App() {
 
   return (
     <div className="app-container">
+      <DisclaimerPopup />
       {showNavbar && <Navbar setCartOpen={setCartOpen} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
       <CartSidebar
         isOpen={cartOpen}
