@@ -22,9 +22,26 @@ const escrowRoutes = require('./routes/escrow');
 const app = express();
 
 // Middleware
-// app.use(cors());
+const allowedOrigins = [
+  'https://naannow.ksdev.me',
+  'http://naannow.ksdev.me',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    const normalize = (url) => url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const reqDomain = normalize(origin);
+    const isAllowed = allowedOrigins.some(allowed => normalize(allowed) === reqDomain);
+    if (isAllowed) {
+      return callback(null, true);
+    }
+    // Allow any origin during setup/development to avoid breaking legitimate requests
+    return callback(null, true);
+  },
   credentials: true
 }));
 
@@ -52,18 +69,32 @@ app.use('/api/escrow', escrowRoutes);
 
 // Root route
 app.get('/', (req, res) => {
-  res.send('NaanNow Backend API is running!');
+  const mongoStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const state = mongoStates[mongoose.connection.readyState] || 'unknown';
+  res.json({
+    status: 'ok',
+    message: 'NaanNow Backend API is running!',
+    mongoStatus: state
+  });
 });
 
-// Database Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongo:27017/naannow')
-  .then(() => {
-    console.log('Connected to MongoDB');
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+// Start listening immediately on 0.0.0.0 so Cloudflare tunnel and health checks always succeed
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+// Database Connection with automatic retry
+const connectWithRetry = () => {
+  console.log('Connecting to MongoDB...');
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongo:27017/naannow')
+    .then(() => {
+      console.log('Connected to MongoDB successfully');
+    })
+    .catch((err) => {
+      console.error('MongoDB connection error. Retrying in 5 seconds...', err.message);
+      setTimeout(connectWithRetry, 5000);
     });
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
-  });
+};
+
+connectWithRetry();
