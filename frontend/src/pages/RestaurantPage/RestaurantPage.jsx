@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import { resolveMediaUrl } from '../../config';
 import { CartContext } from '../../components/Context/CartContext';
 import './RestaurantPage.css';
 
@@ -83,7 +84,7 @@ function RestaurantPage() {
     return item ? item.quantity : 0;
   };
 
-  const imageSrc = restaurant.image ? (restaurant.image.startsWith('http') ? restaurant.image : `http://localhost:5000/${restaurant.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
+  const imageSrc = restaurant.image ? resolveMediaUrl(restaurant.image) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
 
   return (
     <div className="restaurant-page-container">
@@ -234,7 +235,7 @@ function RestaurantPage() {
             <div className="menu-items-grid">
               {filteredMenu.map(item => {
                 const quantityInCart = getCartItemQuantity(item._id);
-                const itemImgSrc = item.image ? (item.image.startsWith('http') ? item.image : `http://localhost:5000/${item.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
+                const itemImgSrc = item.image ? resolveMediaUrl(item.image) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
 
                 return (
                   <div key={item._id} className="menu-item-card">

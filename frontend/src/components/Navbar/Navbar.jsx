@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { CartContext } from "../Context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import { api } from '../../api';
+import { resolveMediaUrl } from '../../config';
 import './Navbar.css';
 
 import logo from '../../assets/logo-removebg.png';
@@ -220,7 +221,7 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
         <button className="icon-btn mobile-only mobile-profile-btn" onClick={() => navigate('/profile')} aria-label="User Profile">
           {currentUser && (currentUser.profilePic || currentUser.avatar) ? (
             <img
-              src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`}
+              src={resolveMediaUrl(currentUser.profilePic || currentUser.avatar)}
               alt={currentUser.name}
               className="mobile-profile-avatar"
             />
@@ -259,7 +260,7 @@ function Navbar({ setCartOpen, searchQuery, setSearchQuery }) {
               <button className="action-btn" onClick={() => setIsProfileOpen(!isProfileOpen)} style={{ gap: '8px' }}>
                 {(currentUser.profilePic || currentUser.avatar) ? (
                   <img
-                    src={(currentUser.profilePic || currentUser.avatar).startsWith('http') ? (currentUser.profilePic || currentUser.avatar) : `http://localhost:5000/${(currentUser.profilePic || currentUser.avatar).replace(/\\/g, '/')}`}
+                    src={resolveMediaUrl(currentUser.profilePic || currentUser.avatar)}
                     alt={currentUser.name}
                     style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
                   />

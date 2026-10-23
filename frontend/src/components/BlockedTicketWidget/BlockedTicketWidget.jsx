@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../../api';
 import './BlockedTicketWidget.css';
 
-const API_SERVER = 'http://localhost:5000';
+import { API_SERVER } from '../../config';
 
 function BlockedTicketWidget({ user }) {
   const [tickets, setTickets] = useState([]);

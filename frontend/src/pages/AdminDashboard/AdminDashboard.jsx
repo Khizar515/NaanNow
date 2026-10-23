@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
+import { resolveMediaUrl } from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import './AdminDashboard.css';
 import naanSvg from '../../assets/naan-removebg-svg.svg';
@@ -370,7 +371,7 @@ function AdminDashboard() {
     return (
       <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {attachments.map((att, idx) => {
-          const fullUrl = att.startsWith('http') ? att : `http://localhost:5000${att}`;
+          const fullUrl = resolveMediaUrl(att);
           const isImg = isImageFile(att);
           const fileName = att.split('/').pop();
           return (
@@ -3916,62 +3917,62 @@ function AdminDashboard() {
                 <h4>Uploaded Verification Files & Photos</h4>
                 <div className="document-previews-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
                   {selectedRestaurant.cnicFront && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cnicFront.startsWith('http') ? selectedRestaurant.cnicFront : `http://localhost:5000/${selectedRestaurant.cnicFront.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.cnicFront.startsWith('http') ? selectedRestaurant.cnicFront : `http://localhost:5000/${selectedRestaurant.cnicFront.replace(/\\/g, '/')}`} alt="CNIC Front" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.cnicFront))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.cnicFront)} alt="CNIC Front" />
                       <span className="document-label">Owner CNIC Front</span>
                     </div>
                   )}
                   {selectedRestaurant.cnicBack && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cnicBack.startsWith('http') ? selectedRestaurant.cnicBack : `http://localhost:5000/${selectedRestaurant.cnicBack.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.cnicBack.startsWith('http') ? selectedRestaurant.cnicBack : `http://localhost:5000/${selectedRestaurant.cnicBack.replace(/\\/g, '/')}`} alt="CNIC Back" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.cnicBack))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.cnicBack)} alt="CNIC Back" />
                       <span className="document-label">Owner CNIC Back</span>
                     </div>
                   )}
                   {selectedRestaurant.logo && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.logo.startsWith('http') ? selectedRestaurant.logo : `http://localhost:5000/${selectedRestaurant.logo.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.logo.startsWith('http') ? selectedRestaurant.logo : `http://localhost:5000/${selectedRestaurant.logo.replace(/\\/g, '/')}`} alt="Logo" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.logo))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.logo)} alt="Logo" />
                       <span className="document-label">Restaurant Logo</span>
                     </div>
                   )}
                   {selectedRestaurant.cover && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.cover.startsWith('http') ? selectedRestaurant.cover : `http://localhost:5000/${selectedRestaurant.cover.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.cover.startsWith('http') ? selectedRestaurant.cover : `http://localhost:5000/${selectedRestaurant.cover.replace(/\\/g, '/')}`} alt="Cover Banner" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.cover))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.cover)} alt="Cover Banner" />
                       <span className="document-label">Cover Banner</span>
                     </div>
                   )}
                   {selectedRestaurant.photoFront && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.photoFront.startsWith('http') ? selectedRestaurant.photoFront : `http://localhost:5000/${selectedRestaurant.photoFront.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.photoFront.startsWith('http') ? selectedRestaurant.photoFront : `http://localhost:5000/${selectedRestaurant.photoFront.replace(/\\/g, '/')}`} alt="Front View" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.photoFront))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.photoFront)} alt="Front View" />
                       <span className="document-label">Front View Photo</span>
                     </div>
                   )}
                   {selectedRestaurant.photoKitchen && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.photoKitchen.startsWith('http') ? selectedRestaurant.photoKitchen : `http://localhost:5000/${selectedRestaurant.photoKitchen.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.photoKitchen.startsWith('http') ? selectedRestaurant.photoKitchen : `http://localhost:5000/${selectedRestaurant.photoKitchen.replace(/\\/g, '/')}`} alt="Kitchen" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.photoKitchen))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.photoKitchen)} alt="Kitchen" />
                       <span className="document-label">Kitchen Photo</span>
                     </div>
                   )}
                   {selectedRestaurant.photoDining && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.photoDining.startsWith('http') ? selectedRestaurant.photoDining : `http://localhost:5000/${selectedRestaurant.photoDining.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.photoDining.startsWith('http') ? selectedRestaurant.photoDining : `http://localhost:5000/${selectedRestaurant.photoDining.replace(/\\/g, '/')}`} alt="Dining" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.photoDining))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.photoDining)} alt="Dining" />
                       <span className="document-label">Dining Area</span>
                     </div>
                   )}
                   {selectedRestaurant.certDoc && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.certDoc.startsWith('http') ? selectedRestaurant.certDoc : `http://localhost:5000/${selectedRestaurant.certDoc.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.certDoc.startsWith('http') ? selectedRestaurant.certDoc : `http://localhost:5000/${selectedRestaurant.certDoc.replace(/\\/g, '/')}`} alt="Cert" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.certDoc))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.certDoc)} alt="Cert" />
                       <span className="document-label">Registration Cert</span>
                     </div>
                   )}
                   {selectedRestaurant.licenseDoc && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.licenseDoc.startsWith('http') ? selectedRestaurant.licenseDoc : `http://localhost:5000/${selectedRestaurant.licenseDoc.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.licenseDoc.startsWith('http') ? selectedRestaurant.licenseDoc : `http://localhost:5000/${selectedRestaurant.licenseDoc.replace(/\\/g, '/')}`} alt="Food license" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.licenseDoc))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.licenseDoc)} alt="Food license" />
                       <span className="document-label">Food Auth License</span>
                     </div>
                   )}
                   {selectedRestaurant.ntnDoc && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRestaurant.ntnDoc.startsWith('http') ? selectedRestaurant.ntnDoc : `http://localhost:5000/${selectedRestaurant.ntnDoc.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRestaurant.ntnDoc.startsWith('http') ? selectedRestaurant.ntnDoc : `http://localhost:5000/${selectedRestaurant.ntnDoc.replace(/\\/g, '/')}`} alt="NTN" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRestaurant.ntnDoc))}>
+                      <img src={resolveMediaUrl(selectedRestaurant.ntnDoc)} alt="NTN" />
                       <span className="document-label">NTN Certificate</span>
                     </div>
                   )}
@@ -4050,26 +4051,26 @@ function AdminDashboard() {
                 <h4>Uploaded Verification Files</h4>
                 <div className="document-previews-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
                   {(selectedRider.avatar || selectedRider.profilePic) && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc((selectedRider.avatar || selectedRider.profilePic).startsWith('http') ? (selectedRider.avatar || selectedRider.profilePic) : `http://localhost:5000/${(selectedRider.avatar || selectedRider.profilePic).replace(/\\/g, '/')}`)}>
-                      <img src={(selectedRider.avatar || selectedRider.profilePic).startsWith('http') ? (selectedRider.avatar || selectedRider.profilePic) : `http://localhost:5000/${(selectedRider.avatar || selectedRider.profilePic).replace(/\\/g, '/')}`} alt="Profile Avatar" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl((selectedRider.avatar || selectedRider.profilePic)))}>
+                      <img src={resolveMediaUrl((selectedRider.avatar || selectedRider.profilePic))} alt="Profile Avatar" />
                       <span className="document-label">Rider Profile Picture</span>
                     </div>
                   )}
                   {selectedRider.cnicFront && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.cnicFront.startsWith('http') ? selectedRider.cnicFront : `http://localhost:5000/${selectedRider.cnicFront.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRider.cnicFront.startsWith('http') ? selectedRider.cnicFront : `http://localhost:5000/${selectedRider.cnicFront.replace(/\\/g, '/')}`} alt="CNIC Front" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRider.cnicFront))}>
+                      <img src={resolveMediaUrl(selectedRider.cnicFront)} alt="CNIC Front" />
                       <span className="document-label">Rider CNIC Front</span>
                     </div>
                   )}
                   {selectedRider.cnicBack && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.cnicBack.startsWith('http') ? selectedRider.cnicBack : `http://localhost:5000/${selectedRider.cnicBack.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRider.cnicBack.startsWith('http') ? selectedRider.cnicBack : `http://localhost:5000/${selectedRider.cnicBack.replace(/\\/g, '/')}`} alt="CNIC Back" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRider.cnicBack))}>
+                      <img src={resolveMediaUrl(selectedRider.cnicBack)} alt="CNIC Back" />
                       <span className="document-label">Rider CNIC Back</span>
                     </div>
                   )}
                   {selectedRider.licenseImage && (
-                    <div className="document-preview-box" onClick={() => setZoomedDoc(selectedRider.licenseImage.startsWith('http') ? selectedRider.licenseImage : `http://localhost:5000/${selectedRider.licenseImage.replace(/\\/g, '/')}`)}>
-                      <img src={selectedRider.licenseImage.startsWith('http') ? selectedRider.licenseImage : `http://localhost:5000/${selectedRider.licenseImage.replace(/\\/g, '/')}`} alt="Driving License" />
+                    <div className="document-preview-box" onClick={() => setZoomedDoc(resolveMediaUrl(selectedRider.licenseImage))}>
+                      <img src={resolveMediaUrl(selectedRider.licenseImage)} alt="Driving License" />
                       <span className="document-label">Driving License Image</span>
                     </div>
                   )}

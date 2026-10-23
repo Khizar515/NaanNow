@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api';
+import { resolveMediaUrl } from '../../config';
 import { formatPhone } from '../../utils/formatters';
 import './ProfilePage.css';
 
@@ -310,7 +311,7 @@ function ProfilePage() {
   const getAvatarUrl = () => {
     const pic = user.profilePic || user.avatar;
     if (!pic) return null;
-    return pic.startsWith('http') ? pic : `http://localhost:5000/${pic.replace(/\\/g, '/')}`;
+    return resolveMediaUrl(pic);
   };
 
   return (
