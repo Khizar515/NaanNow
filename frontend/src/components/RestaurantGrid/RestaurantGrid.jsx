@@ -4,6 +4,7 @@ import './RestaurantGrid.css';
 import { CartContext } from '../Context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api';
+import { resolveMediaUrl } from '../../config';
 
 const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false, searchQuery = '', filterState = null }) => {
   const { favorites, toggleFavorite } = useContext(CartContext);
@@ -109,7 +110,7 @@ const RestaurantGrid = ({ selectedCuisine = 'All', showFavoritesOnly = false, se
         <div className="restaurant-grid">
           {filteredRestaurants.map((restaurant) => {
             const isFavorited = favorites.includes(restaurant._id);
-            const imageSrc = restaurant.image ? (restaurant.image.startsWith('http') ? restaurant.image : `http://${window.location.hostname}:5000/${restaurant.image.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
+            const imageSrc = restaurant.image ? resolveMediaUrl(restaurant.image) : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000';
             return (
               <div 
                 key={restaurant._id} 

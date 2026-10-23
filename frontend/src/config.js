@@ -1,8 +1,29 @@
 // Centralised API configuration.
 // All values come from the root .env file via Vite's import.meta.env.
-// To change the backend URL, edit VITE_API_BASE_URL in the root .env file.
+// If VITE_API_BASE_URL is not set or points to localhost while deployed on a domain,
+// we intelligently fall back to the live domain API.
 
-export const API_SERVER = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const resolveApiServer = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+
+  // If explicitly configured with a live URL (e.g. https://naannow-api.ksdev.me)
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  // If running in browser on a deployed domain (like naannow.ksdev.me)
+  if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    if (window.location.hostname.endsWith('ksdev.me')) {
+      return `${window.location.protocol}//naannow-api.ksdev.me`;
+    }
+    return `${window.location.protocol}//${window.location.hostname.replace(/^([^\.]+)/, '$1-api')}`;
+  }
+
+  // Local fallback
+  return envUrl || 'http://localhost:5001';
+};
+
+export const API_SERVER = resolveApiServer();
 export const API_URL = `${API_SERVER}/api`;
 
 /**

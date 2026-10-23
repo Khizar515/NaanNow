@@ -2,7 +2,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "5000:5000"
+      - "${PORT:-5000}:${PORT:-5000}"
     env_file:
       - ./.env
     # ADDED VOLUMES: Map local backend folder to container /app folder
@@ -21,11 +21,14 @@ services:
       # Because we want hot-reload, we MUST use the Vite dev server, not Nginx
       dockerfile: Dockerfile.dev 
     ports:
-      - "3000:5173" # Vite's default port is 5173
+      - "3001:5173" # Vite's default port is 5173
+    env_file:
+      - ./.env
     # ADDED VOLUMES: Map local frontend folder to container /app folder
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - ./.env:/.env:ro
     environment:
       - CHOKIDAR_USEPOLLING=true # Helps Vite detect file changes on Windows via Docker
     depends_on:
