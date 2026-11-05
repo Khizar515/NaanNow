@@ -19,11 +19,37 @@ import DisclaimerPopup from './components/DisclaimerPopup/DisclaimerPopup';
 import { useAuth } from './context/AuthContext';
 import './index.css'; // The CSS file for the layout below
 
+const PAGE_TITLES = {
+  '/': 'NaanNow – Order Food Online',
+  '/favorites': 'My Favorites – NaanNow',
+  '/checkout': 'Checkout – NaanNow',
+  '/profile': 'My Profile – NaanNow',
+  '/orders': 'My Orders – NaanNow',
+  '/login': 'Sign In – NaanNow',
+  '/blocked': 'Account Blocked – NaanNow',
+  '/restaurant-dashboard': 'Restaurant Dashboard – NaanNow',
+  '/rider-dashboard': 'Rider Dashboard – NaanNow',
+  '/admin-dashboard': 'Admin Dashboard – NaanNow',
+};
+
 function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const { user } = useAuth();
+
+  // Set page title based on current route
+  useEffect(() => {
+    const path = location.pathname;
+    // Handle dynamic routes like /restaurant/:id and /track-order/:orderId
+    if (path.startsWith('/restaurant/')) {
+      document.title = 'Restaurant – NaanNow';
+    } else if (path.startsWith('/track-order/')) {
+      document.title = 'Track Order – NaanNow';
+    } else {
+      document.title = PAGE_TITLES[path] || 'NaanNow';
+    }
+  }, [location.pathname]);
 
   const showNavbar = location.pathname !== '/login' && location.pathname !== '/admin-dashboard' && location.pathname !== '/blocked';
 
