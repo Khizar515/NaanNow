@@ -337,6 +337,6 @@ NaanNow was built as a joint project.
 | Contributor | GitHub |
 | --- | --- |
 | Khizar Nadeem | [@Khizar515](https://github.com/Khizar515) |
-| Saad | [@SaadLabs](https://github.com/SaadLabs) |
+| Muhammad Saad | [@SaadLabs](https://github.com/SaadLabs) |
 
 If you found this project interesting, consider giving it a star.
