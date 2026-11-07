@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1060" width="1600" height="1060" font-family="Inter,Segoe UI,Arial,sans-serif">
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7a5a3a"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="800.0" y="46" text-anchor="middle" font-size="26" font-weight="800" fill="#E6760C">NaanNow: how the system works</text>
+<rect x="20" y="64" width="1560" height="976" rx="16" fill="none" stroke="#c9b9a6" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="40" y="90" font-size="15" font-weight="700" fill="#7a5a3a" letter-spacing=".5">DOCKER COMPOSE  (frontend  +  backend  +  mongo)</text>
+<rect x="50" y="100" width="1500" height="130" rx="16" fill="none" stroke="#c9b9a6" stroke-width="2"/>
+<text x="70" y="126" font-size="15" font-weight="700" fill="#7a5a3a" letter-spacing=".5">FRONTEND: React 19 + Vite single-page app</text>
+<rect x="75" y="138" width="310" height="80" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="230.0" y="172.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">Customer</text>
+<text x="230.0" y="194.0" text-anchor="middle" font-size="14" fill="#3b2a1a">browse, cart, checkout,</text>
+<text x="230.0" y="212.0" text-anchor="middle" font-size="14" fill="#3b2a1a">track order, rate</text>
+<rect x="455" y="138" width="310" height="80" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="610.0" y="172.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">Restaurant manager</text>
+<text x="610.0" y="194.0" text-anchor="middle" font-size="14" fill="#3b2a1a">incoming orders, menu,</text>
+<text x="610.0" y="212.0" text-anchor="middle" font-size="14" fill="#3b2a1a">wallet, withdrawals</text>
+<rect x="835" y="138" width="310" height="80" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="990.0" y="172.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">Rider</text>
+<text x="990.0" y="194.0" text-anchor="middle" font-size="14" fill="#3b2a1a">claim deliveries, GPS,</text>
+<text x="990.0" y="212.0" text-anchor="middle" font-size="14" fill="#3b2a1a">OTP handover, earnings</text>
+<rect x="1215" y="138" width="310" height="80" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="1370.0" y="172.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">Admin / Staff</text>
+<text x="1370.0" y="194.0" text-anchor="middle" font-size="14" fill="#3b2a1a">verification, escrow, tickets,</text>
+<text x="1370.0" y="212.0" text-anchor="middle" font-size="14" fill="#3b2a1a">promotions, settings</text>
+<line x1="800" y1="230" x2="800" y2="290" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="830" y="246" width="240" height="26" rx="13" fill="#f3e8ff"/><text x="950" y="264" text-anchor="middle" font-size="14" fill="#4a2a6a">HTTPS + JWT Bearer token</text>
+<rect x="50" y="290" width="1500" height="150" rx="16" fill="none" stroke="#c9b9a6" stroke-width="2"/>
+<text x="70" y="316" font-size="15" font-weight="700" fill="#7a5a3a" letter-spacing=".5">BACKEND: Node 20 + Express 5 REST API  (/api/*)</text>
+<rect x="90" y="332" width="420" height="90" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="300.0" y="371.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">Middleware</text>
+<text x="300.0" y="393.0" text-anchor="middle" font-size="14" fill="#3b2a1a">JWT auth  →  role check  →  staff permissions</text>
+<text x="300.0" y="411.0" text-anchor="middle" font-size="14" fill="#3b2a1a">Multer file uploads</text>
+<line x1="510" y1="377" x2="560" y2="377" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="560" y="332" width="950" height="90" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="1035.0" y="371.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">Routes</text>
+<text x="1035.0" y="393.0" text-anchor="middle" font-size="14" fill="#3b2a1a">auth · restaurants · orders · cards · reviews · promotions · tickets · withdrawals</text>
+<text x="1035.0" y="411.0" text-anchor="middle" font-size="14" fill="#3b2a1a">escrow · staff · settings · users · categories · notifications</text>
+<line x1="400" y1="440" x2="400" y2="500" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<line x1="1000" y1="440" x2="1000" y2="500" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="50" y="500" width="1500" height="110" rx="16" fill="none" stroke="#c9b9a6" stroke-width="2"/>
+<text x="70" y="526" font-size="15" font-weight="700" fill="#7a5a3a" letter-spacing=".5">DATA</text>
+<rect x="90" y="540" width="640" height="56" rx="10" fill="#E8F1FB" stroke="#3b78c4" stroke-width="2"/>
+<text x="410.0" y="573.0" text-anchor="middle" font-size="16" font-weight="700" fill="#16324f">MongoDB   (Mongoose models)</text>
+<rect x="870" y="540" width="640" height="56" rx="10" fill="#E8F1FB" stroke="#3b78c4" stroke-width="2"/>
+<text x="1190.0" y="573.0" text-anchor="middle" font-size="16" font-weight="700" fill="#16324f">Uploads folder   (documents, menu images, avatars)</text>
+<rect x="50" y="640" width="1500" height="230" rx="16" fill="none" stroke="#c9b9a6" stroke-width="2"/>
+<text x="70" y="666" font-size="15" font-weight="700" fill="#7a5a3a" letter-spacing=".5">ORDER + PAYMENT LIFECYCLE</text>
+<rect x="75" y="690" width="190" height="100" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="170.0" y="734.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">1  Pay</text>
+<text x="170.0" y="756.0" text-anchor="middle" font-size="14" fill="#3b2a1a">card PIN verified,</text>
+<text x="170.0" y="774.0" text-anchor="middle" font-size="14" fill="#3b2a1a">balance deducted</text>
+<line x1="265" y1="740" x2="281.3" y2="740" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="283" y="690" width="190" height="100" rx="10" fill="#FFE3C7" stroke="#E6760C" stroke-width="2"/>
+<text x="378.0" y="734.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">2  Escrow</text>
+<text x="378.0" y="756.0" text-anchor="middle" font-size="14" fill="#3b2a1a">funds held in the</text>
+<text x="378.0" y="774.0" text-anchor="middle" font-size="14" fill="#3b2a1a">admin escrow wallet</text>
+<line x1="473" y1="740" x2="489.3" y2="740" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="492" y="690" width="190" height="100" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="587.0" y="734.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">3  Prepare</text>
+<text x="587.0" y="756.0" text-anchor="middle" font-size="14" fill="#3b2a1a">manager marks</text>
+<text x="587.0" y="774.0" text-anchor="middle" font-size="14" fill="#3b2a1a">preparing / ready</text>
+<line x1="682" y1="740" x2="698.3" y2="740" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="700" y="690" width="190" height="100" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="795.0" y="734.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">4  Handover</text>
+<text x="795.0" y="756.0" text-anchor="middle" font-size="14" fill="#3b2a1a">rider claims order,</text>
+<text x="795.0" y="774.0" text-anchor="middle" font-size="14" fill="#3b2a1a">handover OTP</text>
+<line x1="890" y1="740" x2="906.3" y2="740" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="908" y="690" width="190" height="100" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="1003.0" y="734.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">5  Deliver</text>
+<text x="1003.0" y="756.0" text-anchor="middle" font-size="14" fill="#3b2a1a">rider GPS posted,</text>
+<text x="1003.0" y="774.0" text-anchor="middle" font-size="14" fill="#3b2a1a">customer polls 3s</text>
+<line x1="1098" y1="740" x2="1114.3" y2="740" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="1116" y="690" width="190" height="100" rx="10" fill="#FFF3E6" stroke="#E6760C" stroke-width="2"/>
+<text x="1211.0" y="734.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">6  Confirm</text>
+<text x="1211.0" y="756.0" text-anchor="middle" font-size="14" fill="#3b2a1a">delivery OTP</text>
+<text x="1211.0" y="774.0" text-anchor="middle" font-size="14" fill="#3b2a1a">entered at the door</text>
+<line x1="1306" y1="740" x2="1322.3" y2="740" stroke="#7a5a3a" stroke-width="2.2" marker-end="url(#ar)"/>
+<rect x="1325" y="690" width="190" height="100" rx="10" fill="#FFE3C7" stroke="#E6760C" stroke-width="2"/>
+<text x="1420.0" y="734.0" text-anchor="middle" font-size="17" font-weight="700" fill="#3b2a1a">7  Release</text>
+<text x="1420.0" y="756.0" text-anchor="middle" font-size="14" fill="#3b2a1a">escrow paid out,</text>
+<text x="1420.0" y="774.0" text-anchor="middle" font-size="14" fill="#3b2a1a">order completed</text>
+<text x="800" y="830" text-anchor="middle" font-size="14" fill="#7a5a3a">Rider cannot go "out for delivery" until the manager marks the order "handed over".  Admin can also refund a held order back to the card.</text>
+<line x1="1420.0" y1="870" x2="1420.0" y2="900" stroke="#2e7d32" stroke-width="2.2" marker-end="url(#ag)"/>
+<rect x="50" y="900" width="1500" height="110" rx="16" fill="none" stroke="#9ccc9f" stroke-width="2"/>
+<text x="70" y="926" font-size="15" font-weight="700" fill="#7a5a3a" letter-spacing=".5">STEP 7: WHO GETS PAID</text>
+<rect x="130" y="934" width="420" height="60" rx="10" fill="#E8F5E9" stroke="#2e7d32" stroke-width="2"/>
+<text x="340.0" y="958.0" text-anchor="middle" font-size="17" font-weight="700" fill="#1b3a1d">Rider</text>
+<text x="340.0" y="980.0" text-anchor="middle" font-size="14" fill="#1b3a1d">delivery fee</text>
+<rect x="560" y="934" width="420" height="60" rx="10" fill="#E8F5E9" stroke="#2e7d32" stroke-width="2"/>
+<text x="770.0" y="958.0" text-anchor="middle" font-size="17" font-weight="700" fill="#1b3a1d">Restaurant</text>
+<text x="770.0" y="980.0" text-anchor="middle" font-size="14" fill="#1b3a1d">subtotal minus commission (default 15%)</text>
+<rect x="1000" y="934" width="420" height="60" rx="10" fill="#E8F5E9" stroke="#2e7d32" stroke-width="2"/>
+<text x="1210.0" y="958.0" text-anchor="middle" font-size="17" font-weight="700" fill="#1b3a1d">Platform / Admin</text>
+<text x="1210.0" y="980.0" text-anchor="middle" font-size="14" fill="#1b3a1d">commission + platform fee</text>
+</svg>
